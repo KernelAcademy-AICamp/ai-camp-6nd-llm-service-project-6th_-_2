@@ -1,0 +1,2 @@
+# APScheduler / ARQ 기반 백그라운드 작업.
+# 예: benefit_crawler.py — 청년몽땅정보통 등 혜택 정보 크롤링

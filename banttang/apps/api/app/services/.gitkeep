@@ -1,0 +1,2 @@
+# 외부 API 호출은 모두 이 디렉터리 하위에 두고 라우터에서 직접 호출 금지.
+# 예: ocr.py, claude_review.py, alimtalk.py, payments/toss.py, redis_lock.py

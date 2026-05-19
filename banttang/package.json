@@ -1,0 +1,21 @@
+{
+  "name": "banttang",
+  "version": "0.1.0",
+  "private": true,
+  "description": "반띵 — 위치 기반 1인 가구 공동구매 매칭 서비스 (monorepo)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:web": "npm --workspace apps/web run dev",
+    "build:web": "npm --workspace apps/web run build",
+    "lint:web": "npm --workspace apps/web run lint",
+    "typecheck:web": "npm --workspace apps/web run typecheck",
+    "dev:api": "cd apps/api && uvicorn app.main:app --reload --port 8000",
+    "supabase:types": "supabase gen types typescript --local > packages/shared/src/supabase.ts"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
