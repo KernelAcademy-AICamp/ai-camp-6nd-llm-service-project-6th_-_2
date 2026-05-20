@@ -1,7 +1,7 @@
 """환경 변수 로딩.
 
 .env 파일은 apps/api/.env 또는 프로세스 환경에서 주입된다.
-SUPABASE_SERVICE_ROLE_KEY 같은 비밀값은 절대 클라이언트에 노출 금지.
+SUPABASE_SECRET_KEY 같은 비밀값은 절대 클라이언트에 노출 금지.
 """
 from __future__ import annotations
 
@@ -14,9 +14,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
-    # Supabase
+    # Supabase (신규 키 체계: sb_publishable_... / sb_secret_...)
     supabase_url: str = Field(..., alias="NEXT_PUBLIC_SUPABASE_URL")
-    supabase_service_role_key: str = Field(..., alias="SUPABASE_SERVICE_ROLE_KEY")
+    supabase_secret_key: str = Field(..., alias="SUPABASE_SECRET_KEY")
 
     # Claude
     anthropic_api_key: str = Field(..., alias="ANTHROPIC_API_KEY")
