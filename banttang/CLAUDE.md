@@ -2,6 +2,8 @@
 
 이 문서는 Claude Code가 반띵 프로젝트에서 작업할 때 참조하는 컨텍스트입니다. 새 세션이 시작될 때마다 먼저 읽어주세요.
 
+> 📄 **제품 요구사항(PRD)은 [`docs/PRD.md`](docs/PRD.md) 참고.** 기능·플로우·KPI 같은 제품 레벨 명세가 필요할 때는 이 문서가 아니라 PRD를 우선 본다.
+
 ## 프로젝트 개요
 
 **반띵 (가제)** — 위치 기반 1인 가구 공동구매 매칭 서비스
@@ -34,11 +36,11 @@
 ### Supabase (메인 백엔드)
 다음 영역은 모두 Supabase에서 처리. Next.js 클라이언트에서 직접 호출.
 
-- **Auth** — 카카오 OAuth, 본인인증(PASS/NICE 연동)
-- **PostgreSQL + PostGIS** — 위치 쿼리(`ST_DWithin`), 모든 도메인 데이터
-- **Realtime** — 채팅 메시지, 모집글 상태 변경 구독
-- **Storage** — 영수증 이미지, 프로필 사진
-- **RLS (Row Level Security)** — 권한 제어는 반드시 RLS 정책으로. 백엔드 코드 분산 금지
+- **Auth** — 카카오 OAuth. 본인인증(PASS/NICE)은 Phase 2로 보류.
+- **PostgreSQL + PostGIS** — 위치 쿼리(`ST_DWithin`), 모든 도메인 데이터. 확장: `postgis`, `pg_cron`, `pg_trgm`.
+- **Realtime 구독 대상** — `chat_messages`, `party_participants`, `parties`, `notifications`, `payments`, `receipts`
+- **Storage 버킷** — `party-photos`(public), `receipts`(private, signed URL), `profile-images`(public, Phase 2)
+- **RLS (Row Level Security)** — 권한 제어는 반드시 RLS 정책으로. 백엔드 코드 분산 금지. 헬퍼: `is_party_member`, `is_party_host`, `is_room_member` (`SECURITY DEFINER`로 RLS 재귀 방지).
 
 ### FastAPI (보조 서버)
 무거운 작업·외부 연동만 담당. Next.js → FastAPI → Supabase 흐름.
@@ -48,15 +50,15 @@
   - 1차: 네이버 CLOVA OCR
   - 2차: Claude Sonnet 4.6으로 금액/상호/날짜 합리성 판단
 - **카카오 알림톡 발송** (비즈뿌리오 또는 알리고)
-- **선착순 매칭의 동시성 제어** — Redis 분산 락
 - **혜택정보 크롤링 스케줄러** (청년몽땅정보통 등) — APScheduler 또는 ARQ
-- **결제 PG 콜백 수신** (토스페이먼츠/포트원)
 - 배포: **Railway**
 
+> 참고: 결제는 카카오톡 송금(외부)이라 **PG 콜백 수신 라우터는 없다.** 모집 마감/채팅방 오픈도 DB trigger로 처리하므로 별도 **Redis 분산 락은 사용하지 않는다.** 추후 진짜로 필요해지면 RFC로 재검토.
+
 ### 인프라
-- **Redis** (Railway) — 선착순 락, 캐시
 - **Sentry** — 에러 추적
 - **PostHog** — 제품 분석 (북극성 지표 트래킹)
+- ~~Redis~~ — 현재 미사용. 동시성/마감 처리는 DB trigger + `pg_cron`이 담당.
 
 ## 핵심 설계 원칙
 
@@ -88,19 +90,31 @@
 ### 5. 위치는 PostGIS로
 lat/lng 컬럼만 두고 애플리케이션 레벨에서 거리 계산하지 말 것. `geography(POINT)` 타입 + GIST 인덱스 + `ST_DWithin` 사용.
 
-## 도메인 모델 (초안)
+## 도메인 모델
 
-핵심 엔티티만 표기. 세부 컬럼은 마이그레이션 작성 시 확정.
+정식 정의는 `bandding-db/`. 여기서는 빠른 참조용 요약만.
 
-- **users** — Supabase Auth 연동, 프로필, 성별(본인인증 결과), 신뢰 점수
-- **posts** — 모집글. 유형(grocery/delivery), 위치(geography), 정원, 마감, 상태
-- **post_participants** — 모집글-참여자 매핑, 호스트/멤버 구분
-- **chat_messages** — 모집글당 1채팅방, Realtime 구독 대상
-- **transactions** — 거래 기록, 영수증 이미지 URL, 인증 상태
-- **reviews** — 거래 후 상대방·상품 리뷰
-- **benefit_articles** — 크롤링한 1인 가구 혜택 정보
+- **profiles** — Supabase Auth(`auth.users`) 연동 프로필. 신뢰점수 컬럼(`good/bad/total_review_count`, `transaction_count`, `level`)을 trigger로 갱신.
+- **parties** — 모집글. **단일 테이블 + `category` enum(`delivery` Phase 1 / `grocery` Phase 2)**. 위치(`geography`), 정원, 마감, 상태(`recruiting/closed/in_progress/completed/cancelled`).
+- **party_participants** — 모집글-참여자 매핑. **호스트도 row를 가지며 `is_host=true`로 구분.**
+- **chat_rooms / chat_messages** — 모집글당 1채팅방. Realtime 구독.
+- **receipts** — 영수증 이미지 + OCR/검증 상태.
+- **payments** — 송금 기록. `pending → sent_by_payer → confirmed_by_receiver`.
+- **reviews** — 거래 후 상대방 평가. `rating: good/bad`로 신뢰점수 trigger를 발화.
+- **neighborhoods / pickup_locations** — 베타 동네, 안전 픽업 장소 시드.
+- **notifications** — 인앱 알림.
 
-## 디렉터리 구조 제안
+### 스키마 결정사항 (변경 금지, 변경 시 RFC)
+
+1. `parties` 단일 테이블 + `category` enum — Phase 1·2 로직 100% 재사용.
+2. 호스트도 `party_participants`에 들어간다 — 호스트/참여자 분기 로직 제거 목적.
+3. **신뢰점수는 컬럼 + trigger 갱신.** 매번 뷰로 계산하지 말 것. 등급은 `compute_user_level(tx, good, total)`로 단일화 (`dandelion / tree / king`).
+4. **모집 마감·채팅방 오픈은 trigger.** `party_participants.status='approved'` INSERT/UPDATE에서 정원 체크 → `parties.status='closed'` + `chat_rooms` 생성 + 시스템 메시지.
+5. **상태 전이는 `pg_cron`.** 매 분 `transition_expired_parties()`가 신청 마감/거래 시각을 검사.
+6. **홈 피드는 `v_parties_with_stats` 뷰 사용.** raw `parties` 직접 조회 금지.
+7. ~~`benefit_articles`~~ — 아직 스키마 없음. 추가 시 별도 마이그레이션.
+
+## 디렉터리 구조
 
 ```
 banttang/
@@ -115,18 +129,25 @@ banttang/
 │   └── api/                    # FastAPI
 │       ├── app/
 │       │   ├── routers/
-│       │   ├── services/      # ocr, kakao_alimtalk, payment 등
+│       │   ├── services/      # ocr, kakao_alimtalk 등
 │       │   ├── workers/       # 크롤러, 스케줄러
 │       │   └── core/          # config, supabase admin client
 │       └── tests/
 ├── packages/
 │   └── shared/                 # 공통 타입 (Pydantic ↔ TS)
-├── supabase/
-│   ├── migrations/            # SQL 마이그레이션
-│   ├── seed.sql
-│   └── functions/             # Edge Functions (사용 시)
+├── bandding-db/                # DB 스키마 단일 소스 (마이그레이션·RLS·TS 타입·README)
+│   ├── supabase/migrations/
+│   ├── database.types.ts
+│   └── README.md
+├── supabase/                   # 로컬 Supabase CLI 설정 (config, seed)
+│   ├── config.toml
+│   ├── migrations/            # bandding-db에서 복사해 사용
+│   └── seed.sql
+├── docs/                       # PRD 등 제품 문서
 └── CLAUDE.md
 ```
+
+> **스키마 작업 시 진실의 원천은 `bandding-db/`.** `supabase/migrations/`는 로컬 실행용 복사본.
 
 ## 성공 지표 (6주 시점)
 
@@ -171,10 +192,10 @@ banttang/
 ## 작업 시 Claude에게 부탁
 
 1. **Supabase로 충분한 작업을 FastAPI로 옮기지 마세요.** 새 엔드포인트 만들기 전에 RLS + Supabase 클라이언트 직접 호출로 가능한지 먼저 검토.
-2. **마이그레이션은 항상 `supabase/migrations/` 하위 SQL로.** 대시보드 직접 수정 금지.
+2. **스키마 변경은 `bandding-db/supabase/migrations/`에 새 SQL 파일 추가로.** 대시보드 직접 수정 금지. 변경 후 `database.types.ts`도 같이 갱신.
 3. **시크릿 키 노출 금지.** 환경변수는 `.env.local` (gitignore됨), 예시는 `.env.example`로.
 4. **Claude API 호출 시 모델은 `claude-sonnet-4-6` 또는 최신 안정 버전 사용.** 비용 민감한 작업은 Haiku 검토.
-5. **외부 API 응답은 항상 Pydantic으로 검증.** PG 콜백·OCR 결과 그대로 신뢰 금지.
+5. **외부 API 응답은 항상 Pydantic으로 검증.** OCR·알림톡 응답 그대로 신뢰 금지.
 6. **답변과 코드 주석은 한국어 우선**, 변수명·함수명은 영어.
 
 ## 보류·버린 아이디어 (다시 꺼내지 말 것)
@@ -187,3 +208,21 @@ banttang/
 - 구매 대행 서비스
 
 다시 검토할 가치가 있다면 별도 RFC 문서로 제안해주세요.
+
+
+## DB 스키마
+
+테이블 구조, RLS 정책, 트리거는 `./bandding-db/`를 참고:
+- 스키마 정의: `bandding-db/supabase/migrations/20260520000001_initial_schema.sql`
+- RLS 정책: `bandding-db/supabase/migrations/20260520000002_rls_policies.sql`
+- TS 타입: `bandding-db/database.types.ts`
+- 설계 의도/규칙: `bandding-db/README.md`
+
+Supabase 쿼리를 작성하거나 새 테이블/컬럼을 추가할 때는
+반드시 위 파일들을 먼저 확인하고, 기존 네이밍/RLS 패턴을 따를 것.
+
+## 자주 쓰는 패턴
+
+- 홈 피드는 `v_parties_with_stats` 뷰 사용 (raw 테이블 직접 X)
+- 신뢰점수는 컬럼 직접 읽기 (재계산 X — trigger가 갱신함)
+- 채팅은 Realtime 구독, 필터는 `room_id=eq.${roomId}`
