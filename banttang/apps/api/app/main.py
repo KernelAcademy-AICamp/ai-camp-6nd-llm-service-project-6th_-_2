@@ -1,11 +1,13 @@
 """반띵 FastAPI 진입점.
 
 이 서버는 Supabase로 처리하기 어려운 작업만 담당한다.
-- 영수증 OCR + Claude 검증
-- 카카오 알림톡 발송
-- 선착순 매칭의 동시성 제어 (Redis 락)
-- 결제 PG 콜백 수신
-- 혜택 정보 크롤링 스케줄링
+- 영수증 OCR + Claude 검증 (동기: 성공 시 receipts row INSERT)
+- 파티 라이프사이클 (호스트 거래 완료 처리)
+- 카카오 알림톡 발송 (예정)
+- 혜택 정보 크롤링 스케줄링 (예정)
+
+결제는 카카오톡 송금(외부)이라 PG 콜백 라우터는 없다.
+모집 마감/채팅방 오픈은 DB trigger가 처리하므로 분산 락도 사용하지 않는다.
 """
 from __future__ import annotations
 
@@ -16,7 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import health, matching, ocr, payments
+from app.routers import health, matching, ocr, parties, payments
 
 
 @asynccontextmanager
@@ -43,3 +45,4 @@ app.include_router(health.router)
 app.include_router(ocr.router, prefix="/ocr", tags=["ocr"])
 app.include_router(matching.router, prefix="/matching", tags=["matching"])
 app.include_router(payments.router, prefix="/payments", tags=["payments"])
+app.include_router(parties.router, prefix="/parties", tags=["parties"])

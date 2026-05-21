@@ -1,7 +1,11 @@
-"""선착순 매칭 라우터.
+"""파티 참여 신청 라우터 (placeholder).
 
-정원이 한정된 모집글의 join 요청은 단순 INSERT가 아니라 Redis 분산 락으로
-동시성 보호한다. RLS만으로는 race condition을 막을 수 없다.
+현재 매칭은 Supabase RLS + DB trigger로 처리한다:
+  - party_participants INSERT는 클라이언트에서 직접 (RLS가 정원/마감 검증)
+  - status='approved' 전이 시 trigger가 정원 충족을 체크해 parties.status='closed'로 마감
+    + chat_rooms 생성 + 시스템 메시지를 발행한다.
+
+향후 manual approval 흐름이나 더 복잡한 동시성 케이스가 필요해지면 여기에 추가한다.
 """
 from __future__ import annotations
 
@@ -12,7 +16,7 @@ router = APIRouter()
 
 
 class JoinRequest(BaseModel):
-    post_id: str
+    party_id: str
     user_id: str
 
 
@@ -24,5 +28,5 @@ class JoinResponse(BaseModel):
 
 @router.post("/join", response_model=JoinResponse)
 async def join(payload: JoinRequest) -> JoinResponse:
-    # TODO: services/matching.py — Redis SETNX 기반 락 + post_participants insert
+    # 미구현. 현 단계에서는 클라이언트가 직접 party_participants에 INSERT한다.
     return JoinResponse(joined=False, position=None, reason="not_implemented")
