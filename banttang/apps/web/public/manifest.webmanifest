@@ -1,7 +1,7 @@
 {
-  "name": "반띵",
-  "short_name": "반띵",
-  "description": "같은 동네 1인 가구끼리 장보기·배달을 같이.",
+  "name": "띵동",
+  "short_name": "띵동",
+  "description": "같이 사서, 우리 동네 사람과 반띵해요.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

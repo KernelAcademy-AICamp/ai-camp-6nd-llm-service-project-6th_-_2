@@ -11,8 +11,12 @@ const config: Config = {
       colors: {
         // shadcn/ui 도입 시 CSS variable로 확장
         brand: {
-          DEFAULT: "#ff6b35",
+          DEFAULT: "#7FB069",
           foreground: "#ffffff",
+          50: "#F1F7EA",
+          100: "#DDEBC9",
+          200: "#BDDA9F",
+          dark: "#6B9F5A",
         },
       },
       fontFamily: {

@@ -1,12 +1,18 @@
-export default function HomePage() {
+import { redirect } from "next/navigation";
+import { getCurrentUser } from "@/lib/auth";
+import { EmailLoginForm } from "@/components/EmailLoginForm";
+
+export default async function LoginPage() {
+  const me = await getCurrentUser();
+  if (me) redirect("/feed");
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
-      <h1 className="text-3xl font-bold text-brand">반띵</h1>
-      <p className="text-center text-sm text-foreground/70">
-        같은 동네 1인 가구끼리 장보기·배달을 같이.
-        <br />
-        곧 만나요.
-      </p>
+    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-8 p-6">
+      <header className="text-center">
+        <h1 className="text-4xl font-bold text-brand">띵동</h1>
+        <p className="mt-2 text-sm text-zinc-500">같이 사서, 우리 동네 사람과 반띵해요.</p>
+      </header>
+      <EmailLoginForm />
     </main>
   );
 }

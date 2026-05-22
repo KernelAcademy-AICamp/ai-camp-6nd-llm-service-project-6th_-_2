@@ -38,6 +38,9 @@ supabase/.env
 .idea/
 .DS_Store
 Thumbs.db
+*.swp
+*.swo
+*~
 
 # ---- 로그 / 캐시 ----
 *.log

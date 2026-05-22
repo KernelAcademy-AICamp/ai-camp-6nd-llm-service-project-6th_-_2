@@ -7,16 +7,57 @@
   --foreground: 222.2 84% 4.9%;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-  }
-}
-
 html,
 body {
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   -webkit-tap-highlight-color: transparent;
+}
+
+/* 카카오 맵 핀 — 말풍선 오버레이 */
+.banttang-bubble {
+  position: relative;
+  min-width: 8.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #7FB069;
+  color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: var(--font-pretendard), system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.2;
+  cursor: pointer;
+  white-space: nowrap;
+  transform: translateZ(0);
+}
+.banttang-bubble:hover {
+  transform: translateY(-1px);
+}
+.banttang-bubble__title {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+.banttang-bubble__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  opacity: 0.95;
+}
+.banttang-bubble__badge {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 9999px;
+  padding: 1px 6px;
+  font-size: 9px;
+}
+.banttang-bubble__tail {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #7FB069;
 }
