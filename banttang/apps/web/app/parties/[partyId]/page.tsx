@@ -42,6 +42,25 @@ export default async function PartyPage({ params }: PageProps) {
   }
   const party = partyRes.data;
 
+  // 픽업 장소 이름 (info card 표시용)
+  // - pickup_location_id가 있으면 마스터에서 가져옴
+  // - 없으면 custom_pickup_name(호스트 직접 입력 또는 "장소 변경하기"로 저장된 값)을 사용
+  const partyExt = party as PartyWithStats & {
+    pickup_location_id?: string | null;
+    custom_pickup_name?: string | null;
+  };
+  let pickupLocationName: string | null = null;
+  if (partyExt.pickup_location_id) {
+    const pickupRes = await supabase
+      .from("pickup_locations")
+      .select("name")
+      .eq("id", partyExt.pickup_location_id)
+      .maybeSingle<{ name: string }>();
+    pickupLocationName = pickupRes.data?.name ?? null;
+  } else if (partyExt.custom_pickup_name) {
+    pickupLocationName = partyExt.custom_pickup_name;
+  }
+
   // 2) 채팅방 (closed 이전엔 row가 없을 수 있음)
   const roomRes = await supabase
     .from("chat_rooms")
@@ -50,15 +69,17 @@ export default async function PartyPage({ params }: PageProps) {
     .maybeSingle<{ id: string; party_id: string; opened_at: string; closed_at: string | null }>();
   const chatRoom = roomRes.data;
 
-  // 3) 참여자 (호스트 포함). RLS가 참여자/anon 가시성을 통제하므로 일단 시도.
+  // 3) 참여자 (호스트 포함). approved + pending 모두 가져와서 호스트 승인 UI에서 분기.
   const participantsRes = await supabase
     .from("party_participants")
     .select(
       "id, party_id, user_id, status, is_host, applied_at, approved_at, profile:profiles!party_participants_user_id_fkey(id, nickname, level)",
     )
     .eq("party_id", partyId)
-    .eq("status", "approved");
-  const participants = (participantsRes.data ?? []) as unknown as PartyParticipantWithProfile[];
+    .in("status", ["approved", "pending"]);
+  const participantsAll = (participantsRes.data ?? []) as unknown as PartyParticipantWithProfile[];
+  const participants = participantsAll.filter((p) => p.status === "approved");
+  const pendingParticipants = participantsAll.filter((p) => p.status === "pending");
 
   // 4) 채팅 메시지 + 영수증 (room이 있을 때만)
   let initialMessages: ChatMessageWithSender[] = [];
@@ -68,7 +89,7 @@ export default async function PartyPage({ params }: PageProps) {
       supabase
         .from("chat_messages")
         .select(
-          "id, room_id, sender_id, type, content, metadata, created_at, sender:profiles!chat_messages_sender_id_fkey(id, nickname)",
+          "id, room_id, sender_id, type, system_event, content, metadata, created_at, sender:profiles!chat_messages_sender_id_fkey(id, nickname)",
         )
         .eq("room_id", chatRoom.id)
         .order("created_at", { ascending: true })
@@ -93,8 +114,10 @@ export default async function PartyPage({ params }: PageProps) {
         currentUserId={user.id}
         chatRoom={chatRoom}
         participants={participants}
+        pendingParticipants={pendingParticipants}
         initialMessages={initialMessages}
         initialReceipts={initialReceipts}
+        pickupLocationName={pickupLocationName}
       />
     </main>
   );

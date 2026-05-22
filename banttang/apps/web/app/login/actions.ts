@@ -5,10 +5,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // dev 전용: 이메일 인증을 건너뛰고 즉시 사용 가능한 계정을 만든다.
 // 이미 같은 이메일의 계정이 있으면 비밀번호를 갱신하고 email_confirm을 true로 맞춘다 (upsert 의미).
 // admin API의 createUser({ email_confirm: true }) + updateUserById를 사용.
+export type Gender = "female" | "male" | "prefer_not_to_say";
+
 export async function createConfirmedUser(input: {
   email: string;
   password: string;
   nickname?: string | null;
+  gender?: Gender;
 }): Promise<{ ok: true; userId: string; reused: boolean } | { ok: false; error: string }> {
   try {
     const admin = createAdminClient();
@@ -80,7 +83,7 @@ export async function createConfirmedUser(input: {
         {
           id: userId,
           nickname,
-          gender: "prefer_not_to_say",
+          gender: input.gender ?? "prefer_not_to_say",
           neighborhood_id: NEIGHBORHOOD_SEED,
         },
         { onConflict: "id" },

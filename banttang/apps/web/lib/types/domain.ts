@@ -97,6 +97,8 @@ export interface ChatMessage {
   room_id: string;
   sender_id: string | null;
   type: MessageType;
+  // system 메시지일 때만 채워지는 system_event_type — party_closed, pickup_location_set 등.
+  system_event: string | null;
   content: string | null;
   metadata: Record<string, unknown>;
   created_at: string;

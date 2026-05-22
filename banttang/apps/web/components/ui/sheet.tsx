@@ -40,7 +40,7 @@ export function Sheet({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -49,22 +49,29 @@ export function Sheet({
         onClick={(e) => e.stopPropagation()}
         style={{ maxHeight: `${maxHeightPct}vh` }}
         className={cn(
-          "flex w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-background shadow-xl",
+          "flex w-full max-w-md flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl",
           "sm:rounded-2xl",
         )}
       >
-        <header className="flex items-center justify-between border-b border-foreground/10 px-4 py-3">
-          <p className="text-base font-semibold">{title ?? ""}</p>
+        <header className="flex items-center justify-between border-b border-black/[0.06] bg-white px-4 py-3.5">
+          <p className="text-[15px] font-bold text-gray-900">{title ?? ""}</p>
           <button
             type="button"
             onClick={onClose}
             aria-label="닫기"
-            className="rounded-md p-1 text-foreground/60 hover:bg-foreground/5"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-gray-500 transition-colors active:bg-black/[0.05]"
           >
-            ✕
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M6 6l12 12M18 6 6 18"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </header>
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className="flex-1 overflow-y-auto bg-white">{children}</div>
       </div>
     </div>
   );
