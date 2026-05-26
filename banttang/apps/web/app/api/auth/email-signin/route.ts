@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { COOKIE_NAME } from "@/lib/auth";
-import { getAnonClient } from "@/lib/supabase/anon";
+import { createClient as createSsrClient } from "@/lib/supabase/server";
 import { getServiceClient } from "@/lib/supabase/admin";
 
+// signInWithPassword를 SSR 클라이언트로 호출 → Supabase Auth 쿠키(sb-*) 자동 설정.
+// rin의 채팅 컴포넌트가 supabase.auth.getUser/getSession()으로 세션을 읽으려면 이게 필요.
+// soorimoo의 기존 라우트는 banttang_user_id 커스텀 쿠키도 같이 본다(호환).
 export async function POST(req: Request) {
   try {
     const { email, password } = (await req.json()) as {
@@ -16,8 +19,8 @@ export async function POST(req: Request) {
         { status: 400 },
       );
 
-    const anon = getAnonClient();
-    const { data, error } = await anon.auth.signInWithPassword({ email, password });
+    const supabase = createSsrClient();
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error || !data?.user)
       return NextResponse.json(
         { error: "이메일 또는 비밀번호가 올바르지 않아요" },
@@ -26,7 +29,7 @@ export async function POST(req: Request) {
 
     const userId = data.user.id;
 
-    // profile 존재 확인 (auth.users는 있지만 profile이 누락된 케이스 방어)
+    // profile 존재 확인
     const sb = getServiceClient();
     const { data: profile } = await sb
       .from("profiles")
@@ -39,6 +42,7 @@ export async function POST(req: Request) {
         { status: 404 },
       );
 
+    // 기존 soorimoo 라우트와의 호환을 위한 커스텀 쿠키 (Supabase Auth 쿠키는 SSR 클라이언트가 자동 설정함)
     cookies().set({
       name: COOKIE_NAME,
       value: userId,

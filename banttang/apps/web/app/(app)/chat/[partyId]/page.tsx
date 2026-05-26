@@ -1,83 +1,113 @@
-import { notFound } from "next/navigation";
-import { requireCurrentUser } from "@/lib/auth";
-import { getServiceClient } from "@/lib/supabase/admin";
-import { ChatClient } from "@/components/ChatClient";
+import { redirect, notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { PartyChatContainer } from "@/components/chat/party-chat-container";
+import { closePartyIfFull } from "@/app/_actions/party-lifecycle";
+import type {
+  ChatMessageWithSender,
+  PartyParticipantWithProfile,
+  PartyWithStats,
+  Receipt,
+} from "@/lib/types/domain";
 
 export const dynamic = "force-dynamic";
 
+// soorimoo URL(/chat/[partyId]) 유지 + rin의 PartyChatContainer로 렌더.
+// 중간 지점 추천·영수증·완료 시트 모두 rin 구현이 그대로 동작한다.
 export default async function ChatPage({ params }: { params: { partyId: string } }) {
-  const me = await requireCurrentUser();
-  const sb = getServiceClient();
+  const { partyId } = params;
+  const supabase = createClient();
 
-  const { data: party } = await sb
-    .from("parties")
-    .select("id, host_id, status, store_name, representative_menu, max_participants, price_per_person, deal_at, completed_at, pickup_location_id, custom_pickup_name")
-    .eq("id", params.partyId)
-    .maybeSingle();
-  if (!party) notFound();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/");
 
-  const { data: members } = await sb
-    .from("party_participants")
-    .select("user_id, is_host, status, profiles(nickname, level)")
-    .eq("party_id", params.partyId);
+  // 정원 다 찼는데 status가 recruiting이면 마감 + 채팅방 생성 (자동 복구)
+  await closePartyIfFull(partyId);
 
-  let pickupName: string | null = null;
-  if (party.pickup_location_id) {
-    const { data: pl } = await sb
+  // 1) 파티 본문
+  const partyRes = await supabase
+    .from("v_parties_with_stats")
+    .select("*")
+    .eq("id", partyId)
+    .maybeSingle<PartyWithStats>();
+  if (!partyRes.data) notFound();
+  const party = partyRes.data;
+
+  // 픽업 장소 이름
+  const partyExt = party as PartyWithStats & {
+    pickup_location_id?: string | null;
+    custom_pickup_name?: string | null;
+  };
+  let pickupLocationName: string | null = null;
+  if (partyExt.pickup_location_id) {
+    const pickupRes = await supabase
       .from("pickup_locations")
       .select("name")
-      .eq("id", party.pickup_location_id)
-      .maybeSingle();
-    pickupName = (pl?.name as string) ?? null;
-  } else {
-    pickupName = (party as any).custom_pickup_name ?? null;
+      .eq("id", partyExt.pickup_location_id)
+      .maybeSingle<{ name: string }>();
+    pickupLocationName = pickupRes.data?.name ?? null;
+  } else if (partyExt.custom_pickup_name) {
+    pickupLocationName = partyExt.custom_pickup_name;
   }
 
-  const { data: receipts } = await sb
-    .from("receipts")
-    .select("id, final_total_amount, price_per_person, uploader_id")
-    .eq("party_id", params.partyId);
+  // 2) 채팅방
+  const roomRes = await supabase
+    .from("chat_rooms")
+    .select("id, party_id, opened_at, closed_at")
+    .eq("party_id", partyId)
+    .maybeSingle<{ id: string; party_id: string; opened_at: string; closed_at: string | null }>();
+  const chatRoom = roomRes.data;
 
-  // 이 사용자가 이미 작성한 리뷰
-  const { data: myReviews } = await sb
-    .from("reviews")
-    .select("reviewee_id, rating")
-    .eq("party_id", params.partyId)
-    .eq("reviewer_id", me.id);
+  // 3) 참여자 (호스트 포함, approved + pending)
+  const participantsRes = await supabase
+    .from("party_participants")
+    .select(
+      "id, party_id, user_id, status, is_host, applied_at, approved_at, profile:profiles!party_participants_user_id_fkey(id, nickname, level)",
+    )
+    .eq("party_id", partyId)
+    .in("status", ["approved", "pending"]);
+  const participantsAll = (participantsRes.data ?? []) as unknown as PartyParticipantWithProfile[];
+  const participants = participantsAll.filter((p) => p.status === "approved");
+  const pendingParticipants = participantsAll.filter((p) => p.status === "pending");
+
+  // 4) 메시지 + 영수증
+  let initialMessages: ChatMessageWithSender[] = [];
+  let initialReceipts: Receipt[] = [];
+  if (chatRoom) {
+    const [messagesRes, receiptsRes] = await Promise.all([
+      supabase
+        .from("chat_messages")
+        .select(
+          "id, room_id, sender_id, type, system_event, content, metadata, created_at, sender:profiles!chat_messages_sender_id_fkey(id, nickname)",
+        )
+        .eq("room_id", chatRoom.id)
+        .order("created_at", { ascending: true })
+        .limit(200),
+      supabase
+        .from("receipts")
+        .select(
+          "id, party_id, uploader_id, storage_path, ocr_store_name, ocr_total_amount, ocr_paid_at, ocr_confidence, final_store_name, final_total_amount, final_paid_at, price_per_person, shared_to_chat_at, created_at, updated_at",
+        )
+        .eq("party_id", partyId)
+        .order("created_at", { ascending: true }),
+    ]);
+    initialMessages = (messagesRes.data ?? []) as unknown as ChatMessageWithSender[];
+    initialReceipts = (receiptsRes.data ?? []) as unknown as Receipt[];
+  }
 
   return (
-    <ChatClient
-      me={{ id: me.id, nickname: me.nickname }}
-      party={{
-        id: party.id as string,
-        host_id: party.host_id as string,
-        status: party.status as any,
-        store_name: party.store_name as string,
-        representative_menu: (party as any).representative_menu,
-        max_participants: party.max_participants as number,
-        price_per_person: party.price_per_person as number,
-        deal_at: party.deal_at as string,
-        pickup_name: pickupName,
-        completed_at: (party as any).completed_at,
-      }}
-      members={(members ?? [])
-        .filter((m: any) => m.status === "approved")
-        .map((m: any) => ({
-          user_id: m.user_id,
-          is_host: m.is_host,
-          nickname: m.profiles?.nickname ?? "??",
-          level: m.profiles?.level ?? "dandelion",
-        }))}
-      hasReceipt={(receipts ?? []).length > 0}
-      receiptInfo={
-        receipts && receipts.length > 0
-          ? {
-              total_amount: receipts[0].final_total_amount as number,
-              price_per_person: receipts[0].price_per_person as number,
-            }
-          : null
-      }
-      myReviewedIds={(myReviews ?? []).map((r: any) => r.reviewee_id as string)}
-    />
+    <main className="mx-auto flex h-[100dvh] max-w-2xl flex-col">
+      <PartyChatContainer
+        party={party}
+        currentUserId={user.id}
+        chatRoom={chatRoom}
+        participants={participants}
+        pendingParticipants={pendingParticipants}
+        initialMessages={initialMessages}
+        initialReceipts={initialReceipts}
+        pickupLocationName={pickupLocationName}
+      />
+    </main>
   );
 }

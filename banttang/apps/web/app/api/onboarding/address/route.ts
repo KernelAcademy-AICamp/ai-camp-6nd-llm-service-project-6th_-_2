@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ADDRESS_COOKIE, ADDRESS_COORDS_COOKIE } from "@/lib/auth";
+import { createClient as createSsrClient } from "@/lib/supabase/server";
+import { getServiceClient } from "@/lib/supabase/admin";
 
 export async function POST(req: Request) {
   const { method, address, lat, lng } = (await req.json()) as {
@@ -9,7 +11,11 @@ export async function POST(req: Request) {
     lat?: number;
     lng?: number;
   };
-  const resolved = method === "current_location" ? "관악구 신림동 (현재 위치 기준)" : address?.trim() || "신림동";
+  const resolved =
+    method === "current_location"
+      ? "관악구 신림동 (현재 위치 기준)"
+      : address?.trim() || "신림동";
+
   cookies().set({
     name: ADDRESS_COOKIE,
     value: resolved,
@@ -27,6 +33,25 @@ export async function POST(req: Request) {
       path: "/",
       maxAge: 60 * 60 * 24 * 30,
     });
+
+    // rin의 중간지점 추천(recommend-midpoint)이 auth.users.user_metadata.home를 읽으므로 같이 저장.
+    try {
+      const ssr = createSsrClient();
+      const {
+        data: { user },
+      } = await ssr.auth.getUser();
+      if (user) {
+        const admin = getServiceClient();
+        await admin.auth.admin.updateUserById(user.id, {
+          user_metadata: {
+            ...(user.user_metadata ?? {}),
+            home: { lat, lng, address: resolved },
+          },
+        });
+      }
+    } catch {
+      // metadata 갱신 실패는 onboarding 흐름 자체를 막지 않음
+    }
   }
   return NextResponse.json({ ok: true, address: resolved });
 }
