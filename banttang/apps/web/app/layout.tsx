@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { QueryProvider } from "@/providers/query-provider";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+
+const KAKAO_MAP_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
 
 export const metadata: Metadata = {
   title: "띵동 — 로컬 공동구매 매칭",
@@ -24,18 +28,21 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const kakaoKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
-  const kakaoSrc =
-    kakaoKey && !kakaoKey.startsWith("your-")
-      ? `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoKey}&autoload=false&libraries=services`
-      : null;
+  const kakaoEnabled = KAKAO_MAP_KEY && !KAKAO_MAP_KEY.startsWith("your-");
   return (
     <html lang="ko">
-      <head>
-        {/* 카카오 지도 SDK 미리 받아두기 — 실제 실행은 컴포넌트의 Script 태그가 담당 */}
-        {kakaoSrc && <link rel="preload" as="script" href={kakaoSrc} />}
-      </head>
-      <body>{children}</body>
+      <body>
+        <QueryProvider>{children}</QueryProvider>
+        <ConfirmModal />
+        {kakaoEnabled && (
+          // 카카오 맵 SDK — autoload=false. 각 컴포넌트가 kakao.maps.load(...)로 로드.
+          // eslint-disable-next-line @next/next/no-sync-scripts
+          <script
+            async
+            src={`https://dapi.kakao.com/v2/maps/sdk.js?appkey=${KAKAO_MAP_KEY}&autoload=false&libraries=services`}
+          />
+        )}
+      </body>
     </html>
   );
 }

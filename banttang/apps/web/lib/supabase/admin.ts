@@ -1,19 +1,32 @@
 import { createClient } from "@supabase/supabase-js";
 
-// 서버 전용. RLS를 우회하는 service-role 키 (sb_secret_...).
-// 데모용으로 시드 사용자 컨텍스트를 쿠키로 받아 행동 주체를 식별.
-// 데모 단계라 generated types 안 쓰고 any로 둠. 정식 도입 시 createClient<Database>로 교체.
+// secret 키 권한 클라이언트 — RLS를 우회한다.
+// **서버 코드에서만 import** (Server Component / Server Action / Route Handler).
+// 클라이언트 컴포넌트에서 import 금지: secret이 번들에 섞일 위험.
+
 let cached: any = null;
 
-export function getServiceClient(): any {
-  if (cached) return cached;
+function build(): any {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const secret = process.env.SUPABASE_SECRET_KEY;
   if (!url || !secret) {
-    throw new Error("Supabase URL 또는 SUPABASE_SECRET_KEY 누락");
+    throw new Error(
+      "Supabase admin env missing (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY)",
+    );
   }
-  cached = createClient(url, secret, {
+  return createClient(url, secret, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+// soorimoo 기존 코드 호환 — 캐시 싱글톤
+export function getServiceClient(): any {
+  if (cached) return cached;
+  cached = build();
   return cached;
+}
+
+// rin 코드 호환 — 같은 싱글톤 재사용
+export function createAdminClient(): any {
+  return getServiceClient();
 }
