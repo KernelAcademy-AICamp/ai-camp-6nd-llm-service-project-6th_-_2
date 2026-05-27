@@ -2,24 +2,24 @@
 
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Sheet } from "@/components/ui/sheet";
-import { cn, formatKrw } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 interface Props {
   open: boolean;
   onClose: () => void;
   // 호스트가 영수증을 제출. 호출자가 파일을 받아 검증 파이프라인을 트리거한다.
-  onSubmit: (input: { file: File; totalAmount: number }) => Promise<void>;
+  // 금액은 사용자 입력 X — LLM이 추출 (정책: receipt-amount-auto-extract).
+  onSubmit: (input: { file: File }) => Promise<void>;
 }
 
 const MAX_BYTES = 8 * 1024 * 1024;
 const ACCEPTED = ["image/jpeg", "image/png", "image/webp", "image/heic"];
 
 // 명세서 3장 — 영수증/주문 내역 인증.
-// 호스트가 사진 + 결제 금액을 제출하면 FastAPI가 OCR + Claude로 검증 → receipts row 생성.
+// 호스트가 사진만 제출 → server action이 Claude Vision으로 금액·가게·일시 추출 + 검증.
 export function ReceiptSheet({ open, onClose, onSubmit }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,7 +30,6 @@ export function ReceiptSheet({ open, onClose, onSubmit }: Props) {
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       setFile(null);
       setPreviewUrl(null);
-      setAmount("");
       setError(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -66,21 +65,18 @@ export function ReceiptSheet({ open, onClose, onSubmit }: Props) {
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
-  const numericAmount = Number(amount.replace(/[^0-9]/g, ""));
-  const amountValid = numericAmount > 0 && numericAmount <= 10_000_000;
-  const canSubmit = !!file && amountValid && !submitting;
+  const canSubmit = !!file && !submitting;
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!canSubmit) {
       if (!file) setError("영수증 사진을 먼저 올려주세요.");
-      else if (!amountValid) setError("영수증에 적힌 금액을 그대로 입력해주세요.");
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      await onSubmit({ file: file!, totalAmount: numericAmount });
+      await onSubmit({ file: file! });
       onClose();
     } catch (err) {
       setError(humanizeError(err));
@@ -158,35 +154,6 @@ export function ReceiptSheet({ open, onClose, onSubmit }: Props) {
                 </button>
               </div>
             )}
-          </section>
-
-          {/* 2. 금액 영역 */}
-          <section>
-            <p className="mb-2 text-[13px] font-bold text-gray-900">
-              총 결제 금액
-            </p>
-            <div className="flex items-baseline gap-1 rounded-2xl bg-gray-50 px-4 py-3 ring-1 ring-black/[0.06] focus-within:bg-white focus-within:ring-2 focus-within:ring-brand/40">
-              <input
-                inputMode="numeric"
-                value={amount}
-                onChange={(e) => {
-                  setAmount(e.target.value.replace(/[^0-9]/g, ""));
-                  if (error) setError(null);
-                }}
-                placeholder="0"
-                aria-label="결제 금액"
-                className="flex-1 bg-transparent text-right text-[20px] font-bold tabular-nums text-gray-900 outline-none placeholder:text-gray-300"
-              />
-              <span className="text-[15px] font-semibold text-gray-500">원</span>
-            </div>
-            <p className="mt-1.5 text-[11px] text-gray-400">
-              영수증에 적힌 금액 그대로 입력해주세요.
-              {numericAmount > 0 && (
-                <span className="ml-1 font-medium text-gray-600">
-                  · {formatKrw(numericAmount)}
-                </span>
-              )}
-            </p>
           </section>
 
           {error && (

@@ -1,0 +1,99 @@
+// 영수증 OCR 인증 — 중복 인증 방지 데이터 모델
+// 명세서 v2 (영수증_OCR_기능_명세서_v2.pdf) 기반.
+//
+// ⚠ Prisma 스키마로는 partial unique index의 WHERE 절을 표현할 수 없다.
+// `prisma migrate dev` 로 생성된 SQL을 다음과 같이 직접 편집해야 한다:
+//
+//   -- uq_redeem_order: 추출된 주문번호가 있을 때만 유니크
+//   CREATE UNIQUE INDEX "uq_redeem_order"
+//     ON "receipt_redemptions" ("source_type", "order_id")
+//     WHERE "order_id" IS NOT NULL;
+//
+//   -- uq_redeem_fallback: 주문번호가 없을 때만 폴백 키 유니크
+//   CREATE UNIQUE INDEX "uq_redeem_fallback"
+//     ON "receipt_redemptions" ("fallback_key")
+//     WHERE "order_id" IS NULL AND "fallback_key" IS NOT NULL;
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 인증 시도 결과 분류 — redemption_logs.result에서 사용.
+enum RedemptionResult {
+  success         // 신규 인증 성공 → receipt_redemptions에 row 생성
+  duplicate       // 이미 인증된 주문/거래 (409 ALREADY_REDEEMED)
+  low_confidence  // 추출 신뢰도 미달 → 수동 검토로 전환
+  not_receipt     // is_receipt_confidence < 0.3
+  extract_failed  // OCR/Vision 실패 또는 필수 필드 누락
+  error           // 시스템 에러 (네트워크/모델/DB)
+}
+
+// Supabase auth.users(UUID)와 Prisma users(BigInt)를 잇는 브릿지 모델.
+// Prisma side 도메인은 BIGSERIAL 유지(명세서 요구), Supabase auth와는 supabaseUserId로 매핑.
+// 영수증 인증 라우트는 Supabase 세션 → 이 테이블 upsert → BigInt id 사용.
+model User {
+  id              BigInt   @id @default(autoincrement())
+  supabaseUserId  String   @unique @map("supabase_user_id") @db.Uuid
+  email           String?
+  createdAt       DateTime @default(now())                  @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt                       @map("updated_at") @db.Timestamptz
+
+  redemptions ReceiptRedemption[]
+  logs        RedemptionLog[]
+
+  @@map("users")
+}
+
+// 인증 성공한 영수증/주문. INSERT 성공이 곧 "인증 사용 완료".
+// 같은 (source_type, order_id) 또는 같은 fallback_key 재시도는
+// 위 partial unique 두 개로 차단된다 — 동시 요청도 DB 레벨에서 막힌다.
+model ReceiptRedemption {
+  id          BigInt    @id @default(autoincrement())
+  userId      BigInt    @map("user_id")
+  sourceType  String    @map("source_type")  // coupang | gmarket | 11st | baemin | coupang_eats | paper_receipt | ...
+  orderId     String?   @map("order_id")     // 정규화 후 (trim, 하이픈 유지, 영문 대문자)
+  fallbackKey String?   @map("fallback_key") // "merchant|YYYYMMDDhhmm|amount" 형식
+  totalAmount Int       @map("total_amount")
+  paidAt      DateTime? @map("paid_at")      @db.Timestamptz
+  createdAt   DateTime  @default(now())      @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  // Prisma가 생성하는 SQL은 full unique. 마이그레이션에서 WHERE 절 추가 필수 (파일 상단 주석 참고).
+  @@unique([sourceType, orderId], map: "uq_redeem_order")
+  @@unique([fallbackKey], map: "uq_redeem_fallback")
+
+  @@index([userId, createdAt], map: "idx_redeem_user_time")
+  @@map("receipt_redemptions")
+}
+
+// 모든 인증 시도 감사 로그. 성공·중복·저신뢰·추출실패·에러 전부 기록.
+// receipt_redemptions에는 성공만 남으므로 어뷰즈/운영 분석은 이 테이블이 단일 소스.
+model RedemptionLog {
+  id                   BigInt           @id @default(autoincrement())
+  userId               BigInt?          @map("user_id")
+  result               RedemptionResult
+  sourceType           String?          @map("source_type")
+  orderId              String?          @map("order_id")
+  fallbackKey          String?          @map("fallback_key")
+  totalAmount          Int?             @map("total_amount")
+  paidAt               DateTime?        @map("paid_at")                  @db.Timestamptz
+  isReceiptConfidence  Decimal?         @map("is_receipt_confidence")    @db.Decimal(4, 3)
+  extractionConfidence Decimal?         @map("extraction_confidence")    @db.Decimal(4, 3)
+  modelUsed            String?          @map("model_used")               // claude-sonnet-4-6 등
+  imageSha256          String?          @map("image_sha256")
+  errorMessage         String?          @map("error_message")
+  durationMs           Int?             @map("duration_ms")
+  createdAt            DateTime         @default(now())                  @map("created_at") @db.Timestamptz
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt], map: "idx_logs_user_time")
+  @@index([result, createdAt], map: "idx_logs_result_time")
+  @@map("redemption_logs")
+}

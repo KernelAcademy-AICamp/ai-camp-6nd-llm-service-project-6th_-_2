@@ -101,10 +101,16 @@ export function ChatTimeline({
             const isSystem = m.type === "system" || m.sender_id === null;
 
             if (isSystem) {
-              // 수신자 제한: metadata.recipient === 'host'면 호스트한테만 보임.
+              // 수신자 제한: metadata.recipient 값에 따라 표시 대상 분기.
+              //   'host'   → 호스트만 (멤버에겐 숨김)
+              //   'member' → 멤버만 (호스트에겐 숨김)
+              //   그 외/미지정 → 전원 표시
               const recipient = (m.metadata as { recipient?: string } | null)?.recipient;
               if (recipient === "host" && !isHost) {
-                return null; // 멤버에겐 숨김
+                return null;
+              }
+              if (recipient === "member" && isHost) {
+                return null;
               }
 
               // 중간지점 추천은 카드 형태로 별도 렌더

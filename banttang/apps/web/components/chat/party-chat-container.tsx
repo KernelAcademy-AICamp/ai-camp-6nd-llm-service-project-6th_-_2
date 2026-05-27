@@ -471,19 +471,13 @@ export function PartyChatContainer({
     if (error) throw new Error(`메시지 등록 실패: ${error.message}`);
   }
 
-  async function handleSubmitReceipt({
-    file,
-    totalAmount,
-  }: {
-    file: File;
-    totalAmount: number;
-  }) {
-    // Claude Vision으로 직접 검증 (실제 영수증 + 쇼핑앱/카드사 캡처 모두 처리).
+  async function handleSubmitReceipt({ file }: { file: File }) {
+    // Claude Vision으로 직접 검증 + 금액 추출 (실제 영수증 + 쇼핑앱/카드사 캡처 모두 처리).
+    // 금액은 사용자 입력 X — LLM이 OCR로 추출 (정책: 영수증 인증=LLM, 정산=산수).
     // receipts row INSERT + receipt_card 시스템 메시지까지 server action에서 묶어서 처리.
     const fd = new FormData();
     fd.append("file", file);
     fd.append("party_id", party.id);
-    fd.append("total_amount", String(totalAmount));
     const res = await verifyReceiptWithClaude(fd);
     if (!res.ok) throw new Error(res.error);
     if (!res.data.verified) {
@@ -567,7 +561,6 @@ export function PartyChatContainer({
           participants={participantProfiles}
           hostId={party.host_id}
           isHost={isHost}
-          onOpenComplete={() => undefined}
           canManage={canManage}
           managing={managing}
           onDeleteParty={isHost ? handleDeleteParty : undefined}
@@ -680,7 +673,6 @@ export function PartyChatContainer({
         participants={participantProfiles}
         hostId={party.host_id}
         isHost={isHost}
-        onOpenComplete={() => setCompleteOpen(true)}
         onOpenReview={() => setCompleteOpen(true)}
         canManage={canManage}
         managing={managing}

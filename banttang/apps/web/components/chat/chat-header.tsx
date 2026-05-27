@@ -12,11 +12,9 @@ interface Props {
   participants: Pick<UserProfile, "id" | "nickname">[];
   hostId: string;
   isHost: boolean;
-  // 호스트가 거래 완료 시트를 열 때.
-  onOpenComplete: () => void;
   // 멤버가 완료된 거래의 평가 시트를 열 때.
   onOpenReview?: () => void;
-  // 영수증 인증 전이고 종료 전인 상태 — 관리 액션(삭제/강퇴/나가기) 노출 게이트.
+  // 관리 액션(강퇴/나가기) 노출 게이트.
   canManage?: boolean;
   // 관리 액션 진행 중 — 버튼 비활성화.
   managing?: boolean;
@@ -55,7 +53,6 @@ export function ChatHeader({
   participants,
   hostId,
   isHost,
-  onOpenComplete,
   onOpenReview,
   canManage = false,
   managing = false,
@@ -64,8 +61,6 @@ export function ChatHeader({
   onLeaveParty,
 }: Props) {
   const router = useRouter();
-  const canHostComplete =
-    isHost && (party.status === "closed" || party.status === "in_progress");
   const canMemberReview = !isHost && party.status === "completed";
 
   const hasMenu =
@@ -113,16 +108,6 @@ export function ChatHeader({
           </p>
         </div>
 
-        {canHostComplete && (
-          <button
-            type="button"
-            onClick={onOpenComplete}
-            disabled={managing}
-            className="h-9 shrink-0 rounded-full bg-brand px-3.5 text-[13px] font-semibold text-white transition-opacity active:opacity-80 disabled:opacity-50"
-          >
-            거래 완료
-          </button>
-        )}
         {canMemberReview && (
           <button
             type="button"

@@ -46,8 +46,7 @@ const SYSTEM_PROMPT = `너는 한국 결제 영수증/주문 내역 검증 시�
 1. 가게/상점/판매자 이름(merchant)
 2. 결제 총액(detected_total) — 원화 정수 (콤마 제거)
 3. 결제 일시(detected_paid_at) — 가능하면 ISO 8601 형식 (YYYY-MM-DDTHH:MM:SS+09:00)
-4. 신고 금액(expected_total)과 일치 여부 (오차 ±10원 허용)
-5. 위·변조 의심 신호(중복 텍스트, 어색한 폰트, 누락된 필수 정보 등)
+4. 위·변조 의심 신호(중복 텍스트, 어색한 폰트, 누락된 필수 정보 등)
 
 반드시 JSON 한 객체로만 답한다 (코드블록·설명·앞뒤 텍스트 금지):
 {
@@ -61,10 +60,10 @@ const SYSTEM_PROMPT = `너는 한국 결제 영수증/주문 내역 검증 시�
 }
 
 verified 기준:
-- detected_total이 expected_total과 일치(±10원) → verified=true
-- 명백히 결제 화면이 아니거나(셀카, 풍경 등) → verified=false
-- 결제 화면이지만 금액 추출 불가 → verified=false, reason 명시
-- 의심 신호 강함 → verified=false
+- 결제 화면(영수증/주문 내역/카드 알림 등)이고 detected_total을 정수로 추출 성공 → verified=true
+- 명백히 결제 화면이 아님(셀카, 풍경, 텍스트만 등) → verified=false
+- 결제 화면이지만 금액 추출 불가(흐림, 잘림 등) → verified=false, reason에 구체적 사유
+- 위·변조 의심 신호 강함 → verified=false
 `;
 
 interface VerifyOutput {
@@ -93,17 +92,12 @@ export async function verifyReceiptWithClaude(
   | { ok: false; error: string }
 > {
   try {
-    // 1) 입력
+    // 1) 입력 — 금액은 LLM이 추출하므로 사용자 입력 안 받음 (정책: receipt-amount-auto-extract)
     const file = formData.get("file");
     const partyIdRaw = formData.get("party_id");
-    const totalAmountRaw = formData.get("total_amount");
     if (!(file instanceof File)) return { ok: false, error: "사진이 없어요." };
     if (typeof partyIdRaw !== "string" || !partyIdRaw) {
       return { ok: false, error: "party_id가 없어요." };
-    }
-    const expectedTotal = Number(totalAmountRaw);
-    if (!Number.isInteger(expectedTotal) || expectedTotal <= 0) {
-      return { ok: false, error: "결제 금액을 정확히 입력해주세요." };
     }
     if (file.size > MAX_BYTES) {
       return { ok: false, error: "사진이 너무 커요. 10MB 이하로 다시 올려주세요." };
@@ -160,7 +154,7 @@ export async function verifyReceiptWithClaude(
               },
               {
                 type: "text",
-                text: `신고 금액: ${expectedTotal}원\n가게(파티 등록 시): ${party.store_name}\n\n이 이미지를 분석해 위 JSON 스키마로만 답해줘.`,
+                text: `가게(파티 등록 시): ${party.store_name}\n\n이 이미지를 분석해 위 JSON 스키마로만 답해줘. 결제 금액(detected_total)은 영수증에서 정확히 읽어 정수로 반환해.`,
               },
             ],
           },
@@ -195,7 +189,22 @@ export async function verifyReceiptWithClaude(
       };
     }
 
-    // 5) 검증 성공 → Storage 업로드 + DB INSERT
+    // 5) 검증 성공 — detected_total 정수 추출 성공이 필수 조건
+    if (!Number.isInteger(verdict.detected_total) || (verdict.detected_total ?? 0) <= 0) {
+      return {
+        ok: true,
+        data: {
+          verified: false,
+          reason: "영수증에서 결제 금액을 읽지 못했어요. 더 잘 보이는 사진으로 다시 올려주세요.",
+          confidence: verdict.confidence ?? 0,
+          merchant: verdict.merchant,
+          detected_total: verdict.detected_total,
+        },
+      };
+    }
+    const detectedTotal = verdict.detected_total as number;
+
+    // 6) Storage 업로드 + DB INSERT
     const receiptId = randomUUID();
     const ext = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
     const storagePath = `${partyIdRaw}/${receiptId}.${ext}`;
@@ -206,7 +215,7 @@ export async function verifyReceiptWithClaude(
       return { ok: false, error: `사진 업로드 실패: ${upload.error.message}` };
     }
 
-    // approved 참여자 수로 1인당 금액 계산
+    // approved 참여자 수로 1인당 금액 계산 — LLM 사용 X, 단순 산수 (정책: receipt-amount-auto-extract)
     const { data: parts, error: partsErr } = await admin
       .from("party_participants")
       .select("id")
@@ -215,7 +224,7 @@ export async function verifyReceiptWithClaude(
     if (partsErr) return { ok: false, error: partsErr.message };
     const approvedCount = parts?.length ?? 0;
     const pricePerPerson =
-      approvedCount > 0 ? Math.round(expectedTotal / approvedCount) : null;
+      approvedCount > 0 ? Math.round(detectedTotal / approvedCount) : null;
 
     const nowIso = new Date().toISOString();
     const finalStoreName = verdict.merchant || party.store_name || "미상";
@@ -232,7 +241,7 @@ export async function verifyReceiptWithClaude(
         ocr_total_amount: verdict.detected_total,
         ocr_confidence: verdict.confidence,
         final_store_name: finalStoreName,
-        final_total_amount: expectedTotal,
+        final_total_amount: detectedTotal,
         final_paid_at: finalPaidAt,
         price_per_person: pricePerPerson,
         shared_to_chat_at: nowIso,
@@ -255,14 +264,28 @@ export async function verifyReceiptWithClaude(
       .eq("party_id", partyIdRaw)
       .maybeSingle();
     if (room) {
-      await admin.from("chat_messages").insert({
-        room_id: room.id,
-        sender_id: null,
-        type: "receipt_card",
-        system_event: "receipt_uploaded",
-        content: `${finalStoreName} · ${expectedTotal.toLocaleString("ko-KR")}원 영수증이 등록되었어요.`,
-        metadata: { receipt_id: inserted.id, amount: expectedTotal },
-      });
+      await admin.from("chat_messages").insert([
+        {
+          room_id: room.id,
+          sender_id: null,
+          type: "receipt_card",
+          system_event: "receipt_uploaded",
+          content: `${finalStoreName} · ${detectedTotal.toLocaleString("ko-KR")}원 영수증이 등록되었어요.`,
+          metadata: { receipt_id: inserted.id, amount: detectedTotal },
+        },
+        // 멤버에게만 보이는 확인 요청 — recipient='member' 메타로 호스트 화면에선 숨김.
+        {
+          room_id: room.id,
+          sender_id: null,
+          type: "system",
+          content: "주문 항목과 결제 금액이 맞는지 확인해주세요. 이상이 없으면 1인당 금액을 호스트에게 송금해주세요.",
+          metadata: {
+            kind: "receipt_confirm_prompt",
+            recipient: "member",
+            receipt_id: inserted.id,
+          },
+        },
+      ]);
     }
 
     return {
