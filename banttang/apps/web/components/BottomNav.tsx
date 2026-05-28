@@ -4,9 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
+// 하단 4탭: 홈 / 스토어 / 채팅 / 마이.
+// "주문 등록"은 홈 화면의 플로팅 버튼으로 이동.
 const tabs = [
   { href: "/feed", label: "홈", icon: "🏠" },
-  { href: "/host/new", label: "주문 등록", icon: "➕" },
+  { href: "/store", label: "스토어", icon: "🛍️" },
+  { href: "/chat", label: "채팅", icon: "💬" },
   { href: "/mypage", label: "마이", icon: "👤" },
 ] as const;
 

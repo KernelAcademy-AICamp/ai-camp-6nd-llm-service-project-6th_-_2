@@ -40,6 +40,7 @@ export function FeedClient({
   }
 
   return (
+    <>
     <div className="flex flex-col gap-3 p-4">
       {/* 탭 — 배달 / 장보기(준비중) */}
       <div className="flex border-b border-zinc-200">
@@ -105,6 +106,23 @@ export function FeedClient({
         <MapView parties={parties} />
       )}
     </div>
+    {/* 주문 등록 플로팅 버튼 — BottomNav(z-30) 위, viewport 우하단 고정.
+        모바일 우선 — 데스크탑에서도 viewport 기준이라 시각적으로 일관적. */}
+    <Link
+      href="/host/new"
+      aria-label="주문 등록"
+      className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-emerald-500/30 transition-transform active:scale-95"
+    >
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M12 5v14M5 12h14"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        />
+      </svg>
+    </Link>
+    </>
   );
 }
 
