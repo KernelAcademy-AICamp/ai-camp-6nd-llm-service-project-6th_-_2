@@ -25,6 +25,8 @@ interface Props {
   }) => Promise<void> | void;
   // 호스트가 "그대로 둘게요" 선택 시 호출 — messageId 전달.
   onDismissMidpoint?: (messageId: string) => Promise<void> | void;
+  // 띵동 시스템 메시지의 "내 거래 카드보기" 버튼을 누를 때.
+  onOpenTransactionCard?: () => void;
 }
 
 // 같은 날짜인지 비교 (KST 기준 YYYY-MM-DD)
@@ -48,6 +50,7 @@ export function ChatTimeline({
   scrollAnchorRef,
   onChangePickup,
   onDismissMidpoint,
+  onOpenTransactionCard,
 }: Props) {
   // 메시지 하나의 안읽은 수 — 보낸이 외 멤버 중 last_read_at < 메시지 created_at 인 사람 수
   function unreadCountFor(message: { sender_id: string | null; created_at: string }): number {
@@ -102,11 +105,13 @@ export function ChatTimeline({
 
             if (isSystem) {
               // 수신자 제한: metadata.recipient 값에 따라 표시 대상 분기.
-              //   'host'   → 호스트만 (멤버에겐 숨김)
+              //   'host'   → 호스트 + 발신자 본인 (다른 멤버에겐 숨김)
               //   'member' → 멤버만 (호스트에겐 숨김)
               //   그 외/미지정 → 전원 표시
               const recipient = (m.metadata as { recipient?: string } | null)?.recipient;
-              if (recipient === "host" && !isHost) {
+              const metaSenderId = (m.metadata as { sender_id?: string } | null)?.sender_id;
+              const isMineSystem = metaSenderId === currentUserId;
+              if (recipient === "host" && !isHost && !isMineSystem) {
                 return null;
               }
               if (recipient === "member" && isHost) {
@@ -129,6 +134,44 @@ export function ChatTimeline({
                             ? () => onDismissMidpoint(messageId)
                             : undefined
                         }
+                      />
+                    </li>
+                  </Fragment>
+                );
+              }
+
+              // 띵동 — viewer 입장에 따라 문구 분기:
+              //   본인이 보낸 띵동(참여자): 호스트 OO에게 "띵동" 했어요
+              //   본인이 보낸 띵동(호스트): 모두에게 "띵동" 했어요
+              //   다른 사람이 보낸 띵동:    OO님이 "띵동" 했어요!
+              if (isDoorbellRing(m.metadata)) {
+                const meta = m.metadata as {
+                  sender_id?: string;
+                  sender_nickname?: string;
+                  sender_role?: "host" | "participant";
+                  host_nickname?: string | null;
+                };
+                const mineDoorbell = meta.sender_id === currentUserId;
+                let displayText: string;
+                if (mineDoorbell) {
+                  if (meta.sender_role === "host") {
+                    displayText = `모두에게 "띵동" 했어요`;
+                  } else {
+                    const hostNick = meta.host_nickname ?? "호스트";
+                    displayText = `호스트 ${hostNick}에게 "띵동" 했어요`;
+                  }
+                } else {
+                  const nick = meta.sender_nickname ?? "참여자";
+                  displayText = `${nick}님이 "띵동" 했어요!`;
+                }
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <DoorbellCard
+                        content={displayText}
+                        mine={mineDoorbell}
+                        onOpenCard={onOpenTransactionCard}
                       />
                     </li>
                   </Fragment>
@@ -585,3 +628,50 @@ function ImageBubble({
     </a>
   );
 }
+
+// ---- 띵동 카드 ----
+// chat_messages.metadata에 { kind: "doorbell_ring", sender_id, sender_nickname, sender_role }로 저장됨.
+function isDoorbellRing(meta: Record<string, unknown> | null | undefined): boolean {
+  return !!meta && (meta as { kind?: unknown }).kind === "doorbell_ring";
+}
+
+function DoorbellCard({
+  content,
+  mine,
+  onOpenCard,
+}: {
+  content: string;
+  mine?: boolean;
+  onOpenCard?: () => void;
+}) {
+  return (
+    <div className={cn("my-3 flex w-full", mine ? "justify-end" : "justify-start")}>
+      <article
+        className={cn(
+          "inline-flex max-w-sm items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-50 to-brand/[0.08] px-4 py-3 ring-1 ring-amber-200",
+          mine && "flex-row-reverse",
+        )}
+      >
+        <span
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400 text-white shadow-sm"
+          aria-hidden
+        >
+          <span className="text-[18px]">🔔</span>
+        </span>
+        <div className={cn("min-w-0", mine && "text-right")}>
+          <p className="text-[13px] font-semibold text-gray-900">{content}</p>
+          {onOpenCard && (
+            <button
+              type="button"
+              onClick={onOpenCard}
+              className="mt-1 text-[12px] font-semibold text-brand underline-offset-2 hover:underline active:underline"
+            >
+              내 거래 카드보기 →
+            </button>
+          )}
+        </div>
+      </article>
+    </div>
+  );
+}
+

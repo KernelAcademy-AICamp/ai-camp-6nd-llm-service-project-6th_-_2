@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { askConfirm } from "@/lib/confirm";
 import { uploadChatPhoto } from "@/app/_actions/upload-chat-photo";
+import { ringDoorbell } from "@/app/_actions/ring-doorbell";
 import { recommendMidpoint } from "@/app/_actions/recommend-midpoint";
 import { updatePartyPickup } from "@/app/_actions/update-party-pickup";
 import { dismissMidpointRecommendation } from "@/app/_actions/dismiss-midpoint";
@@ -22,6 +23,7 @@ import { ReceiptSheet } from "./receipt-sheet";
 import { CompleteSheet, type CompleteSubmitInput } from "./complete-sheet";
 import { PartyInfoCard } from "./party-info-card";
 import { ActionBanner } from "./action-banner";
+import { TransactionCardSheet } from "./transaction-card-sheet";
 import { buildTimeline, type ReceiptCardItem } from "@/lib/types/chat";
 import { derivePhase } from "@/lib/types/phase";
 import type {
@@ -68,6 +70,9 @@ export function PartyChatContainer({
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
+  const [cardOpen, setCardOpen] = useState(false);
+  // 띵동 쿨다운 — 남은 초. 0이면 가능, 5→0으로 카운트다운.
+  const [doorbellCooldown, setDoorbellCooldown] = useState(0);
   const [managing, setManaging] = useState(false);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const senderCacheRef = useRef<Map<string, ChatMessageWithSender["sender"]>>(
@@ -108,6 +113,34 @@ export function PartyChatContainer({
     now: new Date(nowMs),
   });
   const isReadOnly = phase === "completed" || phase === "cancelled";
+
+  // 띵동 활성화: deal_at - 15분 ~ deal_at + 60분
+  // [TEMP-DEV] 테스트 위해 30일로 확장. 운영 전 원복:
+  //   nowMs >= dealMs - 15 * 60 * 1000 && nowMs <= dealMs + 60 * 60 * 1000
+  const dealMs = new Date(party.deal_at).getTime();
+  const DOORBELL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+  const doorbellActive =
+    !!chatRoom &&
+    nowMs >= dealMs - DOORBELL_WINDOW_MS &&
+    nowMs <= dealMs + DOORBELL_WINDOW_MS &&
+    party.status !== "completed" &&
+    party.status !== "cancelled";
+
+  // 띵동 쿨다운 카운트다운 (1초마다 -1, 0이면 정지)
+  useEffect(() => {
+    if (doorbellCooldown <= 0) return;
+    const id = setTimeout(() => setDoorbellCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [doorbellCooldown]);
+
+  async function handleRingDoorbell() {
+    if (doorbellCooldown > 0) return;
+    // 쿨다운 즉시 시작 (서버 에러 와도 5초 잠금 — 도배 방지 일관성)
+    setDoorbellCooldown(5);
+    const res = await ringDoorbell(party.id);
+    if (!res.ok) alert(res.error);
+  }
+
   const readOnlyHint =
     phase === "cancelled"
       ? "이 반띵은 취소되어 메시지를 보낼 수 없어요."
@@ -688,14 +721,27 @@ export function PartyChatContainer({
         }
       />
 
-      <PartyInfoCard
-        party={party}
-        pickupLocationName={pickupLocationName}
-        isHost={isHost}
-        onVerifyReceipt={
-          isHost && !isReadOnly ? () => setReceiptOpen(true) : undefined
-        }
-      />
+      {/* 정보 카드 자리 — '반띵 카드 보기' + 호스트 전용 '주문 인증' 가로 병렬. */}
+      <section className="flex items-center gap-2 border-b border-black/[0.06] bg-white px-4 py-3">
+        <button
+          type="button"
+          onClick={() => setCardOpen(true)}
+          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand/10 px-4 py-3 text-[14px] font-semibold text-brand transition-colors active:bg-brand/15"
+        >
+          <span aria-hidden>🪪</span>
+          <span>반띵 카드 보기</span>
+        </button>
+        {isHost && !isReadOnly && (
+          <button
+            type="button"
+            onClick={() => setReceiptOpen(true)}
+            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-3 text-[14px] font-semibold text-white transition-opacity active:opacity-80"
+          >
+            <span aria-hidden>🧾</span>
+            <span>주문 인증</span>
+          </button>
+        )}
+      </section>
 
       <ChatTimeline
         items={items}
@@ -705,6 +751,7 @@ export function PartyChatContainer({
         memberUserIds={members.map((m) => m.user_id)}
         reads={reads}
         scrollAnchorRef={scrollAnchorRef}
+        onOpenTransactionCard={() => setCardOpen(true)}
         onChangePickup={
           isHost
             ? async (input) => {
@@ -780,6 +827,24 @@ export function PartyChatContainer({
         />
       )}
 
+      {/* 띵동 — 거래 시각 ±윈도우 내에서만 활성. 호스트는 전원 broadcast, 참여자는 호스트에게만. */}
+      {doorbellActive && (
+        <ActionBanner
+          tone="info"
+          icon="check"
+          title="이제 띵동할 수 있어요"
+          description={
+            isHost
+              ? "다 모였으면 모든 멤버에게 띵동을 보내 위치를 알려주세요."
+              : "현장에 도착했으면 호스트에게 띵동을 보내세요."
+          }
+          actionLabel={
+            doorbellCooldown > 0 ? `다시 띵동까지 ${doorbellCooldown}초` : "🔔 띵동하기"
+          }
+          onAction={doorbellCooldown > 0 ? () => {} : handleRingDoorbell}
+        />
+      )}
+
       <ChatInputBar
         onSend={handleSend}
         onAttachImage={!isReadOnly ? handleAttachImage : undefined}
@@ -806,6 +871,18 @@ export function PartyChatContainer({
         suggestedAmount={hostShare}
         verifiedTotal={latestReceipt?.final_total_amount}
         onSubmit={handleSubmitComplete}
+      />
+
+      <TransactionCardSheet
+        open={cardOpen}
+        onClose={() => setCardOpen(false)}
+        party={party}
+        pickupName={pickupLocationName ?? null}
+        members={members.map((p) => ({
+          user_id: p.user_id,
+          nickname: p.profile?.nickname ?? "알 수 없음",
+          is_host: p.is_host,
+        }))}
       />
     </div>
   );
