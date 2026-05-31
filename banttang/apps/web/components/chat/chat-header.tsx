@@ -22,8 +22,6 @@ interface Props {
   managing?: boolean;
   // 호스트가 멤버를 강퇴 (user_id 전달).
   onKickMember?: (memberUserId: string) => void;
-  // 호스트가 모집 글 삭제.
-  onDeleteParty?: () => void;
   // 파티원이 본인 채팅방에서 나가기.
   onLeaveParty?: () => void;
 }
@@ -60,7 +58,6 @@ export function ChatHeader({
   canManage = false,
   managing = false,
   onKickMember,
-  onDeleteParty,
   onLeaveParty,
 }: Props) {
   const router = useRouter();
@@ -68,7 +65,7 @@ export function ChatHeader({
 
   const hasMenu =
     canManage &&
-    ((isHost && (onDeleteParty || (onKickMember && participants.some((p) => p.id !== hostId)))) ||
+    ((isHost && onKickMember && participants.some((p) => p.id !== hostId)) ||
       (!isHost && !!onLeaveParty));
 
   return (
@@ -141,7 +138,6 @@ export function ChatHeader({
             participants={participants}
             managing={managing}
             onKickMember={onKickMember}
-            onDeleteParty={onDeleteParty}
             onLeaveParty={onLeaveParty}
           />
         )}
@@ -212,7 +208,6 @@ function OverflowMenu({
   participants,
   managing,
   onKickMember,
-  onDeleteParty,
   onLeaveParty,
 }: {
   isHost: boolean;
@@ -220,7 +215,6 @@ function OverflowMenu({
   participants: Pick<UserProfile, "id" | "nickname">[];
   managing: boolean;
   onKickMember?: (memberUserId: string) => void;
-  onDeleteParty?: () => void;
   onLeaveParty?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -249,7 +243,6 @@ function OverflowMenu({
 
   const kickableMembers = participants.filter((p) => p.id !== hostId);
   const showKickItem = isHost && !!onKickMember && kickableMembers.length > 0;
-  const showDelete = isHost && !!onDeleteParty;
   const showLeave = !isHost && !!onLeaveParty;
 
   return (
@@ -290,20 +283,6 @@ function OverflowMenu({
               className="w-full px-4 py-2.5 text-left text-[14px] text-gray-800 transition-colors active:bg-gray-50 disabled:opacity-40"
             >
               파티원 내보내기
-            </button>
-          )}
-          {showDelete && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                onDeleteParty!();
-                setOpen(false);
-              }}
-              disabled={managing}
-              className="w-full px-4 py-2.5 text-left text-[14px] text-rose-600 transition-colors active:bg-rose-50 disabled:opacity-40"
-            >
-              모집 글 삭제
             </button>
           )}
           {showLeave && (

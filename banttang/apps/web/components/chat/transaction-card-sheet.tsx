@@ -3,6 +3,7 @@
 import { Sheet } from "@/components/ui/sheet";
 import { formatKrw, formatKstDateTime } from "@/lib/utils";
 import type { PartyWithStats } from "@/lib/types/domain";
+import { KakaoMiniMap } from "./kakao-mini-map";
 
 interface Member {
   user_id: string;
@@ -15,6 +16,8 @@ interface Props {
   onClose: () => void;
   party: PartyWithStats;
   pickupName: string | null;
+  // 지도 표시용 좌표. 없으면 지도 영역 자체를 안 그림.
+  pickupCoord?: { lat: number; lng: number } | null;
   members: Member[];
 }
 
@@ -25,6 +28,7 @@ export function TransactionCardSheet({
   onClose,
   party,
   pickupName,
+  pickupCoord = null,
   members,
 }: Props) {
   const host = members.find((m) => m.is_host);
@@ -64,9 +68,8 @@ export function TransactionCardSheet({
 
           <hr className="my-4 border-dashed border-black/[0.08]" />
 
-          {/* 픽업 / 시간 / 금액 */}
+          {/* 거래 시간 → 1인 금액 → 반띵 장소 (장소 아래 지도) */}
           <section className="space-y-2.5 text-[13px]">
-            <Row icon="📍" label="반띵 장소" value={pickupName ?? "미정"} />
             <Row icon="🕒" label="거래 시간" value={formatKstDateTime(party.deal_at)} />
             <Row
               icon="💸"
@@ -77,6 +80,16 @@ export function TransactionCardSheet({
                   : "각자 결제"
               }
             />
+            <Row icon="📍" label="반띵 장소" value={pickupName ?? "미정"} />
+            {pickupCoord && (
+              <div className="pl-7">
+                <KakaoMiniMap
+                  lat={pickupCoord.lat}
+                  lng={pickupCoord.lng}
+                  title={pickupName ?? undefined}
+                />
+              </div>
+            )}
           </section>
 
           <hr className="my-4 border-dashed border-black/[0.08]" />

@@ -1,36 +1,54 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { cn } from "@/lib/utils";
 import { useKakaoSdk } from "@/lib/use-kakao-sdk";
+import { uploadPartyPhotos } from "@/app/_actions/upload-party-photos";
 
-type Coords = { lat: number; lng: number };
-type Recommendation = {
+const MAX_PHOTOS = 10;
+const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+const PHOTO_ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
+
+export type Coords = { lat: number; lng: number };
+export type Recommendation = {
   name: string;
   description: string;
   lat: number;
   lng: number;
   walking_minutes: number;
+  // 사용자가 직접 검색해서 추가한 항목. UI에서 검색 박스 바로 아래에 별도로 노출.
+  isUserSearched?: boolean;
 };
 
 // 차트의 두 갈래: 1주문 나누기 / 각자 항목 결정하기
 type SplitMode = "single_order" | "individual_items";
 
-const SPLIT_MODES: { v: SplitMode; title: string; emoji: string }[] = [
-  { v: "single_order", title: "1주문 나누기", emoji: "🍱" },
-  { v: "individual_items", title: "각자 항목 결정하기", emoji: "🧾" },
-];
+// 탭에 따라 같은 SplitMode라도 카피가 달라진다 (음식 ↔ 상품).
+function getSplitModes(
+  tab: "delivery" | "shopping",
+): { v: SplitMode; title: string; emoji: string }[] {
+  if (tab === "delivery") {
+    return [
+      { v: "single_order", title: "같은 음식 나눠요", emoji: "🍱" },
+      { v: "individual_items", title: "각자 음식 담아요", emoji: "🧾" },
+    ];
+  }
+  return [
+    { v: "single_order", title: "같은 상품 나눠요", emoji: "🍱" },
+    { v: "individual_items", title: "각자 상품 담아요", emoji: "🧾" },
+  ];
+}
 
 function getSplitModeDesc(mode: SplitMode, tab: "delivery" | "shopping"): string {
   if (mode === "single_order") {
     return tab === "delivery"
-      ? "예: 치킨, 피자 1+1, 족발 대자 — 양 많은 음식 한 번에 사서 N등분"
-      : "예: 커피 번들, 프로틴, 닭가슴살 — 양 많은 주문 한 번에 사서 N등분";
+      ? "양 많은 음식을 함께 사고 나눠요."
+      : "커피, 프로틴 등 대용량 상품을 함께 사고 나눠요.";
   }
   return tab === "delivery"
-    ? "예: 덮밥, 중국집 각자 1그릇씩 — 최소주문금액 채우기, 배송비 N등분"
-    : "예: 다이소 몰, 올리브영 — 최소주문금액 채우기, 배송비 N등분";
+    ? "각자 원하는 메뉴를 담아 주문하고 최소금액을 채워요."
+    : "각자 필요한 상품을 담아 주문하고 배송비를 나눠요.";
 }
 
 export function HostNewClient({
@@ -61,6 +79,47 @@ export function HostNewClient({
   const [minOrderAmount, setMinOrderAmount] = useState(0);
   const [hasDelivery, setHasDelivery] = useState(false);
   const [deliveryAmount, setDeliveryAmount] = useState(0);
+
+  // 상품 사진 (최대 3장). 미리보기 URL은 컴포넌트 unmount/교체 시 revoke.
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  useEffect(() => {
+    return () => {
+      photoPreviews.forEach((u) => URL.revokeObjectURL(u));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handlePhotoAdd(e: ChangeEvent<HTMLInputElement>) {
+    setPhotoError(null);
+    const file = e.target.files?.[0];
+    e.target.value = ""; // 같은 파일 재선택 가능하도록 초기화
+    if (!file) return;
+    if (!PHOTO_ACCEPTED.includes(file.type)) {
+      setPhotoError("JPG, PNG, WEBP 형식만 올릴 수 있어요.");
+      return;
+    }
+    if (file.size > PHOTO_MAX_BYTES) {
+      setPhotoError("10MB 이하 사진으로 올려주세요.");
+      return;
+    }
+    if (photos.length >= MAX_PHOTOS) {
+      setPhotoError(`사진은 최대 ${MAX_PHOTOS}장까지에요.`);
+      return;
+    }
+    setPhotos((prev) => [...prev, file]);
+    setPhotoPreviews((prev) => [...prev, URL.createObjectURL(file)]);
+  }
+
+  function handlePhotoRemove(idx: number) {
+    setPhotos((prev) => prev.filter((_, i) => i !== idx));
+    setPhotoPreviews((prev) => {
+      const url = prev[idx];
+      if (url) URL.revokeObjectURL(url);
+      return prev.filter((_, i) => i !== idx);
+    });
+  }
   // UI는 호스트 본인 제외한 "추가 필요 인원". DB max_participants = additionalNeeded + 1
   const [additionalNeeded, setAdditionalNeeded] = useState(1);
   const [dealAt, setDealAt] = useState(defaultDealAt);
@@ -147,8 +206,21 @@ export function HostNewClient({
       body: JSON.stringify(payload),
     });
     const j = await res.json();
+    if (!res.ok) {
+      setBusy(false);
+      return alert(j.error ?? "실패");
+    }
+
+    // 사진 업로드 — 실패해도 파티 생성 자체는 성공이므로 alert로 알리고 진행.
+    if (photos.length > 0) {
+      const fd = new FormData();
+      fd.append("party_id", j.id);
+      for (const f of photos) fd.append("files", f);
+      const up = await uploadPartyPhotos(fd);
+      if (!up.ok) alert(`사진 업로드 실패: ${up.error}`);
+    }
+
     setBusy(false);
-    if (!res.ok) return alert(j.error ?? "실패");
     router.push(`/feed/${j.id}`);
     router.refresh();
   }
@@ -180,7 +252,7 @@ export function HostNewClient({
       <section className="rounded-2xl bg-white p-4 shadow-sm">
         <Label>반띵 방식</Label>
         <div className="mt-2 flex flex-col gap-2">
-          {SPLIT_MODES.map((m) => (
+          {getSplitModes(tab).map((m) => (
             <button
               key={m.v}
               onClick={() => setSplitMode(m.v)}
@@ -201,6 +273,65 @@ export function HostNewClient({
       {/* 분기된 입력 단계 — splitMode 선택 후에만 노출 */}
       {splitMode && (
         <>
+          <section className="rounded-2xl bg-white p-4 shadow-sm">
+            <Label>상품 사진 (선택, 최대 {MAX_PHOTOS}장)</Label>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              참여자에게 어떤 음식/상품인지 보여주세요.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {photoPreviews.map((url, idx) => (
+                <div
+                  key={url}
+                  className="relative h-20 w-20 overflow-hidden rounded-xl ring-1 ring-black/[0.06]"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt={`상품 사진 ${idx + 1}`}
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handlePhotoRemove(idx)}
+                    aria-label="사진 제거"
+                    className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white"
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" aria-hidden>
+                      <path
+                        d="M6 6l12 12M18 6 6 18"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <label className="flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-0.5 rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 text-zinc-400 active:bg-zinc-100">
+                  <input
+                    type="file"
+                    accept={PHOTO_ACCEPTED.join(",")}
+                    onChange={handlePhotoAdd}
+                    className="hidden"
+                  />
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+                    <path
+                      d="M12 5v14M5 12h14"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <span className="text-[10px]">{photos.length}/{MAX_PHOTOS}</span>
+                </label>
+              )}
+            </div>
+            {photoError && (
+              <p className="mt-2 text-[11px] text-rose-500">{photoError}</p>
+            )}
+          </section>
+
           {splitMode === "single_order" ? (
             <SingleOrderFields
               storeName={storeName}
@@ -259,6 +390,64 @@ export function HostNewClient({
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>반띵 장소</Label>
             <p className="mt-1 text-[11px] text-zinc-500">📍 {userAddress ?? "위치 미설정"}</p>
+
+            {/* 장소 직접 검색 — 추천 장소가 마음에 들지 않을 때 */}
+            <PickupSearchInput
+              center={userCoords}
+              onSelectPlace={(place) => {
+                setRecommendations((prev) => {
+                  const existing = prev.findIndex(
+                    (r) => r.name === place.name && Math.abs(r.lat - place.lat) < 1e-6,
+                  );
+                  if (existing >= 0) {
+                    setSelectedReco(existing);
+                    return prev;
+                  }
+                  const next: Recommendation = {
+                    name: place.name,
+                    description: place.address || "직접 검색한 장소",
+                    lat: place.lat,
+                    lng: place.lng,
+                    walking_minutes: walkingMinutesBetween(userCoords, place),
+                    isUserSearched: true,
+                  };
+                  const arr = [...prev, next];
+                  setSelectedReco(arr.length - 1);
+                  return arr;
+                });
+              }}
+            />
+
+            {/* 검색해서 추가한 장소 — 검색 박스 바로 아래에 즉시 노출 */}
+            {recommendations.some((r) => r.isUserSearched) && (
+              <div className="mt-2 space-y-1">
+                {recommendations.map((r, i) =>
+                  r.isUserSearched ? (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedReco(i)}
+                      className={cn(
+                        "flex w-full items-start justify-between rounded-xl border p-2 text-left text-sm",
+                        selectedReco === i ? "border-brand bg-brand-50" : "border-zinc-200",
+                      )}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-medium">📍 {r.name}</span>
+                        {r.description && (
+                          <span className="mt-0.5 block text-[11px] text-zinc-500">
+                            {r.description}
+                          </span>
+                        )}
+                      </span>
+                      <span className="ml-2 shrink-0 text-xs text-zinc-400">
+                        도보 {r.walking_minutes}분
+                      </span>
+                    </button>
+                  ) : null,
+                )}
+              </div>
+            )}
+
             <PickupMap
               center={userCoords}
               pins={recommendations}
@@ -266,7 +455,7 @@ export function HostNewClient({
               onSelect={setSelectedReco}
             />
             <p className="mt-2 text-[11px] text-zinc-500">
-              *설정한 위치 주변의 안전한 거래 장소를 추천해드려요.
+              *설정한 위치 주변의 안전한 거래 장소를 추천해드려요. 원하는 장소가 없으면 위에서 검색하세요.
             </p>
             <div className="mt-2 space-y-1">
               {recoLoading && (
@@ -274,33 +463,35 @@ export function HostNewClient({
                   안전한 거래 장소를 찾는 중…
                 </p>
               )}
-              {!recoLoading && recommendations.length === 0 && (
+              {!recoLoading && recommendations.filter((r) => !r.isUserSearched).length === 0 && (
                 <p className="rounded-xl border border-dashed border-zinc-200 p-3 text-center text-xs text-zinc-400">
                   추천 장소를 불러오지 못했어요.
                 </p>
               )}
-              {recommendations.map((r, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSelectedReco(i)}
-                  className={cn(
-                    "flex w-full items-start justify-between rounded-xl border p-2 text-left text-sm",
-                    selectedReco === i ? "border-brand bg-brand-50" : "border-zinc-200",
-                  )}
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">📍 {r.name}</span>
-                    {r.description && (
-                      <span className="mt-0.5 block text-[11px] text-zinc-500">
-                        {r.description}
-                      </span>
+              {recommendations.map((r, i) =>
+                r.isUserSearched ? null : (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedReco(i)}
+                    className={cn(
+                      "flex w-full items-start justify-between rounded-xl border p-2 text-left text-sm",
+                      selectedReco === i ? "border-brand bg-brand-50" : "border-zinc-200",
                     )}
-                  </span>
-                  <span className="ml-2 shrink-0 text-xs text-zinc-400">
-                    도보 {r.walking_minutes}분
-                  </span>
-                </button>
-              ))}
+                  >
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">📍 {r.name}</span>
+                      {r.description && (
+                        <span className="mt-0.5 block text-[11px] text-zinc-500">
+                          {r.description}
+                        </span>
+                      )}
+                    </span>
+                    <span className="ml-2 shrink-0 text-xs text-zinc-400">
+                      도보 {r.walking_minutes}분
+                    </span>
+                  </button>
+                ),
+              )}
               {recoFallback && (
                 <p className="text-[10px] text-zinc-400">
                   *ANTHROPIC_API_KEY 미설정 → 기본 추천 사용
@@ -538,6 +729,119 @@ function Label({ children, className }: { children: React.ReactNode; className?:
   return <div className={cn("text-sm font-semibold text-zinc-700", className)}>{children}</div>;
 }
 
+// 두 좌표 사이 도보 시간(분) 추정 — haversine 거리 * 평균 도보 속도(4 km/h ≈ 12 min/km).
+export function walkingMinutesBetween(a: Coords, b: Coords): number {
+  const R = 6371;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const aRad = toRad(a.lat);
+  const bRad = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(aRad) * Math.cos(bRad) * Math.sin(dLng / 2) ** 2;
+  const km = 2 * R * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return Math.max(1, Math.round(km * 12));
+}
+
+// 반띵 장소 검색 — Kakao Places keywordSearch. 사용자 위치 주변 우선.
+export function PickupSearchInput({
+  center,
+  onSelectPlace,
+}: {
+  center: Coords;
+  onSelectPlace: (place: { name: string; address: string; lat: number; lng: number }) => void;
+}) {
+  const sdk = useKakaoSdk();
+  const ready = sdk.status === "ready";
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<
+    Array<{ name: string; address: string; lat: number; lng: number }>
+  >([]);
+  const [searching, setSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const debounceRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!ready || !window.kakao?.maps?.services) return;
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    const q = query.trim();
+    if (!q) {
+      setResults([]);
+      return;
+    }
+    debounceRef.current = window.setTimeout(() => {
+      setSearching(true);
+      const places = new window.kakao.maps.services.Places();
+      places.keywordSearch(
+        q,
+        (data: any[], status: any) => {
+          setSearching(false);
+          if (status !== window.kakao.maps.services.Status.OK) {
+            setResults([]);
+            return;
+          }
+          setResults(
+            data.slice(0, 8).map((d) => ({
+              name: d.place_name,
+              address: d.road_address_name || d.address_name,
+              lat: parseFloat(d.y),
+              lng: parseFloat(d.x),
+            })),
+          );
+        },
+        // 사용자 위치 중심 반경 3km 내 우선 (사라지면 일반 검색으로 폴백됨)
+        { location: new window.kakao.maps.LatLng(center.lat, center.lng), radius: 3000, sort: "distance" },
+      );
+    }, 300);
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, [query, ready, center.lat, center.lng]);
+
+  return (
+    <div className="relative mt-2">
+      <input
+        value={query}
+        onChange={(e) => {
+          setQuery(e.target.value);
+          setShowDropdown(true);
+        }}
+        onFocus={() => setShowDropdown(true)}
+        onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+        placeholder="장소 검색 (예: 신림역 1번 출구, 봉천 GS25)"
+        className="w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm"
+      />
+      {searching && (
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-zinc-400">
+          검색 중…
+        </span>
+      )}
+      {showDropdown && results.length > 0 && (
+        <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
+          {results.map((r, i) => (
+            <li key={i} className="border-b border-zinc-100 last:border-0">
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onSelectPlace(r);
+                  setQuery("");
+                  setResults([]);
+                  setShowDropdown(false);
+                }}
+                className="block w-full px-3 py-2 text-left hover:bg-brand-50"
+              >
+                <div className="text-sm font-medium">📍 {r.name}</div>
+                <div className="text-[11px] text-zinc-500">{r.address}</div>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function StoreNameSearchInput({
   value,
   onChange,
@@ -637,7 +941,7 @@ function StoreNameSearchInput({
   );
 }
 
-function PickupMap({
+export function PickupMap({
   center,
   pins,
   selectedIndex,

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { displayStatusLabel, formatKRW, formatKstShort } from "@/lib/party-status";
+import { partyPhotoUrl } from "@/lib/storage";
 import type { DisplayStatus, PartyRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { StoreThumb } from "./StoreThumb";
@@ -35,16 +36,26 @@ const STATUS_PILL: Record<DisplayStatus, { cls: string; icon: string }> = {
 
 export function PartyCard({ party, href, showStatus = false }: Props) {
   const individual = isIndividualOrder(party);
+  const thumbPath = party.photo_paths?.[0] ?? null;
 
   return (
     <Link
       href={href as any}
       className="block rounded-2xl border border-zinc-200 bg-white p-4 transition hover:border-brand/40 hover:shadow-sm"
     >
-      {/* 본문 — 이미지(or 이모지 폴백) + 텍스트 */}
+      {/* 본문 — 사용자 등록 사진(or 이모지 폴백) + 텍스트 */}
       <div className="flex gap-3">
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-brand-50">
-          <StoreThumb storeName={party.store_name} menu={party.representative_menu} />
+          {thumbPath ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={partyPhotoUrl(thumbPath)}
+              alt={party.store_name}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <StoreThumb storeName={party.store_name} menu={party.representative_menu} />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

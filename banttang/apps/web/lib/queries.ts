@@ -12,7 +12,7 @@ export type PartyListItem = PartyRow & {
 
 // PostGIS geography(Point, 4326) EWKB hex → {lng, lat}
 // 형식: 1바이트 byte order + 4바이트 type + 4바이트 SRID + 8바이트 X + 8바이트 Y (LE)
-function parseEwkbPoint(hex: string | null): { lng: number; lat: number } | null {
+export function parseEwkbPoint(hex: string | null): { lng: number; lat: number } | null {
   if (!hex || hex.length < 50) return null;
   const buf = Buffer.from(hex, "hex");
   if (buf.length < 25) return null;

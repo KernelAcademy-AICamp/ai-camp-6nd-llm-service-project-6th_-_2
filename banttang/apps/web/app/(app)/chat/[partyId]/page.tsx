@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PartyChatContainer } from "@/components/chat/party-chat-container";
 import { closePartyIfFull } from "@/app/_actions/party-lifecycle";
+import { parseEwkbPoint } from "@/lib/queries";
 import type {
   ChatMessageWithSender,
   PartyParticipantWithProfile,
@@ -34,21 +35,25 @@ export default async function ChatPage({ params }: { params: { partyId: string }
   if (!partyRes.data) notFound();
   const party = partyRes.data;
 
-  // 픽업 장소 이름
+  // 픽업 장소 이름 + 좌표 (지도 표시용)
   const partyExt = party as PartyWithStats & {
     pickup_location_id?: string | null;
     custom_pickup_name?: string | null;
+    custom_pickup_point?: string | null;
   };
   let pickupLocationName: string | null = null;
+  let pickupCoord: { lat: number; lng: number } | null = null;
   if (partyExt.pickup_location_id) {
     const pickupRes = await supabase
       .from("pickup_locations")
-      .select("name")
+      .select("name, point")
       .eq("id", partyExt.pickup_location_id)
-      .maybeSingle<{ name: string }>();
+      .maybeSingle<{ name: string; point: string | null }>();
     pickupLocationName = pickupRes.data?.name ?? null;
+    pickupCoord = parseEwkbPoint(pickupRes.data?.point ?? null);
   } else if (partyExt.custom_pickup_name) {
     pickupLocationName = partyExt.custom_pickup_name;
+    pickupCoord = parseEwkbPoint(partyExt.custom_pickup_point ?? null);
   }
 
   // 2) 채팅방
@@ -107,6 +112,7 @@ export default async function ChatPage({ params }: { params: { partyId: string }
         initialMessages={initialMessages}
         initialReceipts={initialReceipts}
         pickupLocationName={pickupLocationName}
+        pickupCoord={pickupCoord}
       />
     </main>
   );

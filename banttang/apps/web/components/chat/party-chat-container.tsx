@@ -45,6 +45,9 @@ interface Props {
   initialMessages: ChatMessageWithSender[];
   initialReceipts: Receipt[];
   pickupLocationName?: string | null;
+  // pickup_locations.point 또는 parties.custom_pickup_point에서 파싱한 좌표.
+  // TransactionCardSheet에 지도 표시할 때 사용.
+  pickupCoord?: { lat: number; lng: number } | null;
 }
 
 // 채팅방 = 거래 단계 메인 컨테이너 (와이어프레임 08/09/10).
@@ -58,6 +61,7 @@ export function PartyChatContainer({
   initialMessages,
   initialReceipts,
   pickupLocationName,
+  pickupCoord = null,
 }: Props) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -159,37 +163,6 @@ export function PartyChatContainer({
         content,
       })
       .then(() => undefined, () => undefined);
-  }
-
-  // 호스트: 모집 글 삭제 (DB는 status='cancelled' soft delete). 영수증 등록 전까지만.
-  async function handleDeleteParty() {
-    if (!isHost || !canManage) return;
-    const ok = await askConfirm({
-      title: "모집 글을 삭제할까요?",
-      description: "채팅방이 닫히고 참여자들이 홈으로 돌아갑니다.",
-      confirmText: "삭제하기",
-      destructive: true,
-    });
-    if (!ok) return;
-    setManaging(true);
-    try {
-      const { error } = await supabase
-        .from("parties")
-        .update({
-          status: "cancelled",
-          cancelled_at: new Date().toISOString(),
-          cancel_reason: "host_deleted",
-        })
-        .eq("id", party.id);
-      if (error) throw error;
-      await appendSystemMessage("🛑 호스트가 글을 삭제했어요.");
-      router.push("/");
-      router.refresh();
-    } catch (err) {
-      alert(`글 삭제 실패: ${err instanceof Error ? err.message : String(err)}`);
-    } finally {
-      setManaging(false);
-    }
   }
 
   // 호스트: 멤버 강퇴 (status='rejected'). 호스트는 강퇴 불가.
@@ -596,7 +569,6 @@ export function PartyChatContainer({
           isHost={isHost}
           canManage={canManage}
           managing={managing}
-          onDeleteParty={isHost ? handleDeleteParty : undefined}
           onLeaveParty={!isHost ? handleLeaveChat : undefined}
           onKickMember={
             isHost
@@ -709,7 +681,6 @@ export function PartyChatContainer({
         onOpenReview={() => setCompleteOpen(true)}
         canManage={canManage}
         managing={managing}
-        onDeleteParty={isHost ? handleDeleteParty : undefined}
         onLeaveParty={!isHost ? handleLeaveChat : undefined}
         onKickMember={
           isHost
@@ -878,6 +849,7 @@ export function PartyChatContainer({
         onClose={() => setCardOpen(false)}
         party={party}
         pickupName={pickupLocationName ?? null}
+        pickupCoord={pickupCoord}
         members={members.map((p) => ({
           user_id: p.user_id,
           nickname: p.profile?.nickname ?? "알 수 없음",

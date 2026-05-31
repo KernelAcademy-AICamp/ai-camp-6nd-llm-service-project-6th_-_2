@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import type { CurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
@@ -25,10 +26,66 @@ export function UserBar({
   notifications: NotificationItem[];
 }) {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [items, setItems] = useState<NotificationItem[]>(notifications);
   const unreadCount = items.filter((n) => !n.is_read).length;
+
+  // Realtime: notifications 테이블 INSERT/UPDATE 구독.
+  // 새 알림 INSERT 시 prepend, 읽음 처리 등 UPDATE 시 in-place 반영.
+  // RLS-aware Realtime 위해 setAuth로 access_token 박은 뒤 subscribe.
+  useEffect(() => {
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        supabase.realtime.setAuth(data.session.access_token);
+      }
+      if (cancelled) return;
+
+      channel = supabase
+        .channel(`notifications:${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const row = payload.new as NotificationItem;
+            setItems((prev) =>
+              prev.some((n) => n.id === row.id)
+                ? prev
+                : [row, ...prev].slice(0, 20),
+            );
+          },
+        )
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "notifications",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const row = payload.new as NotificationItem;
+            setItems((prev) => prev.map((n) => (n.id === row.id ? row : n)));
+          },
+        )
+        .subscribe();
+    })();
+
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [supabase, user.id]);
 
   async function openNotif() {
     setShowNotif(true);

@@ -243,13 +243,13 @@ COMMENT ON COLUMN parties.paid_by_host IS 'true면 호스트가 선결제, 참�
 
 
 -- ----------------------------------------------------------------------------
--- 3.6 party_photos — 모집글 사진 (최대 3장)
+-- 3.6 party_photos — 모집글 사진 (최대 10장)
 -- ----------------------------------------------------------------------------
 CREATE TABLE party_photos (
     id              uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     party_id        uuid NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
     storage_path    text NOT NULL,                     -- Storage 'party-photos/{party_id}/{filename}'
-    order_index     int  NOT NULL CHECK (order_index BETWEEN 0 AND 2),
+    order_index     int  NOT NULL CHECK (order_index BETWEEN 0 AND 9),
     created_at      timestamptz NOT NULL DEFAULT now(),
     UNIQUE (party_id, order_index)
 );

@@ -14,7 +14,7 @@
 //      d. 채팅방에 receipt_card 시스템 메시지 INSERT
 //   4) 실패면 422 + 사유 반환 (row 미생성)
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -128,10 +128,30 @@ export async function verifyReceiptWithClaude(
       return { ok: false, error: "검증 서비스 설정이 비어있어요. 관리자에게 문의해주세요." };
     }
 
-    // 4) 이미지 base64 변환 + Claude 호출
+    // 4) 이미지 base64 변환 + sha256 dedup 사전 조회
     const buf = Buffer.from(await file.arrayBuffer());
     const base64 = buf.toString("base64");
     const mediaType = SUPPORTED_MEDIA.has(file.type) ? file.type : "image/jpeg";
+    const imageSha256 = createHash("sha256").update(buf).digest("hex");
+
+    // 동일 이미지(byte 일치)가 이미 다른 영수증 인증에 사용됐는지 확인.
+    // 같은 파일을 다른 파티로 돌려쓰는 어뷰즈를 1차 차단.
+    // partial unique index (uq_receipts_image_sha256)와 같은 기준 — race 시엔 INSERT가 P23505로 실패.
+    const { data: existingByHash } = await admin
+      .from("receipts")
+      .select("id, party_id, uploader_id, created_at")
+      .eq("image_sha256", imageSha256)
+      .maybeSingle();
+    if (existingByHash) {
+      return {
+        ok: true,
+        data: {
+          verified: false,
+          reason: "이미 사용된 영수증이에요. 다른 영수증 사진으로 등록해주세요.",
+          confidence: 0,
+        },
+      };
+    }
 
     const client = new Anthropic({ apiKey });
     let verdict: VerifyOutput;
@@ -237,6 +257,7 @@ export async function verifyReceiptWithClaude(
         party_id: partyIdRaw,
         uploader_id: auth.user.id,
         storage_path: storagePath,
+        image_sha256: imageSha256,
         ocr_store_name: verdict.merchant,
         ocr_total_amount: verdict.detected_total,
         ocr_confidence: verdict.confidence,
@@ -248,7 +269,20 @@ export async function verifyReceiptWithClaude(
       })
       .select("id")
       .single();
-    if (insErr) return { ok: false, error: `영수증 저장 실패: ${insErr.message}` };
+    if (insErr) {
+      // 23505 = unique_violation. partial unique index가 race로 잡은 케이스 — 친화 메시지로 변환.
+      if ((insErr as { code?: string }).code === "23505") {
+        return {
+          ok: true,
+          data: {
+            verified: false,
+            reason: "이미 사용된 영수증이에요. 다른 영수증 사진으로 등록해주세요.",
+            confidence: 0,
+          },
+        };
+      }
+      return { ok: false, error: `영수증 저장 실패: ${insErr.message}` };
+    }
 
     // parties.status closed → in_progress
     await admin
