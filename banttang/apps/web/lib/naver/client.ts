@@ -95,7 +95,7 @@ type CommonParams = {
 };
 
 // 429(rate limit)·5xx 는 일시적이므로 지수 백오프로 재시도.
-const MAX_RETRIES = 3;
+const MAX_RETRIES = 4;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function naverFetch(
@@ -246,6 +246,12 @@ export type ShopSearchOptions = {
   start?: number; // 1~1000
   sort?: ShopSort;
 };
+
+// 네이버 쇼핑 검색 URL. 쇼핑 상품 딥링크(smartstore·catalog)는 재클릭 시
+// nid.naver.com 로그인 게이트로 튕기므로, 카드 클릭은 로그인 없는 쇼핑 검색 리스트로 보낸다.
+export function naverShoppingSearchUrl(query: string): string {
+  return `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(query)}`;
+}
 
 /** 쇼핑검색 — 장보기·생활템 (가격 포함). */
 export async function searchShop(

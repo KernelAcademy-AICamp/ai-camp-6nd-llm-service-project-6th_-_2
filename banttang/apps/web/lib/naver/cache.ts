@@ -16,6 +16,7 @@ import {
   searchBlog,
   searchNews,
   isNaverConfigured,
+  naverShoppingSearchUrl,
   type LocalSort,
   type ShopSort,
   type DocSort,
@@ -32,8 +33,8 @@ const TTL_MS = 60 * 60 * 1000; // 1시간
 const PER_QUERY = 5; // 검색어당 가져올 결과 수
 const MAX_PER_SECTION = 8; // 섹션별 피드 상한
 // 네이버는 동시 요청을 과하게 받으면 일부를 429로 끊는다. 갱신은 1시간에 1번뿐이라
-// 속도보다 정확성이 중요 → 동시 호출 수를 제한한다.
-const CONCURRENCY = 4;
+// 속도보다 정확성이 중요 → 동시 호출 수를 낮게 유지(카테고리 6개로 쿼리가 20+).
+const CONCURRENCY = 2;
 
 // 정제 후 UI 가 그대로 쓰는 정규화 카드.
 export type FeedCard = {
@@ -65,9 +66,11 @@ export type FeedResult = {
 
 const EMPTY_SECTIONS = (): Record<FeedSection, FeedCard[]> => ({
   delivery: [],
-  grocery: [],
-  household: [],
-  local_news: [],
+  food: [],
+  health: [],
+  living: [],
+  beauty: [],
+  fashion: [],
 });
 
 // ---------- 공개 API ----------
@@ -118,7 +121,7 @@ export async function refreshNeighborhoodFeed(
     interests: ALL_INTERESTS, // 모든 관심사 선택 가정
   });
 
-  const feed = await fetchAndRefine(queries);
+  const feed = await fetchAndRefine(queries, nb.name);
 
   const sb = getServiceClient();
   const fetchedAt = new Date();
@@ -137,18 +140,23 @@ export async function refreshNeighborhoodFeed(
 
 // ---------- 네이버 호출 + 정제 ----------
 
-async function fetchAndRefine(queries: SearchQuery[]): Promise<NeighborhoodFeed> {
+async function fetchAndRefine(
+  queries: SearchQuery[],
+  region: string,
+): Promise<NeighborhoodFeed> {
   // 동시성 제한 호출. 일부 실패해도 전체가 죽지 않도록 개별 catch.
   const results = await mapWithConcurrency(queries, CONCURRENCY, (q) =>
-    runQuery(q).catch(() => [] as ScoredCard[]),
+    runQuery(q, region).catch(() => [] as ScoredCard[]),
   );
 
   // 섹션별로 모은 뒤 중복 제거 → 점수 내림차순 → 상한.
   const buckets: Record<FeedSection, ScoredCard[]> = {
     delivery: [],
-    grocery: [],
-    household: [],
-    local_news: [],
+    food: [],
+    health: [],
+    living: [],
+    beauty: [],
+    fashion: [],
   };
   for (const cards of results) {
     for (const c of cards) buckets[c.card.section].push(c);
@@ -184,7 +192,7 @@ async function mapWithConcurrency<T, R>(
 type ScoredCard = { dedupeKey: string; card: FeedCard };
 
 // 검색어 1건 → 네이버 호출 → 정규화 + 점수 부여.
-async function runQuery(q: SearchQuery): Promise<ScoredCard[]> {
+async function runQuery(q: SearchQuery, region: string): Promise<ScoredCard[]> {
   switch (q.type) {
     case "local": {
       const items = await searchLocal(q.query, { display: PER_QUERY, sort: q.sort as LocalSort });
@@ -195,7 +203,8 @@ async function runQuery(q: SearchQuery): Promise<ScoredCard[]> {
           type: "local",
           title: it.name,
           subtitle: it.road_address || it.address || it.category,
-          link: it.link,
+          // 가게 홈페이지가 없으면(흔함) 네이버 지도 검색으로 폴백 → 항상 클릭 가능
+          link: it.link || naverMapUrl(it.name, region),
           image: null,
           score: relevance(i, items.length),
         },
@@ -210,7 +219,8 @@ async function runQuery(q: SearchQuery): Promise<ScoredCard[]> {
           type: "shop",
           title: it.title,
           subtitle: `${it.low_price.toLocaleString("ko-KR")}원 · ${it.mall_name}`,
-          link: it.link,
+          // 상품 딥링크는 로그인 게이트로 튕기므로 통합검색으로 연결
+          link: naverShoppingSearchUrl(it.title),
           image: it.image || null,
           score: relevance(i, items.length),
         },
@@ -250,6 +260,12 @@ async function runQuery(q: SearchQuery): Promise<ScoredCard[]> {
 }
 
 // ---------- 정제 헬퍼 ----------
+
+// 가게 홈페이지가 없을 때 폴백 — 네이버 지도 검색 URL (상호명 + 내 지역).
+function naverMapUrl(name: string, region: string): string {
+  const query = [name, region].filter(Boolean).join(" ");
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
+}
 
 // 관련도: 네이버가 준 순서가 앞일수록 높음 (0~1).
 function relevance(rank: number, total: number): number {
