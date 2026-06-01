@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { PartyCard } from "./PartyCard";
 import { KakaoMapView, type MapPin } from "./KakaoMapView";
 import { displayStatusLabel, minutesUntil } from "@/lib/party-status";
@@ -31,6 +33,39 @@ export function FeedClient({
   view: View;
 }) {
   const router = useRouter();
+  const supabase = useMemo(() => createClient(), []);
+
+  // 피드 실시간 — 누가 어디든 신청/승인/취소되거나 상태(recruiting↔closed)가 바뀌면
+  // 카드의 점유 카운트/상태가 즉시 갱신되도록 SSR 재요청.
+  useEffect(() => {
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        supabase.realtime.setAuth(data.session.access_token);
+      }
+      if (cancelled) return;
+      channel = supabase
+        .channel("feed-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "party_participants" },
+          () => router.refresh(),
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "parties" },
+          () => router.refresh(),
+        )
+        .subscribe();
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [supabase, router]);
+
   function go(next: { tab?: string; sort?: string; view?: string }) {
     const p = new URLSearchParams();
     p.set("tab", next.tab ?? tab);
@@ -106,12 +141,14 @@ export function FeedClient({
         <MapView parties={parties} />
       )}
     </div>
-    {/* 주문 등록 플로팅 버튼 — BottomNav(z-30) 위, viewport 우하단 고정.
-        모바일 우선 — 데스크탑에서도 viewport 기준이라 시각적으로 일관적. */}
+    {/* 주문 등록 플로팅 버튼 — BottomNav(z-30) 위, 마이 탭 칼럼 위에 정렬.
+        BottomNav가 max-w-md(28rem) 컨테이너 중앙 정렬. 4탭 균등 분할이므로
+        4번째(마이) 탭의 우측 끝 ≈ 컨테이너 우측 끝.
+        모바일(<28rem): 1rem 패딩, 데스크탑: 컨테이너 우측 끝에서 1rem 안쪽. */}
     <Link
       href="/host/new"
       aria-label="주문 등록"
-      className="fixed bottom-24 right-4 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-emerald-500/30 transition-transform active:scale-95"
+      className="fixed bottom-20 right-[max(1rem,calc(50%-13rem))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-emerald-500/30 transition-transform active:scale-95"
     >
       <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path

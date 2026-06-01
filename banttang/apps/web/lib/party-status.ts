@@ -56,6 +56,21 @@ export function formatKstShort(iso: string): string {
   return `${mm}/${dd} ${hh}:${mi}`;
 }
 
+// 카드 강조용 — "6/1(일) 오후 6:25"
+const KST_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
+export function formatKstFriendly(iso: string): string {
+  const d = new Date(iso);
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  const m = kst.getUTCMonth() + 1;
+  const day = kst.getUTCDate();
+  const w = KST_WEEKDAYS[kst.getUTCDay()];
+  const h24 = kst.getUTCHours();
+  const mi = String(kst.getUTCMinutes()).padStart(2, "0");
+  const ap = h24 < 12 ? "오전" : "오후";
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${m}/${day}(${w}) ${ap} ${h12}:${mi}`;
+}
+
 export function minutesUntil(iso: string): number {
   return Math.round((new Date(iso).getTime() - Date.now()) / 60000);
 }

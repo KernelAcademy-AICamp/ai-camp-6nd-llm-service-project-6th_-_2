@@ -30,8 +30,12 @@ export async function deletePartyPhoto(
     if (party.host_id !== auth.user.id) {
       return { ok: false, error: "호스트만 사진을 삭제할 수 있어요." };
     }
-    if (party.status !== "recruiting" && party.status !== "closed") {
-      return { ok: false, error: "거래 시작 후엔 사진을 수정할 수 없어요." };
+    if (
+      party.status !== "recruiting" &&
+      party.status !== "closed" &&
+      party.status !== "in_progress"
+    ) {
+      return { ok: false, error: "완료/취소된 주문은 사진을 수정할 수 없어요." };
     }
 
     // party_photos row 먼저 삭제 (실패 시 Storage 손대지 않음)

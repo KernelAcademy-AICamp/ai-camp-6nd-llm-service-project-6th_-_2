@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { CurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -111,6 +111,100 @@ export function UserBar({
     router.refresh();
   }
 
+  // ─────────────────────────────────────────────
+  // 경로 기반 헤더 모드 — home / subpage / hidden
+  //   /chat/[uuid]          → hidden (chat이 자체 헤더 보유)
+  //   /feed/[uuid]          → subpage + 미트볼 (호스트면 수정/삭제)
+  //   /host/new, /host/edit/[uuid], /onboarding/* → subpage (미트볼 X)
+  //   그 외(/feed, /store, /chat, /mypage)        → home
+  // ─────────────────────────────────────────────
+  const pathname = usePathname() ?? "";
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const seg = pathname.split("/").filter(Boolean);
+  let mode: "home" | "subpage" | "hidden" = "home";
+  let partyIdFromPath: string | null = null;
+  if (seg[0] === "chat" && seg[1] && UUID_RE.test(seg[1])) {
+    mode = "hidden";
+  } else if (seg[0] === "feed" && seg[1] && UUID_RE.test(seg[1])) {
+    mode = "subpage";
+    partyIdFromPath = seg[1];
+  } else if (
+    (seg[0] === "host" && (seg[1] === "new" || (seg[1] === "edit" && seg[2]))) ||
+    seg[0] === "onboarding"
+  ) {
+    mode = "subpage";
+  }
+
+  // 미트볼 노출/게이트용 파티 정보 조회 (서브 + partyId 있을 때만)
+  const [partyMeta, setPartyMeta] = useState<{
+    host_id: string;
+    status: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!partyIdFromPath) {
+      setPartyMeta(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/parties/${partyIdFromPath}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!cancelled) setPartyMeta(j ? { host_id: j.host_id, status: j.status } : null);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [partyIdFromPath]);
+
+  // hidden 모드: chat 페이지 등은 자체 헤더 사용 → null 렌더
+  if (mode === "hidden") return null;
+
+  // subpage 모드: 뒤로 + (호스트면) 미트볼
+  if (mode === "subpage") {
+    const isHostOfParty =
+      !!partyMeta && partyMeta.host_id === user.id && !!partyIdFromPath;
+    const canEdit =
+      isHostOfParty &&
+      (partyMeta!.status === "recruiting" ||
+        partyMeta!.status === "closed" ||
+        partyMeta!.status === "in_progress");
+    const canDelete =
+      isHostOfParty &&
+      (partyMeta!.status === "recruiting" || partyMeta!.status === "closed");
+
+    return (
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="뒤로"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 active:bg-zinc-100"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M15 18l-6-6 6-6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+
+        {(canEdit || canDelete) && partyIdFromPath && (
+          <SubpageHostMenu
+            partyId={partyIdFromPath}
+            canEdit={canEdit}
+            canDelete={canDelete}
+            onAfterAction={() => router.refresh()}
+          />
+        )}
+      </header>
+    );
+  }
+
+  // home 모드 — 기존 마크업
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
       <div className="flex items-center gap-2">
@@ -233,6 +327,106 @@ function NotifRow({ n, onClose }: { n: NotificationItem; onClose: () => void }) 
     );
   }
   return content;
+}
+
+// 서브 페이지(/feed/[uuid]) 우측 미트볼 — 호스트 전용.
+// 수정/삭제 메뉴, 게이트는 호출자가 canEdit / canDelete로 전달.
+function SubpageHostMenu({
+  partyId,
+  canEdit,
+  canDelete,
+  onAfterAction,
+}: {
+  partyId: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  onAfterAction: () => void;
+}) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [open]);
+
+  async function handleDelete() {
+    setOpen(false);
+    if (!confirm("이 주문을 삭제할까요? 참여자에게 알림이 갑니다.")) return;
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/parties/${partyId}/cancel`, { method: "POST" });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(j.error ?? "삭제 실패");
+        return;
+      }
+      router.push("/feed");
+      router.refresh();
+      onAfterAction();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={busy}
+        aria-label="더보기"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 active:bg-zinc-100 disabled:opacity-40"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <circle cx="12" cy="5" r="1.6" fill="currentColor" />
+          <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+          <circle cx="12" cy="19" r="1.6" fill="currentColor" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-40 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-black/5 bg-white py-1 shadow-xl"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              if (canEdit) router.push(`/host/edit/${partyId}` as any);
+            }}
+            disabled={!canEdit || busy}
+            className="w-full px-4 py-2.5 text-left text-sm text-zinc-800 active:bg-zinc-50 disabled:text-zinc-300"
+          >
+            수정하기
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={handleDelete}
+            disabled={!canDelete || busy}
+            className="w-full px-4 py-2.5 text-left text-sm text-rose-600 active:bg-rose-50 disabled:text-zinc-300"
+          >
+            삭제하기
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function formatRelative(iso: string): string {

@@ -52,8 +52,12 @@ export default async function EditPartyPage({
     | null;
   if (!party) notFound();
   if (party.host_id !== me.id) redirect(`/feed/${params.partyId}`);
-  // 거래 진행/완료/취소 상태는 수정 잠금. recruiting + closed (정원찼고 채팅 열림)까지 허용.
-  if (party.status !== "recruiting" && party.status !== "closed") {
+  // 완료/취소만 잠금. 영수증 인증 후(in_progress)에도 수정 허용.
+  if (
+    party.status !== "recruiting" &&
+    party.status !== "closed" &&
+    party.status !== "in_progress"
+  ) {
     redirect(`/feed/${params.partyId}`);
   }
 

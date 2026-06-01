@@ -1,8 +1,11 @@
 import { redirect, notFound } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { PartyChatContainer } from "@/components/chat/party-chat-container";
 import { closePartyIfFull } from "@/app/_actions/party-lifecycle";
+import { ensureAvocadoNoticeMessage } from "@/app/_actions/ensure-avocado-notice";
 import { parseEwkbPoint } from "@/lib/queries";
+import { DEFAULT_ENTRY_NOTICE } from "@/lib/types/avocado-notice";
 import type {
   ChatMessageWithSender,
   PartyParticipantWithProfile,
@@ -25,6 +28,13 @@ export default async function ChatPage({ params }: { params: { partyId: string }
 
   // 정원 다 찼는데 status가 recruiting이면 마감 + 채팅방 생성 (자동 복구)
   await closePartyIfFull(partyId);
+  // 방장봇 아보카도 안전망 시스템 메시지 — room+version당 최대 1건 (DB unique index).
+  // await로 같은 요청 내 race 방지. 동시 다중 SSR은 unique index가 거름.
+  await ensureAvocadoNoticeMessage(partyId, {
+    version: DEFAULT_ENTRY_NOTICE.version,
+    title: DEFAULT_ENTRY_NOTICE.title,
+    body: DEFAULT_ENTRY_NOTICE.body,
+  });
 
   // 1) 파티 본문
   const partyRes = await supabase
@@ -34,6 +44,23 @@ export default async function ChatPage({ params }: { params: { partyId: string }
     .maybeSingle<PartyWithStats>();
   if (!partyRes.data) notFound();
   const party = partyRes.data;
+
+  // 1.5) 본인 참여 row의 last_read_at을 NOW()로 갱신 — 채팅 진입 = 읽음 처리.
+  // 페이지 렌더 전에 await — 뒤로가기 직후 채팅 목록/배지가 즉시 갱신된 값을 봐야 함.
+  // RLS-aware로 본인 row만 UPDATE. 실패해도 채팅 흐름엔 영향 X.
+  try {
+    await supabase
+      .from("party_participants")
+      .update({ last_read_at: new Date().toISOString() })
+      .eq("party_id", partyId)
+      .eq("user_id", user.id);
+    // Next.js router cache 무효화 — 뒤로가기 시 채팅 목록(/chat)과
+    // BottomNav 배지(layout RPC)가 새 last_read_at 기준으로 재계산되도록.
+    revalidatePath("/chat");
+    revalidatePath("/", "layout");
+  } catch {
+    // swallow — 읽음 갱신 실패는 비치명적
+  }
 
   // 픽업 장소 이름 + 좌표 (지도 표시용)
   const partyExt = party as PartyWithStats & {
@@ -102,7 +129,9 @@ export default async function ChatPage({ params }: { params: { partyId: string }
   }
 
   return (
-    <main className="mx-auto flex h-[100dvh] max-w-2xl flex-col">
+    // 부모(app)/main이 flex flex-col pb-20이라 flex-1로 가용 공간 그대로 사용.
+    // input bar(컨테이너의 마지막 자식)는 자연스럽게 pb-20 영역 위쪽 = BottomNav 바로 위에 정렬됨.
+    <main className="mx-auto flex flex-1 max-w-2xl flex-col">
       <PartyChatContainer
         party={party}
         currentUserId={user.id}

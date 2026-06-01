@@ -24,8 +24,10 @@ import { CompleteSheet, type CompleteSubmitInput } from "./complete-sheet";
 import { PartyInfoCard } from "./party-info-card";
 import { ActionBanner } from "./action-banner";
 import { TransactionCardSheet } from "./transaction-card-sheet";
+import { AvocadoNotice } from "./avocado-notice";
 import { buildTimeline, type ReceiptCardItem } from "@/lib/types/chat";
 import { derivePhase } from "@/lib/types/phase";
+import { DEFAULT_ENTRY_NOTICE } from "@/lib/types/avocado-notice";
 import type {
   ChatMessage,
   ChatMessageWithSender,
@@ -672,7 +674,8 @@ export function PartyChatContainer({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    // relative — AvocadoNotice FAB/말풍선이 absolute로 우하단에 정렬되도록.
+    <div className="relative flex h-full flex-col">
       <ChatHeader
         party={party}
         participants={participantProfiles}
@@ -821,6 +824,12 @@ export function PartyChatContainer({
         onAttachImage={!isReadOnly ? handleAttachImage : undefined}
         readOnly={isReadOnly}
         readOnlyHint={readOnlyHint}
+      />
+
+      {/* 방장봇 아보카도 — FAB + 입장 안내. storage key는 사용자×파티 단위. */}
+      <AvocadoNotice
+        notice={DEFAULT_ENTRY_NOTICE}
+        storageKey={`avocado-notice:${party.id}:${currentUserId}`}
       />
 
       <ReceiptSheet

@@ -9,8 +9,12 @@ export default async function MyPage() {
   const me = await requireCurrentUser();
   const sb = getServiceClient();
 
-  const hosted = await listParties({ hostId: me.id });
-  const joined = await listParties({ participantId: me.id, excludeHostedBy: me.id });
+  const hosted = await listParties({ hostId: me.id, excludeHiddenFor: me.id });
+  const joined = await listParties({
+    participantId: me.id,
+    excludeHostedBy: me.id,
+    excludeHiddenFor: me.id,
+  });
 
   const { data: trust } = await sb
     .from("v_user_trust_stats")
