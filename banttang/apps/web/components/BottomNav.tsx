@@ -21,11 +21,23 @@ export function BottomNav({ chatUnreadTotal = 0 }: { chatUnreadTotal?: number })
   const supabase = useMemo(() => createClient(), []);
 
   // 채팅 안 읽음 합계는 layout에서 SSR로 계산해 prop로 받음.
-  // chat_messages INSERT 일 때마다 router.refresh()로 layout 재요청 → 합계 갱신.
+  // chat_messages INSERT / 본인 last_read_at UPDATE 시 router.refresh()로 재계산.
   // RLS상 본인이 멤버인 방의 메시지만 들어오므로 globally 구독해도 안전.
+  //
+  // ⚠️ refresh는 반드시 "디바운스"한다.
+  //   채팅방 진입 시 읽음 처리(party_participants UPDATE)가 즉시 refresh를 부르면
+  //   진행 중인 클릭 네비게이션 트랜지션과 충돌해 페이지가 안 넘어간다(먹통).
+  //   짧게 모았다가 한 번만 refresh → 이동이 먼저 끝나고 배지는 곧이어 갱신됨.
   useEffect(() => {
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const refreshSoon = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!cancelled) router.refresh();
+      }, 400);
+    };
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session?.access_token) {
@@ -38,18 +50,19 @@ export function BottomNav({ chatUnreadTotal = 0 }: { chatUnreadTotal?: number })
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "chat_messages" },
-          () => router.refresh(),
+          refreshSoon,
         )
         // 본인 last_read_at UPDATE → 안 읽음 0으로 재계산 (채팅 진입 후)
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "party_participants" },
-          () => router.refresh(),
+          refreshSoon,
         )
         .subscribe();
     })();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
       if (channel) supabase.removeChannel(channel);
     };
   }, [supabase, router]);

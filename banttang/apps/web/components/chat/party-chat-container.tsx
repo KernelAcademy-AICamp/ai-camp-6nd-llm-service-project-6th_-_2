@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { askConfirm } from "@/lib/confirm";
 import { uploadChatPhoto } from "@/app/_actions/upload-chat-photo";
+import { markChatRead } from "@/app/_actions/mark-chat-read";
 import { ringDoorbell } from "@/app/_actions/ring-doorbell";
 import { recommendMidpoint } from "@/app/_actions/recommend-midpoint";
 import { updatePartyPickup } from "@/app/_actions/update-party-pickup";
@@ -36,6 +37,10 @@ import type {
   Receipt,
   UserProfile,
 } from "@/lib/types/domain";
+
+// 이미 읽음 처리한 방 id — 모듈 스코프라 리마운트/StrictMode에도 유지된다.
+// 같은 방에 markChatRead가 두 번 이상 가지 않게 막아 refresh 폭주를 차단.
+const markedReadRooms = new Set<string>();
 
 interface Props {
   party: PartyWithStats;
@@ -110,6 +115,17 @@ export function PartyChatContainer({
     const id = setInterval(() => setNowMs(Date.now()), 30_000);
     return () => clearInterval(id);
   }, []);
+
+  // 채팅방 진입 = 읽음 처리. 방(party.id)당 "세션 내 진짜 1회"만 호출한다.
+  // 절대 렌더 중(서버 페이지)에서 UPDATE하면 안 됨 — Realtime UPDATE 이벤트가
+  // BottomNav/ChatListRealtime의 router.refresh()를 부르고, 그게 재렌더/리마운트→UPDATE를
+  // 유발해 클릭 이동이 먹통이 된다.
+  // useRef는 리마운트/StrictMode 이중 호출에 리셋되므로, 모듈 스코프 Set으로 가드한다.
+  useEffect(() => {
+    if (markedReadRooms.has(party.id)) return;
+    markedReadRooms.add(party.id);
+    void markChatRead(party.id);
+  }, [party.id]);
 
   // F203 4단계 + 종결 상태. derivePhase는 영수증/반띵 시간을 함께 본다.
   const phase = derivePhase({

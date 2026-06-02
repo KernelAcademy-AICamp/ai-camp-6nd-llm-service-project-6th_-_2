@@ -1,5 +1,4 @@
 import { redirect, notFound } from "next/navigation";
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { PartyChatContainer } from "@/components/chat/party-chat-container";
 import { closePartyIfFull } from "@/app/_actions/party-lifecycle";
@@ -45,22 +44,10 @@ export default async function ChatPage({ params }: { params: { partyId: string }
   if (!partyRes.data) notFound();
   const party = partyRes.data;
 
-  // 1.5) 본인 참여 row의 last_read_at을 NOW()로 갱신 — 채팅 진입 = 읽음 처리.
-  // 페이지 렌더 전에 await — 뒤로가기 직후 채팅 목록/배지가 즉시 갱신된 값을 봐야 함.
-  // RLS-aware로 본인 row만 UPDATE. 실패해도 채팅 흐름엔 영향 X.
-  try {
-    await supabase
-      .from("party_participants")
-      .update({ last_read_at: new Date().toISOString() })
-      .eq("party_id", partyId)
-      .eq("user_id", user.id);
-    // Next.js router cache 무효화 — 뒤로가기 시 채팅 목록(/chat)과
-    // BottomNav 배지(layout RPC)가 새 last_read_at 기준으로 재계산되도록.
-    revalidatePath("/chat");
-    revalidatePath("/", "layout");
-  } catch {
-    // swallow — 읽음 갱신 실패는 비치명적
-  }
+  // 1.5) 읽음 처리(last_read_at 갱신)는 여기(렌더 도중)에서 하지 않는다.
+  //   렌더 중 UPDATE → Realtime party_participants UPDATE → BottomNav/ChatListRealtime의
+  //   router.refresh() → 재렌더 → 또 UPDATE → ... 무한 루프(클릭 이동 시 먹통)가 됐었음.
+  //   → PartyChatContainer의 마운트 1회 effect에서 markChatRead()로 처리하도록 옮김.
 
   // 픽업 장소 이름 + 좌표 (지도 표시용)
   const partyExt = party as PartyWithStats & {

@@ -14,6 +14,14 @@ export function ChatListRealtime() {
   useEffect(() => {
     let cancelled = false;
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    // refresh 디바운스 — 채팅방 진입 트랜지션과 충돌(먹통) 방지. (BottomNav와 동일 이유)
+    const refreshSoon = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!cancelled) router.refresh();
+      }, 400);
+    };
     (async () => {
       const { data } = await supabase.auth.getSession();
       if (data.session?.access_token) {
@@ -26,18 +34,19 @@ export function ChatListRealtime() {
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "chat_messages" },
-          () => router.refresh(),
+          refreshSoon,
         )
         // 본인 last_read_at UPDATE → 카드별 안 읽음 0
         .on(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "party_participants" },
-          () => router.refresh(),
+          refreshSoon,
         )
         .subscribe();
     })();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
       if (channel) supabase.removeChannel(channel);
     };
   }, [supabase, router]);
