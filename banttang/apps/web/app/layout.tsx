@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { QueryProvider } from "@/providers/query-provider";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { TopProgressBar } from "@/components/TopProgressBar";
 
 const KAKAO_MAP_KEY = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
 
@@ -32,6 +33,7 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body>
+        <TopProgressBar />
         <QueryProvider>{children}</QueryProvider>
         <ConfirmModal />
         {kakaoEnabled && (
