@@ -62,7 +62,13 @@ export function EmailLoginForm() {
   }
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-4">
+    <form
+      className="flex w-full max-w-sm flex-col gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void submit();
+      }}
+    >
       {/* 모드 토글 */}
       <div className="flex border-b border-zinc-200">
         {[
@@ -71,6 +77,7 @@ export function EmailLoginForm() {
         ].map((m) => (
           <button
             key={m.v}
+            type="button"
             onClick={() => {
               setMode(m.v as Mode);
               setError(null);
@@ -143,6 +150,7 @@ export function EmailLoginForm() {
                 {GENDER_OPTIONS.map((g) => (
                   <button
                     key={g.v}
+                    type="button"
                     onClick={() => setGender(g.v)}
                     className={cn(
                       "flex-1 rounded-xl border py-2 text-xs",
@@ -165,13 +173,13 @@ export function EmailLoginForm() {
       )}
 
       <button
-        onClick={submit}
+        type="submit"
         disabled={!isValid || busy}
         className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
       >
         {busy ? "처리 중…" : mode === "signin" ? "로그인" : "회원가입"}
       </button>
-    </div>
+    </form>
   );
 }
 
