@@ -67,12 +67,16 @@ export function BottomNav({ chatUnreadTotal = 0 }: { chatUnreadTotal?: number })
     };
   }, [supabase, router]);
 
+  // 채팅방(/chat/[id])에 머무는 동안엔 💬 배지 숨김 — 보고 있는 중엔 안 읽음 숫자
+  // 표시 안 함. (모바일이라 hover 대신 현재 경로로 판단)
+  const inChatRoom = pathname.startsWith("/chat/");
+
   return (
     <nav className="fixed bottom-0 left-1/2 z-30 flex w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white">
       {tabs.map((t) => {
         const active =
           pathname === t.href || (t.href !== "/feed" && pathname.startsWith(t.href));
-        const showBadge = t.href === "/chat" && chatUnreadTotal > 0;
+        const showBadge = t.href === "/chat" && chatUnreadTotal > 0 && !inChatRoom;
         return (
           <Link
             key={t.href}

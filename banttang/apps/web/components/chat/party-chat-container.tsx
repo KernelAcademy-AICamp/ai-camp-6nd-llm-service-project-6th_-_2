@@ -38,10 +38,6 @@ import type {
   UserProfile,
 } from "@/lib/types/domain";
 
-// 이미 읽음 처리한 방 id — 모듈 스코프라 리마운트/StrictMode에도 유지된다.
-// 같은 방에 markChatRead가 두 번 이상 가지 않게 막아 refresh 폭주를 차단.
-const markedReadRooms = new Set<string>();
-
 interface Props {
   party: PartyWithStats;
   currentUserId: string;
@@ -116,15 +112,29 @@ export function PartyChatContainer({
     return () => clearInterval(id);
   }, []);
 
-  // 채팅방 진입 = 읽음 처리. 방(party.id)당 "세션 내 진짜 1회"만 호출한다.
-  // 절대 렌더 중(서버 페이지)에서 UPDATE하면 안 됨 — Realtime UPDATE 이벤트가
-  // BottomNav/ChatListRealtime의 router.refresh()를 부르고, 그게 재렌더/리마운트→UPDATE를
-  // 유발해 클릭 이동이 먹통이 된다.
-  // useRef는 리마운트/StrictMode 이중 호출에 리셋되므로, 모듈 스코프 Set으로 가드한다.
+  // 방이 열려 있는 동안은 "계속 읽음" 상태로 유지한다.
+  //   - 진입 시 + 새 메시지가 올 때마다 읽음 처리(last_read_at = now)
+  //   → 보고 있는 동안 도착한 메시지도 읽음으로 잡혀, 방을 나가도 안 읽음 숫자가 안 살아남.
+  // 무한 루프 없음: 트리거는 messages(클라이언트 상태)·party.id 뿐이다. markChatRead가
+  //   부르는 router.refresh()(BottomNav 실시간 구독 경유)는 서버 컴포넌트만 다시 그릴 뿐
+  //   messages state를 바꾸지 않으므로 이 effect를 재실행시키지 않는다.
+  // 배지 합계 갱신은 BottomNav의 party_participants UPDATE 구독(디바운스 refresh)이 담당.
+  // 500ms 디바운스로 메시지 버스트를 한 번으로 합친다.
+  const latestMessageId =
+    messages.length > 0 ? messages[messages.length - 1].id : null;
   useEffect(() => {
-    if (markedReadRooms.has(party.id)) return;
-    markedReadRooms.add(party.id);
-    void markChatRead(party.id);
+    const t = setTimeout(() => {
+      void markChatRead(party.id);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [party.id, latestMessageId]);
+
+  // 방을 나갈 때(언마운트) 한 번 더 읽음 처리 — 디바운스 때문에 미처 못 보낸 직전
+  // 메시지까지 확실히 읽음으로 만든다. 나간 뒤 BottomNav 구독이 배지를 곧 갱신한다.
+  useEffect(() => {
+    return () => {
+      void markChatRead(party.id);
+    };
   }, [party.id]);
 
   // F203 4단계 + 종결 상태. derivePhase는 영수증/반띵 시간을 함께 본다.
