@@ -54,9 +54,12 @@ function getSplitModeDesc(mode: SplitMode, tab: "delivery" | "shopping"): string
 export function HostNewClient({
   userAddress,
   userCoords,
+  initialStoreName,
 }: {
   userAddress: string | null;
   userCoords: Coords;
+  // 스토어 배달 카드의 "반띵" 버튼에서 넘어올 때 가게명 프리필.
+  initialStoreName?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -71,7 +74,7 @@ export function HostNewClient({
   const category: "delivery" | "offline_shopping" = tab === "delivery" ? "delivery" : "offline_shopping";
 
   const [splitMode, setSplitMode] = useState<SplitMode | null>(null);
-  const [storeName, setStoreName] = useState("");
+  const [storeName, setStoreName] = useState(initialStoreName ?? "");
   const [menu, setMenu] = useState(""); // single_order: 대표 메뉴
   const [price, setPrice] = useState(8000);
   // individual_items 전용: 최소주문금액·배송비 분담 항목

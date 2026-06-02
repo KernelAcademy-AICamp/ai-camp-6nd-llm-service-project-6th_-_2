@@ -74,6 +74,12 @@ export function StoreFeedTabs({
               subtitle={card.subtitle}
               link={card.link}
               image={card.image}
+              // 배달 카드에만 "반띵" 버튼 — 가게명 프리필해 모집글 생성으로 이동.
+              banttangHref={
+                current.key === "delivery"
+                  ? `/host/new?store=${encodeURIComponent(card.title)}`
+                  : undefined
+              }
             />
           ))
         ) : (
