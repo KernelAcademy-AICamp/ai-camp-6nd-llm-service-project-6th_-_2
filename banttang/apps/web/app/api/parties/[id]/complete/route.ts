@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { requireCurrentUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase/admin";
 
-// 거래 완료 처리. 호스트가 호출.
+// 거래 완료 처리. approved 멤버(호스트 포함) 누구나 호출 가능.
+// 영수증 인증 후 멤버가 "거래 완료" 버튼으로 처리하는 게 일반적인 흐름.
 export async function POST(_req: Request, { params }: { params: { id: string } }) {
   try {
     const me = await requireCurrentUser();
@@ -13,8 +14,15 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       .eq("id", params.id)
       .maybeSingle();
     if (!party) return NextResponse.json({ error: "주문 없음" }, { status: 404 });
-    if (party.host_id !== me.id)
-      return NextResponse.json({ error: "호스트만 가능" }, { status: 403 });
+    // approved 참여자(호스트 포함)면 누구나 완료 처리 가능
+    const { data: pp } = await sb
+      .from("party_participants")
+      .select("status")
+      .eq("party_id", params.id)
+      .eq("user_id", me.id)
+      .maybeSingle();
+    if (!pp || pp.status !== "approved")
+      return NextResponse.json({ error: "참여자만 가능" }, { status: 403 });
     if (party.status === "completed")
       return NextResponse.json({ ok: true, already: true });
 

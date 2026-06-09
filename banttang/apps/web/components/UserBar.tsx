@@ -125,12 +125,17 @@ export function UserBar({
   let partyIdFromPath: string | null = null;
   if (seg[0] === "chat" && seg[1] && UUID_RE.test(seg[1])) {
     mode = "hidden";
+  } else if (seg[0] === "mypage" && seg[1] === "reviews") {
+    // 띵동 후기 목록/상세 — 자체 헤더(← + 타이틀 인라인) 사용 → UserBar 숨김
+    mode = "hidden";
   } else if (seg[0] === "feed" && seg[1] && UUID_RE.test(seg[1])) {
     mode = "subpage";
     partyIdFromPath = seg[1];
   } else if (
     (seg[0] === "host" && (seg[1] === "new" || (seg[1] === "edit" && seg[2]))) ||
-    seg[0] === "onboarding"
+    seg[0] === "onboarding" ||
+    // /mypage 서브 페이지 (orders, reviews, profile 등)는 뒤로가기 노출. hub(/mypage)는 home 모드 유지.
+    (seg[0] === "mypage" && seg.length > 1)
   ) {
     mode = "subpage";
   }

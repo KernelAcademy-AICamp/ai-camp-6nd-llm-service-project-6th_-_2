@@ -308,18 +308,17 @@ export async function verifyReceiptWithClaude(
           metadata: { receipt_id: inserted.id, amount: detectedTotal },
         },
         // 멤버에게만 보이는 확인 요청 — recipient='member' 메타로 호스트 화면에선 숨김.
-        // 정책: 제목 "주문 내역을 확인해주세요" + 본문 "호스트가 영수증을 인증했어요. ..."
+        // 정책: "📋 주문 내역 및 금액이 일치하는지 확인해 주세요." (한 줄)
         {
           room_id: room.id,
           sender_id: null,
           type: "system",
-          content:
-            "📋 주문 내역을 확인해주세요\n호스트가 영수증을 인증했어요. 주문 금액과 메뉴를 확인해주세요.",
+          content: "📋 주문 내역 및 금액이 일치하는지 확인해 주세요.",
           metadata: {
             kind: "receipt_confirm_prompt",
             recipient: "member",
             receipt_id: inserted.id,
-            title: "주문 내역을 확인해주세요",
+            title: "주문 내역 및 금액이 일치하는지 확인해 주세요.",
           },
         },
       ]);

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
@@ -89,7 +90,12 @@ export function ChatHeader({
           </svg>
         </button>
 
-        <div className="min-w-0 flex-1">
+        {/* 가게명/상태/요약 — 클릭 시 작성한 모집글로 이동 */}
+        <Link
+          href={`/feed/${party.id}` as any}
+          className="block min-w-0 flex-1 rounded-md transition-colors active:bg-black/[0.04]"
+          aria-label={`${party.store_name} 모집글 보기`}
+        >
           <div className="flex items-center gap-1.5">
             <h1 className="truncate text-[16px] font-bold text-gray-900">
               {party.store_name}
@@ -106,7 +112,7 @@ export function ChatHeader({
           <p className="truncate text-[11px] text-gray-500">
             {CATEGORY_LABEL[party.category]} · {party.approved_count}/{party.max_participants}명
           </p>
-        </div>
+        </Link>
 
         {onOpenTransactionCard && (
           <button

@@ -34,7 +34,12 @@ const SPLIT_PILL = {
   individual: "bg-sky-100 text-sky-700",
 };
 
-export function PartyCard({ party, href, showStatus = false, menu }: Props) {
+export function PartyCard({
+  party,
+  href,
+  showStatus = false,
+  menu,
+}: Props) {
   const individual = isIndividualOrder(party);
   const thumbPath = party.photo_paths?.[0] ?? null;
 

@@ -26,8 +26,16 @@ function matchStatus(filter: StatusFilter, status: string): boolean {
   return false;
 }
 
-export function MyPageTabs({ hosted, joined }: { hosted: Party[]; joined: Party[] }) {
-  const [tab, setTab] = useState<Variant>("hosted");
+export function MyPageTabs({
+  hosted,
+  joined,
+  initialTab = "hosted",
+}: {
+  hosted: Party[];
+  joined: Party[];
+  initialTab?: Variant;
+}) {
+  const [tab, setTab] = useState<Variant>(initialTab);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
   const rawItems = tab === "hosted" ? hosted : joined;

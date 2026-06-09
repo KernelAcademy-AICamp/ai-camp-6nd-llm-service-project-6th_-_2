@@ -144,7 +144,10 @@ export function PartyChatContainer({
     dealAt: party.deal_at,
     now: new Date(nowMs),
   });
-  const isReadOnly = phase === "completed" || phase === "cancelled";
+  // 메시지 전송 잠금은 'cancelled'만. 'completed' 후에도 평가/소통은 가능.
+  // 단, 호스트 액션(영수증 등록·거래 완료 버튼 등)은 isPostTrade로 별도 잠금.
+  const isReadOnly = phase === "cancelled";
+  const isPostTrade = phase === "completed" || phase === "cancelled";
 
   // 띵동 활성화: deal_at - 15분 ~ deal_at + 60분
   // [TEMP-DEV] 테스트 위해 30일로 확장. 운영 전 원복:
@@ -612,7 +615,7 @@ export function PartyChatContainer({
           pickupLocationName={pickupLocationName}
           isHost={isHost}
           onVerifyReceipt={
-            isHost && !isReadOnly ? () => setReceiptOpen(true) : undefined
+            isHost && !isPostTrade ? () => setReceiptOpen(true) : undefined
           }
         />
 
@@ -701,7 +704,9 @@ export function PartyChatContainer({
 
   return (
     // relative — AvocadoNotice FAB/말풍선이 absolute로 우하단에 정렬되도록.
-    <div className="relative flex h-full flex-col">
+    // flex-1 — h-full 대신 사용. 부모 flex-col 체인에서 가용 높이 안정적으로 채움
+    // (이전 h-full은 일부 케이스에서 컨텐츠 높이로만 줄어 input bar가 중앙 부근에 떠 있었음).
+    <div className="relative flex flex-1 flex-col">
       <ChatHeader
         party={party}
         participants={participantProfiles}
@@ -731,16 +736,28 @@ export function PartyChatContainer({
           <span aria-hidden>🪪</span>
           <span>반띵 카드 보기</span>
         </button>
-        {isHost && !isReadOnly && (
-          <button
-            type="button"
-            onClick={() => setReceiptOpen(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-3 text-[14px] font-semibold text-white transition-opacity active:opacity-80"
-          >
-            <span aria-hidden>🧾</span>
-            <span>주문 인증</span>
-          </button>
-        )}
+        {isHost && (() => {
+          // 영수증 등록됐거나 거래가 끝난 후엔 비활성 "인증 완료" 상태로 노출.
+          // 진행 단계에서만 클릭 가능.
+          const isVerified = receipts.length > 0;
+          const lockedAfterTrade = isPostTrade; // completed/cancelled
+          const disabled = isVerified || lockedAfterTrade;
+          return (
+            <button
+              type="button"
+              onClick={() => !disabled && setReceiptOpen(true)}
+              disabled={disabled}
+              className={
+                disabled
+                  ? "flex shrink-0 items-center gap-1.5 rounded-xl bg-zinc-200 px-4 py-3 text-[14px] font-semibold text-zinc-500 cursor-not-allowed"
+                  : "flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-3 text-[14px] font-semibold text-white transition-opacity active:opacity-80"
+              }
+            >
+              <span aria-hidden>{isVerified ? "✓" : "🧾"}</span>
+              <span>{isVerified ? "인증 완료" : "주문 인증"}</span>
+            </button>
+          );
+        })()}
       </section>
 
       <ChatTimeline
@@ -812,18 +829,28 @@ export function PartyChatContainer({
           description="반띵 시간이 다가왔어요. 호스트가 영수증을 등록하면 거래 확인 단계로 넘어갑니다."
         />
       )}
-      {phase === "review_pending" && (
+      {/* 거래 완료 처리는 파티원만 — 영수증 인증 직후부터 노출 (verified/review_pending).
+          버튼 클릭 시 후기 작성 페이지로 이동만 한다. 후기 작성 완료 전까지는 'completed' 전이 X. */}
+      {(phase === "verified" || phase === "review_pending") && !isHost && (
         <ActionBanner
           tone="info"
           icon="check"
-          title="반띵 시간이에요"
-          description={
-            isHost
-              ? "거래를 완료하고 함께한 분들을 평가해주세요."
-              : "거래를 확인하고 함께한 분들을 평가해주세요."
-          }
-          actionLabel={isHost ? "거래 완료" : "평가하기"}
-          onAction={() => setCompleteOpen(true)}
+          title="거래를 완료해주세요"
+          description="주문 내역과 결제 금액이 맞는지 확인하고 후기를 작성하면 거래가 완료됩니다."
+          actionLabel="거래 완료"
+          onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
+        />
+      )}
+      {/* 완료된 반띵 — 마이페이지 후기 작성 화면으로 진입. 작성/조회 화면이 같은 라우트라
+          이미 쓴 사람도 같은 버튼으로 본인 후기 확인 가능. */}
+      {phase === "completed" && (
+        <ActionBanner
+          tone="info"
+          icon="check"
+          title="거래가 완료되었어요"
+          description="함께한 분들에게 후기를 남겨보세요. 이미 작성했다면 후기를 다시 볼 수 있어요."
+          actionLabel="거래 후기 작성"
+          onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
         />
       )}
 

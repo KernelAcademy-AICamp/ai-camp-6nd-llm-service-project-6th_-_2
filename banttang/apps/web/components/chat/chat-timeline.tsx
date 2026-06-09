@@ -190,7 +190,7 @@ export function ChatTimeline({
                 );
               }
 
-              // 영수증 확인 요청 — 강조 카드로 렌더 (제목 + 본문)
+              // 영수증 확인 요청 — 강조 카드(amber).
               const meta = m.metadata as { kind?: string; title?: string } | null;
               if (meta?.kind === "receipt_confirm_prompt") {
                 return (
@@ -199,10 +199,7 @@ export function ChatTimeline({
                     <li className="my-2 flex justify-center px-4">
                       <div className="w-full max-w-[85%] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
                         <p className="text-[13px] font-bold text-amber-900">
-                          📋 {meta.title ?? "주문 내역을 확인해주세요"}
-                        </p>
-                        <p className="mt-1 text-[12px] leading-relaxed text-amber-800">
-                          호스트가 영수증을 인증했어요. 주문 금액과 메뉴를 확인해주세요.
+                          📋 {meta.title ?? "주문 내역 및 금액이 일치하는지 확인해 주세요."}
                         </p>
                       </div>
                     </li>
