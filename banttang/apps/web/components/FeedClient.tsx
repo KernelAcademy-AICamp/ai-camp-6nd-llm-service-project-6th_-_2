@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PartyCard } from "./PartyCard";
 import { KakaoMapView, type MapPin } from "./KakaoMapView";
@@ -26,14 +26,36 @@ export function FeedClient({
   tab,
   sort,
   view,
+  initialQuery = "",
 }: {
   parties: Party[];
   tab: "delivery" | "shopping";
   sort: Sort;
   view: View;
+  /** /feed?q=xxx 로 들어왔을 때 사용. /feed/search에서 검색 후 리다이렉트 받음. */
+  initialQuery?: string;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+
+  // 가게명/대표 메뉴 검색 — 클라이언트 필터.
+  // 빈 검색: 현재 탭의 카테고리만 노출. 검색어 있음: 전체 카테고리 통합 검색.
+  const [query, setQuery] = useState(initialQuery);
+  const visibleParties = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (q) {
+      // 검색 모드 — 카테고리 무관 통합 검색
+      return parties.filter((p) => {
+        const name = p.store_name?.toLowerCase() ?? "";
+        const menu = p.representative_menu?.toLowerCase() ?? "";
+        return name.includes(q) || menu.includes(q);
+      });
+    }
+    // 일반 모드 — 현재 탭(delivery / shopping)만
+    return parties.filter((p) =>
+      tab === "delivery" ? p.category === "delivery" : p.category !== "delivery",
+    );
+  }, [parties, query, tab]);
 
   // 피드 실시간 — 누가 어디든 신청/승인/취소되거나 상태(recruiting↔closed)가 바뀌면
   // 카드의 점유 카운트/상태가 즉시 갱신되도록 SSR 재요청.
@@ -77,8 +99,41 @@ export function FeedClient({
   return (
     <>
     <div className="flex flex-col gap-3 p-4">
-      {/* 탭 — 배달 / 장보기(준비중) */}
-      <div className="flex border-b border-zinc-200">
+      {/* 통합 검색 — 탭 위. 인풋 외형이지만 클릭 시 검색 화면(/feed/search)으로 이동. */}
+      <div className="relative">
+        <Link
+          href={"/feed/search" as any}
+          className="flex w-full items-center gap-2 rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-9 text-[13px] active:bg-zinc-50"
+        >
+          <span className={query ? "truncate text-zinc-800" : "text-zinc-400"}>
+            {query || "배달·장보기 통합 검색 (가게명 또는 메뉴)"}
+          </span>
+        </Link>
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+            <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </span>
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              router.replace("/feed");
+            }}
+            aria-label="검색어 지우기"
+            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 active:bg-zinc-200"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+              <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* 탭 — 배달 / 장보기. 검색 중엔 흐릿하게 표시 (통합 검색 안내) */}
+      <div className={cn("flex border-b border-zinc-200", query && "opacity-50")}>
         {[
           { v: "delivery", label: "배달", coming: false },
           { v: "shopping", label: "장보기", coming: false },
@@ -131,14 +186,22 @@ export function FeedClient({
             내가 먼저 만들어볼까요? →
           </Link>
         </div>
+      ) : visibleParties.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-400">
+          {query ? (
+            <p>&ldquo;{query}&rdquo; 검색 결과가 없어요.</p>
+          ) : (
+            <p>이 카테고리엔 아직 모집중인 반띵이 없어요.</p>
+          )}
+        </div>
       ) : view === "list" ? (
         <div className="flex flex-col gap-3">
-          {parties.map((p) => (
+          {visibleParties.map((p) => (
             <PartyCard key={p.id} party={p} href={`/feed/${p.id}`} showStatus />
           ))}
         </div>
       ) : (
-        <MapView parties={parties} />
+        <MapView parties={visibleParties} />
       )}
     </div>
     {/* 주문 등록 플로팅 버튼 — BottomNav(z-30) 위, 마이 탭 칼럼 위에 정렬.

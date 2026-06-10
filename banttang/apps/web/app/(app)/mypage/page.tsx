@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireCurrentUser } from "@/lib/auth";
+import { LogoutMenuItem } from "@/components/LogoutMenuItem";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,11 @@ export default async function MyPage() {
           label="띵동 후기"
           href={"/mypage/reviews" as any}
         />
+        <MenuItem
+          icon={<BookmarkIcon />}
+          label="찜한 가게·상품"
+          href={"/mypage/favorites" as any}
+        />
       </section>
 
       {/* 고객센터 */}
@@ -73,6 +79,12 @@ export default async function MyPage() {
           label="자주하는 질문"
           href={"#" as any}
         />
+      </section>
+
+      {/* 계정 */}
+      <section className="overflow-hidden rounded-2xl bg-white shadow-sm">
+        <h2 className="px-4 pb-1 pt-4 text-[13px] font-bold text-zinc-900">계정</h2>
+        <LogoutMenuItem />
       </section>
     </div>
   );
@@ -191,6 +203,17 @@ function HeartChatIcon() {
       <path
         d="M12 14.5l-3.2-2.8a2.2 2.2 0 113.2-3 2.2 2.2 0 113.2 3L12 14.5z"
         fill="#fff"
+      />
+    </svg>
+  );
+}
+
+function BookmarkIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.2L6 20V5.5a1 1 0 0 1 1-1Z"
+        fill="#f59e0b"
       />
     </svg>
   );

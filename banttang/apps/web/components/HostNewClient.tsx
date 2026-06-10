@@ -224,7 +224,8 @@ export function HostNewClient({
     }
 
     setBusy(false);
-    router.push(`/feed/${j.id}`);
+    // ?created=1 → 상세 페이지에서 호스트한테만 "확인" 버튼을 한 번 노출.
+    router.push(`/feed/${j.id}?created=1` as any);
     router.refresh();
   }
 
@@ -344,6 +345,7 @@ export function HostNewClient({
               price={price}
               setPrice={setPrice}
               category={category}
+              userCoords={userCoords}
             />
           ) : (
             <IndividualItemsFields
@@ -358,6 +360,7 @@ export function HostNewClient({
               setHasDelivery={setHasDelivery}
               deliveryAmount={deliveryAmount}
               setDeliveryAmount={setDeliveryAmount}
+              userCoords={userCoords}
             />
           )}
 
@@ -562,8 +565,9 @@ function SingleOrderFields(props: {
   price: number;
   setPrice: (v: number) => void;
   category: string;
+  userCoords: Coords;
 }) {
-  const { storeName, setStoreName, menu, setMenu, price, setPrice, category } = props;
+  const { storeName, setStoreName, menu, setMenu, price, setPrice, category, userCoords } = props;
   const isDelivery = category === "delivery";
   return (
     <>
@@ -574,6 +578,8 @@ function SingleOrderFields(props: {
             value={storeName}
             onChange={setStoreName}
             onSelectPlace={setStoreName}
+            centerLat={userCoords.lat}
+            centerLng={userCoords.lng}
           />
         ) : (
           <input
@@ -623,6 +629,7 @@ function IndividualItemsFields(props: {
   setHasDelivery: (v: boolean) => void;
   deliveryAmount: number;
   setDeliveryAmount: (v: number) => void;
+  userCoords: Coords;
 }) {
   const {
     storeName,
@@ -636,6 +643,7 @@ function IndividualItemsFields(props: {
     setHasDelivery,
     deliveryAmount,
     setDeliveryAmount,
+    userCoords,
   } = props;
   const isDelivery = category === "delivery";
   return (
@@ -646,6 +654,8 @@ function IndividualItemsFields(props: {
           value={storeName}
           onChange={setStoreName}
           onSelectPlace={setStoreName}
+          centerLat={userCoords.lat}
+          centerLng={userCoords.lng}
         />
       ) : (
         <input
@@ -849,10 +859,15 @@ function StoreNameSearchInput({
   value,
   onChange,
   onSelectPlace,
+  centerLat,
+  centerLng,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSelectPlace: (placeName: string) => void;
+  /** 사용자 위치 — Kakao keywordSearch에 location+radius로 넘겨 근처 결과 우선. */
+  centerLat?: number;
+  centerLng?: number;
 }) {
   const sdk = useKakaoSdk();
   const ready = sdk.status === "ready";
@@ -874,6 +889,20 @@ function StoreNameSearchInput({
     debounceRef.current = window.setTimeout(() => {
       setSearching(true);
       const places = new window.kakao.maps.services.Places();
+      // 사용자 위치 기반 — 반경 5km(5000m) 내로 좁힘. 거리순 정렬.
+      const opts: Record<string, unknown> = {
+        category_group_code: "FD6", // 음식점
+        size: 15,
+      };
+      if (
+        typeof centerLat === "number" &&
+        typeof centerLng === "number" &&
+        window.kakao?.maps?.LatLng
+      ) {
+        opts.location = new window.kakao.maps.LatLng(centerLat, centerLng);
+        opts.radius = 5000;
+        opts.sort = window.kakao.maps.services?.SortBy?.DISTANCE;
+      }
       places.keywordSearch(
         q,
         (data: any[], status: any) => {
@@ -890,14 +919,13 @@ function StoreNameSearchInput({
             })),
           );
         },
-        // 음식 카테고리로 좁힘 (FD6 = 음식점)
-        { category_group_code: "FD6" },
+        opts,
       );
     }, 300);
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [value, ready]);
+  }, [value, ready, centerLat, centerLng]);
 
   return (
     <div className="relative mt-2">
@@ -918,27 +946,40 @@ function StoreNameSearchInput({
         </span>
       )}
       {showDropdown && results.length > 0 && (
-        <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
-          {results.map((r, i) => (
-            <li key={i} className="border-b border-zinc-100 last:border-0">
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelectPlace(r.name);
-                  setShowDropdown(false);
-                }}
-                className="block w-full px-3 py-2 text-left hover:bg-brand-50"
-              >
-                <div className="text-sm font-medium">{r.name}</div>
-                <div className="text-[11px] text-zinc-500">
-                  {r.category && <span className="mr-1">{r.category} ·</span>}
-                  {r.address}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 flex max-h-64 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+          <ul className="flex-1 overflow-y-auto">
+            {results.map((r, i) => (
+              <li key={i} className="border-b border-zinc-100 last:border-0">
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelectPlace(r.name);
+                    setShowDropdown(false);
+                  }}
+                  className="block w-full px-3 py-2 text-left hover:bg-brand-50"
+                >
+                  <div className="text-sm font-medium">{r.name}</div>
+                  <div className="text-[11px] text-zinc-500">
+                    {r.category && <span className="mr-1">{r.category} ·</span>}
+                    {r.address}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {/* 하단 sticky 닫기 — 선택하지 않고도 드롭다운을 닫고 폼으로 돌아갈 수 있게. */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowDropdown(false);
+            }}
+            className="shrink-0 border-t border-zinc-100 bg-zinc-50 py-2.5 text-center text-[13px] font-semibold text-zinc-600 active:bg-zinc-100"
+          >
+            닫기
+          </button>
+        </div>
       )}
     </div>
   );
