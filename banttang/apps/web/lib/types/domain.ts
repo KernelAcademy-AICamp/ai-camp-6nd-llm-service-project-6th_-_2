@@ -23,6 +23,13 @@ export type ParticipantStatus =
 
 export type UserLevel = "dandelion" | "tree" | "king";
 
+// 온보딩 주 사용 거래 유형 (profiles.primary_usage, 20260609000001 마이그레이션)
+export type PrimaryUsage =
+  | "delivery_bulk"
+  | "delivery_min"
+  | "shopping_bulk"
+  | "shopping_min";
+
 export type ReviewRating = "good" | "bad";
 
 export type MessageType =

@@ -55,11 +55,17 @@ export function HostNewClient({
   userAddress,
   userCoords,
   initialStoreName,
+  initialTab,
+  initialLink,
+  initialImageUrl,
 }: {
   userAddress: string | null;
   userCoords: Coords;
-  // 스토어 배달 카드의 "반띵" 버튼에서 넘어올 때 가게명 프리필.
+  // 스토어 카드의 "반띵" 버튼에서 넘어올 때 프리필.
   initialStoreName?: string;
+  initialTab?: "delivery" | "shopping"; // 쇼핑 카드 → 장보기 탭
+  initialLink?: string; // 쇼핑 카드 → 장보기 "링크" 필드(=menu)
+  initialImageUrl?: string; // 카드 이미지 → 상품 사진으로 프리필(프록시 경유)
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -70,12 +76,16 @@ export function HostNewClient({
   })();
 
   // 상단 탭: 배달 / 장보기. DB의 category enum에 매핑 (장보기→offline_shopping).
-  const [tab, setTab] = useState<"delivery" | "shopping">("delivery");
+  const [tab, setTab] = useState<"delivery" | "shopping">(initialTab ?? "delivery");
   const category: "delivery" | "offline_shopping" = tab === "delivery" ? "delivery" : "offline_shopping";
 
-  const [splitMode, setSplitMode] = useState<SplitMode | null>(null);
+  // 반띵 버튼으로 진입(가게/상품 프리필)하면 "같은 상품(음식) 나눠요"(single_order)를 기본 선택.
+  const [splitMode, setSplitMode] = useState<SplitMode | null>(
+    initialStoreName ? "single_order" : null,
+  );
   const [storeName, setStoreName] = useState(initialStoreName ?? "");
-  const [menu, setMenu] = useState(""); // single_order: 대표 메뉴
+  // single_order: 배달=대표 메뉴 / 장보기=링크. 쇼핑 카드 반띵이면 링크 프리필.
+  const [menu, setMenu] = useState(initialLink ?? "");
   const [price, setPrice] = useState(8000);
   // individual_items 전용: 최소주문금액·배송비 분담 항목
   const [hasMinOrder, setHasMinOrder] = useState(false);
@@ -93,6 +103,30 @@ export function HostNewClient({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 반띵 진입 시 카드 이미지를 상품 사진으로 1회 프리필 (프록시로 CORS 회피 → File 변환).
+  const imagePrefilledRef = useRef(false);
+  useEffect(() => {
+    if (!initialImageUrl || imagePrefilledRef.current) return;
+    imagePrefilledRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(initialImageUrl)}`);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        if (!PHOTO_ACCEPTED.includes(blob.type) || blob.size > PHOTO_MAX_BYTES) return;
+        const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+        const file = new File([blob], `store-banner.${ext}`, { type: blob.type });
+        setPhotos((prev) => (prev.length >= MAX_PHOTOS ? prev : [...prev, file]));
+        setPhotoPreviews((prev) =>
+          prev.length >= MAX_PHOTOS ? prev : [...prev, URL.createObjectURL(file)],
+        );
+      } catch {
+        // 사진 프리필 실패는 흐름을 막지 않음
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialImageUrl]);
 
   function handlePhotoAdd(e: ChangeEvent<HTMLInputElement>) {
     setPhotoError(null);

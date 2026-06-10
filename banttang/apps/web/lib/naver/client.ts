@@ -99,8 +99,8 @@ const MAX_RETRIES = 4;
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function naverFetch(
-  type: "local" | "shop" | "blog" | "news",
-  params: CommonParams,
+  type: "local" | "shop" | "blog" | "news" | "image",
+  params: CommonParams & { filter?: string },
 ): Promise<unknown> {
   const cred = getCredentials();
   if (!cred) throw new NaverConfigError();
@@ -110,6 +110,7 @@ async function naverFetch(
   if (params.display != null) qs.set("display", String(params.display));
   if (params.start != null) qs.set("start", String(params.start));
   if (params.sort != null) qs.set("sort", params.sort);
+  if (params.filter != null) qs.set("filter", params.filter);
   const url = `${NAVER_BASE}/${type}.json?${qs.toString()}`;
 
   for (let attempt = 0; ; attempt++) {
@@ -208,6 +209,50 @@ export async function searchLocal(
   }));
 }
 
+// ---------- 이미지검색 (image) ----------
+// 지역검색이 사진을 안 주므로, 음식점 카드용 대표 이미지를 이미지검색에서 1장 가져온다.
+
+const ImageItemRaw = z.object({
+  title: z.string(),
+  link: z.string(), // 원본 이미지 URL
+  thumbnail: z.string(), // 썸네일 이미지 URL
+  sizeheight: z.string(),
+  sizewidth: z.string(),
+});
+
+export type NaverImage = {
+  title: string;
+  url: string; // 원본
+  thumbnail: string; // 썸네일 (카드에 권장 — 가볍고 핫링크 부담↓)
+};
+
+export type ImageSearchOptions = {
+  display?: number; // 1~100
+  start?: number;
+  sort?: DocSort; // sim | date
+  filter?: "all" | "large" | "medium" | "small";
+};
+
+/** 이미지검색 — 상호명 등으로 대표 이미지를 찾는다. 결과 없으면 빈 배열. */
+export async function searchImage(
+  query: string,
+  opts: ImageSearchOptions = {},
+): Promise<NaverImage[]> {
+  const raw = await naverFetch("image", {
+    query,
+    display: opts.display ?? 1,
+    start: opts.start,
+    sort: opts.sort ?? "sim",
+    filter: opts.filter ?? "all",
+  });
+  const parsed = envelope(ImageItemRaw).parse(raw);
+  return parsed.items.map((it) => ({
+    title: stripHtml(it.title),
+    url: it.link,
+    thumbnail: it.thumbnail,
+  }));
+}
+
 // ---------- 쇼핑검색 (shop) ----------
 
 const ShopItemRaw = z.object({
@@ -250,7 +295,14 @@ export type ShopSearchOptions = {
 // 네이버 쇼핑 검색 URL. 쇼핑 상품 딥링크(smartstore·catalog)는 재클릭 시
 // nid.naver.com 로그인 게이트로 튕기므로, 카드 클릭은 로그인 없는 쇼핑 검색 리스트로 보낸다.
 export function naverShoppingSearchUrl(query: string): string {
-  return `https://search.shopping.naver.com/search/all?query=${encodeURIComponent(query)}`;
+  // 모바일 전용 도메인(msearch) — 인앱 브라우저/웹뷰에서 모바일 최적화 레이아웃으로 표시.
+  return `https://msearch.shopping.naver.com/search/all?query=${encodeURIComponent(query)}`;
+}
+
+// 네이버 지도 검색 URL. 음식점 카드 클릭 시 해당 상호를 네이버 지도에서 검색.
+// (상호 + 주소를 함께 넘기면 동명 가게 혼동을 줄임)
+export function naverMapSearchUrl(query: string): string {
+  return `https://map.naver.com/p/search/${encodeURIComponent(query)}`;
 }
 
 /** 쇼핑검색 — 장보기·생활템 (가격 포함). */

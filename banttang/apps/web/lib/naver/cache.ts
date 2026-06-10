@@ -9,12 +9,14 @@
 // 가정: "모든 사용자가 모든 관심사를 선택" → ALL_INTERESTS 고정. 동네당 피드 1개.
 
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { getServiceClient } from "@/lib/supabase/admin";
 import {
   searchLocal,
   searchShop,
   searchBlog,
   searchNews,
+  searchImage,
   isNaverConfigured,
   naverShoppingSearchUrl,
   type LocalSort,
@@ -30,8 +32,8 @@ import {
 } from "./query-builder";
 
 const TTL_MS = 60 * 60 * 1000; // 1시간
-const PER_QUERY = 5; // 검색어당 가져올 결과 수
-const MAX_PER_SECTION = 8; // 섹션별 피드 상한
+const PER_QUERY = 30; // 검색어당 가져올 결과 수 (local은 네이버 상한 5로 클램프)
+const MAX_PER_SECTION = 30; // 섹션별 피드 상한
 // 네이버는 동시 요청을 과하게 받으면 일부를 429로 끊는다. 갱신은 1시간에 1번뿐이라
 // 속도보다 정확성이 중요 → 동시 호출 수를 낮게 유지(카테고리 6개로 쿼리가 20+).
 const CONCURRENCY = 2;
@@ -66,6 +68,7 @@ export type FeedResult = {
 
 const EMPTY_SECTIONS = (): Record<FeedSection, FeedCard[]> => ({
   delivery: [],
+  market: [],
   food: [],
   health: [],
   living: [],
@@ -138,20 +141,52 @@ export async function refreshNeighborhoodFeed(
   return { feed, source: "fresh", fetched_at: fetchedAt.toISOString() };
 }
 
+/**
+ * 맞춤 검색어로 추천 탭을 채울 피드. 동네 피드(ALL_INTERESTS 공유)와 별개로,
+ * 유저의 온보딩 선호도에서 만든 검색어(buildPersonalizedQueries)를 직접 호출한다.
+ * 비용 방지: (동네 + 선호 검색어) 조합으로 1시간 캐시 → 같은 선호도 유저끼리 공유.
+ * 선호도가 없거나 키 미설정이면 빈 섹션 반환(추천 탭은 동네 피드로 폴백).
+ */
+export async function getPersonalizedFeed(
+  neighborhoodId: string,
+  queries: SearchQuery[],
+  region: string,
+): Promise<Record<FeedSection, FeedCard[]>> {
+  if (!isNaverConfigured() || queries.length === 0) return EMPTY_SECTIONS();
+
+  // 캐시 키 — 동네 + 정렬된 검색어 식별자. 같은 조합이면 캐시 hit.
+  const keyParts = [
+    "personalized-feed",
+    neighborhoodId,
+    ...queries.map((q) => `${q.type}:${q.query}`).sort(),
+  ];
+  const cached = unstable_cache(
+    async () => (await fetchAndRefine(queries, region)).sections,
+    keyParts,
+    { revalidate: Math.floor(TTL_MS / 1000) },
+  );
+  return cached();
+}
+
 // ---------- 네이버 호출 + 정제 ----------
 
 async function fetchAndRefine(
   queries: SearchQuery[],
   region: string,
+  opts: { perQuery?: number; maxPerSection?: number } = {},
 ): Promise<NeighborhoodFeed> {
+  const perQuery = opts.perQuery ?? PER_QUERY;
+  const maxPerSection = opts.maxPerSection ?? MAX_PER_SECTION;
+
   // 동시성 제한 호출. 일부 실패해도 전체가 죽지 않도록 개별 catch.
   const results = await mapWithConcurrency(queries, CONCURRENCY, (q) =>
-    runQuery(q, region).catch(() => [] as ScoredCard[]),
+    runQuery(q, region, perQuery).catch(() => [] as ScoredCard[]),
   );
 
   // 섹션별로 모은 뒤 중복 제거 → 점수 내림차순 → 상한.
   const buckets: Record<FeedSection, ScoredCard[]> = {
     delivery: [],
+    market: [],
     food: [],
     health: [],
     living: [],
@@ -164,10 +199,35 @@ async function fetchAndRefine(
 
   const sections = EMPTY_SECTIONS();
   for (const key of Object.keys(buckets) as FeedSection[]) {
-    sections[key] = dedupeAndSort(buckets[key]).slice(0, MAX_PER_SECTION);
+    sections[key] = dedupeAndSort(buckets[key]).slice(0, maxPerSection);
   }
 
+  // 지역검색(local) 카드는 사진이 없으므로 이미지검색으로 대표 이미지 1장씩 채운다.
+  // 최종 카드(섹션당 ≤ MAX_PER_SECTION)에만 호출 → 비용 제한.
+  await enrichLocalImages(sections);
+
   return { sections, query_count: queries.length };
+}
+
+// local 타입 카드에 이미지검색 결과(썸네일)를 채운다. 실패/무결과는 null 유지(이모지 폴백).
+async function enrichLocalImages(sections: Record<FeedSection, FeedCard[]>): Promise<void> {
+  const targets: FeedCard[] = [];
+  for (const key of Object.keys(sections) as FeedSection[]) {
+    for (const card of sections[key]) {
+      if (card.type === "local" && !card.image) targets.push(card);
+    }
+  }
+  if (targets.length === 0) return;
+
+  await mapWithConcurrency(targets, CONCURRENCY, async (card) => {
+    try {
+      // 상호명으로 대표 이미지 1장. 정확도순(sim).
+      const [img] = await searchImage(card.title, { display: 1, sort: "sim" });
+      if (img) card.image = img.thumbnail;
+    } catch {
+      // 이미지검색 실패는 무시 — 카드 이모지 폴백 유지
+    }
+  });
 }
 
 // 동시 실행 수를 limit 으로 묶어 순서대로 처리. 입력 순서대로 결과 반환.
@@ -192,10 +252,18 @@ async function mapWithConcurrency<T, R>(
 type ScoredCard = { dedupeKey: string; card: FeedCard };
 
 // 검색어 1건 → 네이버 호출 → 정규화 + 점수 부여.
-async function runQuery(q: SearchQuery, region: string): Promise<ScoredCard[]> {
+// display: 검색어당 가져올 결과 수. local(지역검색)은 네이버 상한이 5라 클램프.
+async function runQuery(
+  q: SearchQuery,
+  region: string,
+  display: number = PER_QUERY,
+): Promise<ScoredCard[]> {
   switch (q.type) {
     case "local": {
-      const items = await searchLocal(q.query, { display: PER_QUERY, sort: q.sort as LocalSort });
+      const items = await searchLocal(q.query, {
+        display: Math.min(display, 5),
+        sort: q.sort as LocalSort,
+      });
       return items.map((it, i) => ({
         dedupeKey: `local::${it.name}::${it.road_address || it.address}`,
         card: {
@@ -203,15 +271,16 @@ async function runQuery(q: SearchQuery, region: string): Promise<ScoredCard[]> {
           type: "local",
           title: it.name,
           subtitle: it.road_address || it.address || it.category,
-          // 가게 홈페이지가 없으면(흔함) 네이버 지도 검색으로 폴백 → 항상 클릭 가능
-          link: it.link || naverMapUrl(it.name, region),
+          // 배달(local) 결과는 항상 네이버 지도 검색으로 연결 (가게 홈페이지 대신).
+          // 상세 주소는 빼고 상호 + 동네(region)로만 검색.
+          link: naverMapUrl(it.name, region),
           image: null,
           score: relevance(i, items.length),
         },
       }));
     }
     case "shop": {
-      const items = await searchShop(q.query, { display: PER_QUERY, sort: q.sort as ShopSort });
+      const items = await searchShop(q.query, { display, sort: q.sort as ShopSort });
       return items.map((it, i) => ({
         dedupeKey: `shop::${it.product_id}`,
         card: {
@@ -227,7 +296,7 @@ async function runQuery(q: SearchQuery, region: string): Promise<ScoredCard[]> {
       }));
     }
     case "blog": {
-      const items = await searchBlog(q.query, { display: PER_QUERY, sort: q.sort as DocSort });
+      const items = await searchBlog(q.query, { display, sort: q.sort as DocSort });
       return items.map((it, i) => ({
         dedupeKey: `blog::${it.link}`,
         card: {
@@ -242,7 +311,7 @@ async function runQuery(q: SearchQuery, region: string): Promise<ScoredCard[]> {
       }));
     }
     case "news": {
-      const items = await searchNews(q.query, { display: PER_QUERY, sort: q.sort as DocSort });
+      const items = await searchNews(q.query, { display, sort: q.sort as DocSort });
       return items.map((it, i) => ({
         dedupeKey: `news::${it.original_link || it.link}`,
         card: {

@@ -21,6 +21,11 @@ export type Json =
 // ============================================================================
 export type Gender = 'female' | 'male' | 'prefer_not_to_say';
 export type UserLevel = 'dandelion' | 'tree' | 'king';
+export type PrimaryUsage =
+  | 'delivery_bulk'
+  | 'delivery_min'
+  | 'shopping_bulk'
+  | 'shopping_min';
 export type PartyCategory = 'delivery' | 'offline_shopping' | 'online_shopping';
 export type PartyStatus =
   | 'recruiting'
@@ -118,6 +123,10 @@ export interface Profile {
   last_active_at: string;
   created_at: string;
   updated_at: string;
+  // 온보딩 맞춤 추천 선호도 (20260609000001 마이그레이션)
+  primary_usage: PrimaryUsage | null;
+  favorite_malls: string[];
+  favorite_categories: string[];
 }
 
 export interface TermsAgreement {

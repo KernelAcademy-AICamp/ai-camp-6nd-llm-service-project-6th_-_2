@@ -213,7 +213,9 @@ export function UserBar({
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between border-b border-zinc-200 bg-white px-4 py-3">
       <div className="flex items-center gap-2">
-        <span className="text-lg font-bold text-brand">띵동</span>
+        <Link href="/feed" className="text-lg font-bold text-brand" aria-label="메인으로">
+          띵동
+        </Link>
         <button
           onClick={resetAddress}
           className="text-xs text-zinc-400 hover:text-brand"
