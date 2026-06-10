@@ -118,6 +118,9 @@ export function UserBar({
   } else if (seg[0] === "community") {
     // 커뮤니티(목록/작성/상세) — 자체 헤더 사용
     mode = "hidden";
+  } else if (seg[0] === "groupbuy") {
+    // 공동구매 상세 — 자체 헤더 사용
+    mode = "hidden";
   } else if (seg[0] === "feed" && seg[1] && UUID_RE.test(seg[1])) {
     mode = "subpage";
     partyIdFromPath = seg[1];

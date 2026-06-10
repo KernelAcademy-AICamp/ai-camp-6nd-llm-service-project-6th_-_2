@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PartyCard } from "./PartyCard";
+import { FeedPromoBanner } from "./FeedPromoBanner";
 import { KakaoMapView, type MapPin } from "./KakaoMapView";
 import { displayStatusLabel, minutesUntil } from "@/lib/party-status";
 import type { DisplayStatus, PartyRow } from "@/lib/types";
@@ -99,6 +100,9 @@ export function FeedClient({
   return (
     <>
     <div className="flex flex-col gap-3 p-4">
+      {/* 프로모션 배너 — 검색창 위 */}
+      <FeedPromoBanner />
+
       {/* 통합 검색 — 탭 위. 인풋 외형이지만 클릭 시 검색 화면(/feed/search)으로 이동. */}
       <div className="relative">
         <Link
