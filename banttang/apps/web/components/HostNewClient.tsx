@@ -79,10 +79,12 @@ export function HostNewClient({
   const [tab, setTab] = useState<"delivery" | "shopping">(initialTab ?? "delivery");
   const category: "delivery" | "offline_shopping" = tab === "delivery" ? "delivery" : "offline_shopping";
 
-  // 반띵 버튼으로 진입(가게/상품 프리필)하면 "같은 상품(음식) 나눠요"(single_order)를 기본 선택.
+  // 반띵 버튼 진입(가게/상품 프리필)이면 "같은 것 나눠요"(single_order)를 기본 선택.
   const [splitMode, setSplitMode] = useState<SplitMode | null>(
     initialStoreName ? "single_order" : null,
   );
+  // 위저드 단계: 1=음식/장보기, 2=같은것/각자, 3=상세 작성
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [storeName, setStoreName] = useState(initialStoreName ?? "");
   // single_order: 배달=대표 메뉴 / 장보기=링크. 쇼핑 카드 반띵이면 링크 프리필.
   const [menu, setMenu] = useState(initialLink ?? "");
@@ -258,7 +260,8 @@ export function HostNewClient({
     }
 
     setBusy(false);
-    router.push(`/feed/${j.id}`);
+    // ?created=1 → 상세 페이지에서 호스트한테만 "확인" 버튼을 한 번 노출.
+    router.push(`/feed/${j.id}?created=1` as any);
     router.refresh();
   }
 
@@ -266,50 +269,81 @@ export function HostNewClient({
     <div className="flex flex-col gap-4 p-4 pb-32">
       <h1 className="text-lg font-bold">반띵 주문 만들기</h1>
 
-      {/* 상단 탭: 배달 / 장보기 */}
-      <div className="flex rounded-xl bg-white p-1 shadow-sm">
-        {[
-          { v: "delivery", label: "🍕 배달 음식" },
-          { v: "shopping", label: "🛒 장보기" },
-        ].map((t) => (
-          <button
-            key={t.v}
-            onClick={() => setTab(t.v as "delivery" | "shopping")}
-            className={cn(
-              "flex-1 rounded-lg py-2 text-sm font-medium",
-              tab === t.v ? "bg-brand text-white" : "text-zinc-500",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* 단계 표시 */}
+      <StepDots step={step} />
 
-      {/* 반띵 방식 선택 */}
-      <section className="rounded-2xl bg-white p-4 shadow-sm">
-        <Label>반띵 방식</Label>
-        <div className="mt-2 flex flex-col gap-2">
+      {/* 1단계: 무엇을 나눌까 */}
+      {step === 1 && (
+        <section className="flex flex-col gap-3">
+          <p className="px-1 text-[15px] font-bold text-zinc-900">무엇을 나눌까요?</p>
+          {[
+            { v: "delivery", emoji: "🍕", title: "음식 나눠요", desc: "배달·포장 음식을 함께 시켜요" },
+            { v: "shopping", emoji: "🛒", title: "장보기 나눠요", desc: "마트·온라인 장보기를 함께 사요" },
+          ].map((c) => (
+            <button
+              key={c.v}
+              onClick={() => {
+                setTab(c.v as "delivery" | "shopping");
+                setStep(2);
+              }}
+              className={cn(
+                "flex items-center gap-4 rounded-2xl border bg-white p-5 text-left shadow-sm active:scale-[0.99]",
+                tab === c.v ? "border-brand" : "border-zinc-200",
+              )}
+            >
+              <span className="text-3xl" aria-hidden>{c.emoji}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-bold text-zinc-900">{c.title}</span>
+                <span className="mt-0.5 block text-[13px] text-zinc-500">{c.desc}</span>
+              </span>
+              <StepChevron />
+            </button>
+          ))}
+        </section>
+      )}
+
+      {/* 2단계: 어떻게 나눌까 */}
+      {step === 2 && (
+        <section className="flex flex-col gap-3">
+          <StepBack
+            onClick={() => setStep(1)}
+            label={tab === "delivery" ? "음식 나눠요" : "장보기 나눠요"}
+          />
+          <p className="px-1 text-[15px] font-bold text-zinc-900">어떻게 나눌까요?</p>
           {getSplitModes(tab).map((m) => (
             <button
               key={m.v}
-              onClick={() => setSplitMode(m.v)}
+              onClick={() => {
+                setSplitMode(m.v);
+                setStep(3);
+              }}
               className={cn(
-                "rounded-xl border p-3 text-left",
-                splitMode === m.v ? "border-brand bg-brand-50" : "border-zinc-200",
+                "flex items-center gap-4 rounded-2xl border bg-white p-5 text-left shadow-sm active:scale-[0.99]",
+                splitMode === m.v ? "border-brand" : "border-zinc-200",
               )}
             >
-              <div className="font-medium">
-                {m.emoji} {m.title}
-              </div>
-              <div className="mt-0.5 text-xs text-zinc-500">{getSplitModeDesc(m.v, tab)}</div>
+              <span className="text-3xl" aria-hidden>{m.emoji}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[16px] font-bold text-zinc-900">{m.title}</span>
+                <span className="mt-0.5 block text-[13px] text-zinc-500">
+                  {getSplitModeDesc(m.v, tab)}
+                </span>
+              </span>
+              <StepChevron />
             </button>
           ))}
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* 분기된 입력 단계 — splitMode 선택 후에만 노출 */}
-      {splitMode && (
+      {/* 3단계: 상세 작성 */}
+      {step === 3 && splitMode && (
         <>
+          <StepBack
+            onClick={() => setStep(2)}
+            label={`${tab === "delivery" ? "음식" : "장보기"} · ${
+              splitMode === "single_order" ? "같은 것 나누기" : "각자 담기"
+            }`}
+          />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>상품 사진 (선택, 최대 {MAX_PHOTOS}장)</Label>
             <p className="mt-1 text-[11px] text-zinc-500">
@@ -378,6 +412,7 @@ export function HostNewClient({
               price={price}
               setPrice={setPrice}
               category={category}
+              userCoords={userCoords}
             />
           ) : (
             <IndividualItemsFields
@@ -392,6 +427,7 @@ export function HostNewClient({
               setHasDelivery={setHasDelivery}
               deliveryAmount={deliveryAmount}
               setDeliveryAmount={setDeliveryAmount}
+              userCoords={userCoords}
             />
           )}
 
@@ -575,16 +611,82 @@ export function HostNewClient({
         </>
       )}
 
-      <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
-        <button
-          onClick={submit}
-          disabled={busy || !isValid}
-          className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
-        >
-          {busy ? "등록 중…" : "반띵 등록하기"}
-        </button>
-      </div>
+      {step === 3 && (
+        <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
+          <button
+            onClick={submit}
+            disabled={busy || !isValid}
+            className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
+          >
+            {busy ? "등록 중…" : "반띵 등록하기"}
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+// ─── 위저드 보조 컴포넌트 ───
+function StepDots({ step }: { step: 1 | 2 | 3 }) {
+  const labels = ["종류", "방식", "작성"];
+  return (
+    <div className="flex items-center gap-2 px-1">
+      {labels.map((l, i) => {
+        const n = (i + 1) as 1 | 2 | 3;
+        const active = step >= n;
+        return (
+          <div key={l} className="flex items-center gap-2">
+            <span
+              className={cn(
+                "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold",
+                active ? "bg-brand text-white" : "bg-zinc-200 text-zinc-400",
+              )}
+            >
+              {n}
+            </span>
+            <span
+              className={cn(
+                "text-[12px] font-semibold",
+                step === n ? "text-zinc-900" : "text-zinc-400",
+              )}
+            >
+              {l}
+            </span>
+            {i < labels.length - 1 && <span className="h-px w-4 bg-zinc-200" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StepBack({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-fit items-center gap-1 rounded-full bg-zinc-100 py-1.5 pl-2 pr-3 text-[13px] font-semibold text-zinc-600 active:bg-zinc-200"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {label}
+    </button>
+  );
+}
+
+function StepChevron() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="shrink-0 text-zinc-300"
+      aria-hidden
+    >
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -596,8 +698,9 @@ function SingleOrderFields(props: {
   price: number;
   setPrice: (v: number) => void;
   category: string;
+  userCoords: Coords;
 }) {
-  const { storeName, setStoreName, menu, setMenu, price, setPrice, category } = props;
+  const { storeName, setStoreName, menu, setMenu, price, setPrice, category, userCoords } = props;
   const isDelivery = category === "delivery";
   return (
     <>
@@ -608,6 +711,8 @@ function SingleOrderFields(props: {
             value={storeName}
             onChange={setStoreName}
             onSelectPlace={setStoreName}
+            centerLat={userCoords.lat}
+            centerLng={userCoords.lng}
           />
         ) : (
           <input
@@ -657,6 +762,7 @@ function IndividualItemsFields(props: {
   setHasDelivery: (v: boolean) => void;
   deliveryAmount: number;
   setDeliveryAmount: (v: number) => void;
+  userCoords: Coords;
 }) {
   const {
     storeName,
@@ -670,6 +776,7 @@ function IndividualItemsFields(props: {
     setHasDelivery,
     deliveryAmount,
     setDeliveryAmount,
+    userCoords,
   } = props;
   const isDelivery = category === "delivery";
   return (
@@ -680,6 +787,8 @@ function IndividualItemsFields(props: {
           value={storeName}
           onChange={setStoreName}
           onSelectPlace={setStoreName}
+          centerLat={userCoords.lat}
+          centerLng={userCoords.lng}
         />
       ) : (
         <input
@@ -883,10 +992,15 @@ function StoreNameSearchInput({
   value,
   onChange,
   onSelectPlace,
+  centerLat,
+  centerLng,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSelectPlace: (placeName: string) => void;
+  /** 사용자 위치 — Kakao keywordSearch에 location+radius로 넘겨 근처 결과 우선. */
+  centerLat?: number;
+  centerLng?: number;
 }) {
   const sdk = useKakaoSdk();
   const ready = sdk.status === "ready";
@@ -908,6 +1022,20 @@ function StoreNameSearchInput({
     debounceRef.current = window.setTimeout(() => {
       setSearching(true);
       const places = new window.kakao.maps.services.Places();
+      // 사용자 위치 기반 — 반경 5km(5000m) 내로 좁힘. 거리순 정렬.
+      const opts: Record<string, unknown> = {
+        category_group_code: "FD6", // 음식점
+        size: 15,
+      };
+      if (
+        typeof centerLat === "number" &&
+        typeof centerLng === "number" &&
+        window.kakao?.maps?.LatLng
+      ) {
+        opts.location = new window.kakao.maps.LatLng(centerLat, centerLng);
+        opts.radius = 5000;
+        opts.sort = window.kakao.maps.services?.SortBy?.DISTANCE;
+      }
       places.keywordSearch(
         q,
         (data: any[], status: any) => {
@@ -924,14 +1052,13 @@ function StoreNameSearchInput({
             })),
           );
         },
-        // 음식 카테고리로 좁힘 (FD6 = 음식점)
-        { category_group_code: "FD6" },
+        opts,
       );
     }, 300);
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [value, ready]);
+  }, [value, ready, centerLat, centerLng]);
 
   return (
     <div className="relative mt-2">
@@ -952,27 +1079,40 @@ function StoreNameSearchInput({
         </span>
       )}
       {showDropdown && results.length > 0 && (
-        <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
-          {results.map((r, i) => (
-            <li key={i} className="border-b border-zinc-100 last:border-0">
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelectPlace(r.name);
-                  setShowDropdown(false);
-                }}
-                className="block w-full px-3 py-2 text-left hover:bg-brand-50"
-              >
-                <div className="text-sm font-medium">{r.name}</div>
-                <div className="text-[11px] text-zinc-500">
-                  {r.category && <span className="mr-1">{r.category} ·</span>}
-                  {r.address}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 flex max-h-64 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+          <ul className="flex-1 overflow-y-auto">
+            {results.map((r, i) => (
+              <li key={i} className="border-b border-zinc-100 last:border-0">
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelectPlace(r.name);
+                    setShowDropdown(false);
+                  }}
+                  className="block w-full px-3 py-2 text-left hover:bg-brand-50"
+                >
+                  <div className="text-sm font-medium">{r.name}</div>
+                  <div className="text-[11px] text-zinc-500">
+                    {r.category && <span className="mr-1">{r.category} ·</span>}
+                    {r.address}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {/* 하단 sticky 닫기 — 선택하지 않고도 드롭다운을 닫고 폼으로 돌아갈 수 있게. */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowDropdown(false);
+            }}
+            className="shrink-0 border-t border-zinc-100 bg-zinc-50 py-2.5 text-center text-[13px] font-semibold text-zinc-600 active:bg-zinc-100"
+          >
+            닫기
+          </button>
+        </div>
       )}
     </div>
   );

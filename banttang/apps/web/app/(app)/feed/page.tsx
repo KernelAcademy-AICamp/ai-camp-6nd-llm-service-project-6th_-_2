@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function FeedPage({
   searchParams,
 }: {
-  searchParams?: { tab?: string; sort?: string; view?: string };
+  searchParams?: { tab?: string; sort?: string; view?: string; q?: string };
 }) {
   const me = await requireCurrentUser();
   if (!cookies().get(ADDRESS_COOKIE)) redirect("/onboarding/address");
@@ -26,11 +26,18 @@ export default async function FeedPage({
     | "delivery"
     | "shopping";
 
-  const filtered = parties.filter(
-    (p) =>
-      p.display_status === "recruiting" &&
-      (tab === "delivery" ? p.category === "delivery" : p.category !== "delivery"),
-  );
+  // 카테고리 필터는 FeedClient에서 — 검색 시 카테고리 무관하게 통합 검색되도록.
+  const recruiting = parties.filter((p) => p.display_status === "recruiting");
 
-  return <FeedClient parties={filtered} tab={tab} sort={sort} view={view} />;
+  const initialQuery = searchParams?.q ?? "";
+
+  return (
+    <FeedClient
+      parties={recruiting}
+      tab={tab}
+      sort={sort}
+      view={view}
+      initialQuery={initialQuery}
+    />
+  );
 }
