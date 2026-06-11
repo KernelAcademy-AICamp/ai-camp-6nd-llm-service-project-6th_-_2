@@ -3,6 +3,7 @@
 // (app) 레이아웃이 로그인을 보장 → 서버에서 직접 getNeighborhoodFeed 호출.
 
 import Link from "next/link";
+import type { Route } from "next";
 import { getCurrentUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase/admin";
 import { getNeighborhoodFeed, getPersonalizedFeed } from "@/lib/naver/cache";
@@ -23,6 +24,7 @@ import { StoreSearchResults } from "@/components/StoreSearchResults";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import type { StoreCardData } from "@/components/StoreCard";
 import { personalizeSections, buildPersonalizedQueries } from "@/lib/naver/personalize";
+import { getFavoritedLinks } from "@/app/_actions/store-favorites";
 
 export const dynamic = "force-dynamic";
 
@@ -61,20 +63,42 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-// 검색바 — GET 폼. 입력 후 오른쪽 🔍 버튼 클릭(또는 Enter) 시 /store?q=... 로 이동.
+// 검색바 — 탭하면 전용 검색 화면(/store/search)으로. (홈 feed 와 동일 패턴)
+// defaultValue 가 있으면(결과 화면) 현재 검색어를 보여주고, 없으면 placeholder.
 function SearchBar({ defaultValue }: { defaultValue?: string }) {
   return (
-    <form action="/store" className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-3">
-      <input
-        name="q"
-        defaultValue={defaultValue}
-        placeholder="상품 검색"
-        className="min-w-0 flex-1 bg-transparent text-sm text-zinc-800 placeholder:text-zinc-400 outline-none"
-      />
-      <button type="submit" aria-label="검색" className="shrink-0 text-zinc-400 transition hover:text-brand">
-        🔍
-      </button>
-    </form>
+    <div className="relative">
+      <Link
+        href={"/store/search" as Route}
+        className="flex w-full items-center gap-2 rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-9 text-[13px] active:bg-zinc-50"
+      >
+        <span className={defaultValue ? "truncate text-zinc-800" : "text-zinc-400"}>
+          {defaultValue || "상품·음식점 검색"}
+        </span>
+      </Link>
+      {/* 홈(feed) 검색바와 동일한 돋보기 아이콘 */}
+      <span
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+        aria-hidden
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
+          <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </span>
+      {/* 검색 중이면 X — 누르면 검색 해제하고 스토어 메인으로 (홈 검색과 동일) */}
+      {defaultValue && (
+        <Link
+          href="/store"
+          aria-label="검색 닫기"
+          className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 active:bg-zinc-200"
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+        </Link>
+      )}
+    </div>
   );
 }
 
@@ -93,10 +117,12 @@ export default async function StorePage({
     if (!isNaverConfigured()) {
       return <EmptyState message={"검색을 사용할 수 없어요."} />;
     }
-    const [places, items] = await Promise.all([
+    const [places, items, favLinkArr] = await Promise.all([
       searchLocal(q, { display: 12 }).catch(() => []),
       searchShop(q, { display: 20 }).catch(() => []),
+      getFavoritedLinks(),
     ]);
+    const favLinks = new Set(favLinkArr); // 이미 찜한 항목 하트 채우기용
 
     // 음식점 → 카드: 지역검색은 사진이 없으므로 이미지검색으로 대표 이미지 1장 채움.
     // (검색은 캐시 안 됨 → 결과 수만큼만 병렬 호출, 실패 시 StoreThumb 폴백)
@@ -111,59 +137,39 @@ export default async function StorePage({
         }
         const fp = new URLSearchParams({ store: p.name });
         if (image) fp.set("image", image);
+        // 상세 주소는 빼고 상호명으로만 지도 검색.
+        const link = naverMapSearchUrl(p.name);
         return {
           title: p.name,
           subtitle: [p.category, p.road_address || p.address].filter(Boolean).join(" · "),
-          // 상세 주소는 빼고 상호명으로만 지도 검색.
-          link: naverMapSearchUrl(p.name),
+          link,
           image,
           banttangHref: `/host/new?${fp.toString()}`,
+          favoriteKind: "store" as const, // 음식점 = 가게
+          initialFavorited: favLinks.has(link),
         };
       }),
     );
     // 쇼핑 → 카드: 가격·몰명, 클릭 시 로그인 게이트 없는 쇼핑 검색 리스트로.
     const shopCards: StoreCardData[] = items.map((it) => {
-      const sp = new URLSearchParams({
-        store: it.title,
-        tab: "shopping",
-        link: naverShoppingSearchUrl(it.title),
-      });
+      const link = naverShoppingSearchUrl(it.title);
+      const sp = new URLSearchParams({ store: it.title, tab: "shopping", link });
       if (it.image) sp.set("image", it.image);
       return {
         title: it.title,
         subtitle: `${it.low_price.toLocaleString("ko-KR")}원 · ${it.mall_name}`,
-        link: naverShoppingSearchUrl(it.title),
+        link,
         image: it.image || null,
         // 쇼핑 결과 → 장보기 탭 + 쇼핑 링크 + 이미지 프리필
         banttangHref: `/host/new?${sp.toString()}`,
+        favoriteKind: "product" as const, // 쇼핑 = 상품
+        initialFavorited: favLinks.has(link),
       };
     });
 
     return (
       <main className="flex flex-1 flex-col gap-4 px-4 py-5">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="text-xl font-bold text-zinc-900">스토어</h1>
-          <Link
-            href="/store"
-            aria-label="맞춤 추천으로 돌아가기"
-            title="맞춤 추천으로 돌아가기"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-zinc-500 transition hover:bg-zinc-100 hover:text-brand"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </Link>
-        </div>
+        <h1 className="text-xl font-bold text-zinc-900">스토어</h1>
 
         <SearchBar defaultValue={q} />
 
@@ -264,6 +270,9 @@ export default async function StorePage({
     recommendSections = [];
   }
 
+  // 이미 찜한 항목 — 카드 하트 채워서 시작 (StoreFeedTabs 가 각 카드에 적용)
+  const favoritedLinks = await getFavoritedLinks();
+
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-5">
       {/* 헤더 + 갱신 버튼 + 검색어 디버그(테스트용) */}
@@ -289,6 +298,7 @@ export default async function StorePage({
         userLabel={me.nickname}
         regionLabel={nb.name}
         recommendSections={recommendSections}
+        favoritedLinks={favoritedLinks}
       />
 
       <ScrollToTop />

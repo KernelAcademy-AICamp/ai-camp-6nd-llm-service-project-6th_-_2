@@ -14,9 +14,21 @@ export type StoreCardData = {
   // 지정 시 카드 우측에 "반띵" 버튼 노출 → 해당 경로로 이동(모집글 생성 등).
   // 배달 목록 카드에서 사용.
   banttangHref?: string;
+  // 찜 저장 종류 — 음식점/주변마켓=store, 쇼핑=product. 지정하면 하트가 영구 저장됨.
+  favoriteKind?: "store" | "product";
+  // 이미 찜한 항목이면 하트 채워서 시작.
+  initialFavorited?: boolean;
 };
 
-export function StoreCard({ title, subtitle, link, image, banttangHref }: StoreCardData) {
+export function StoreCard({
+  title,
+  subtitle,
+  link,
+  image,
+  banttangHref,
+  favoriteKind,
+  initialFavorited,
+}: StoreCardData) {
   // 세로 카드 — 사진(위) + 설명(아래). 추천 레일·검색 결과·섹션 리스트 공용.
   const inner = (
     <>
@@ -61,8 +73,16 @@ export function StoreCard({ title, subtitle, link, image, banttangHref }: StoreC
   return (
     <div className="relative flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white transition hover:border-brand/40 hover:shadow-sm">
       {body}
-      {/* 좋아요 — 사진 좌측 상단 (모든 카드). 비영구 토글. */}
-      <LikeButton className="absolute left-2 top-2" />
+      {/* 찜(하트) — 사진 좌측 상단. favoriteKind 있으면 마이페이지 찜 목록에 영구 저장. */}
+      <LikeButton
+        className="absolute left-2 top-2"
+        favorite={
+          link && favoriteKind
+            ? { kind: favoriteKind, title, subtitle, link, image }
+            : null
+        }
+        initialLiked={initialFavorited}
+      />
       {banttangHref && (
         <Link
           href={banttangHref as never}

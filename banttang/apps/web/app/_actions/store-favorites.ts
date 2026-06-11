@@ -53,6 +53,18 @@ export async function toggleStoreFavorite(
   return { ok: true, data: { favorited: true } };
 }
 
+// 현재 유저가 찜한 link 목록 — 스토어 카드 하트 초기 상태(채워짐) 채우기용.
+export async function getFavoritedLinks(): Promise<string[]> {
+  const me = await getCurrentUser();
+  if (!me) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("store_favorites")
+    .select("link")
+    .eq("user_id", me.id);
+  return ((data ?? []) as { link: string }[]).map((r) => r.link);
+}
+
 // 찜 목록에서 개별 삭제 (id 기준)
 export async function removeStoreFavorite(id: string): Promise<Result> {
   const me = await getCurrentUser();

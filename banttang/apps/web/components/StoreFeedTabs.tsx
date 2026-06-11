@@ -34,15 +34,25 @@ export function StoreFeedTabs({
   userLabel,
   regionLabel,
   recommendSections,
+  favoritedLinks,
 }: {
   sections: StoreSection[];
   userLabel: string;
   regionLabel: string;
   // 추천 탭 전용 — 내 맞춤 검색어로 채운 섹션. 비어있으면 동네 피드로 폴백.
   recommendSections?: StoreSection[];
+  // 이미 찜한 항목 link 목록 — 카드 하트 초기 상태.
+  favoritedLinks?: string[];
 }) {
   // 기본 진입은 "추천" 탭.
   const [active, setActive] = useState(RECOMMEND_KEY);
+
+  const favSet = new Set(favoritedLinks ?? []);
+  // 음식점/주변마켓(local) = store, 쇼핑(shop) = product.
+  const favoritePropsFor = (card: FeedCard) => ({
+    favoriteKind: (card.type === "shop" ? "product" : "store") as "store" | "product",
+    initialFavorited: favSet.has(card.link),
+  });
 
   const isRecommend = active === RECOMMEND_KEY;
   const currentSection = sections.find((s) => s.key === active);
@@ -123,6 +133,7 @@ export function StoreFeedTabs({
                         link={card.link}
                         image={card.image}
                         banttangHref={banttangHrefFor(card)}
+                        {...favoritePropsFor(card)}
                       />
                     </div>
                   ))}
@@ -145,6 +156,7 @@ export function StoreFeedTabs({
                 link={card.link}
                 image={card.image}
                 banttangHref={banttangHrefFor(card)}
+                {...favoritePropsFor(card)}
               />
             ))}
           </div>

@@ -108,15 +108,15 @@ export function CommunityClient({
         </ul>
       )}
 
-      {/* 글쓰기 FAB */}
+      {/* 글쓰기 FAB — 아이콘(+)만. 홈(feed) FAB와 동일한 위치/스타일. */}
       <Link
         href={"/community/new" as any}
-        className="fixed bottom-[70px] right-[max(1.25rem,calc(50%-13.5rem))] z-40 flex items-center gap-1.5 rounded-full bg-brand px-5 py-3.5 text-[15px] font-bold text-white shadow-lg shadow-brand/30 active:scale-95"
+        aria-label="글쓰기"
+        className="fixed bottom-20 right-[max(1rem,calc(50%-13rem))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-emerald-500/30 transition-transform active:scale-95"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
         </svg>
-        글쓰기
       </Link>
     </div>
   );

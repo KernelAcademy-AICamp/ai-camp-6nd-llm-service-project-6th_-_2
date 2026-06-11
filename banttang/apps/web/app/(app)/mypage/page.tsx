@@ -73,11 +73,15 @@ export default async function MyPage() {
         <h2 className="px-4 pb-1 pt-4 text-[13px] font-bold text-zinc-900">
           고객센터
         </h2>
-        <MenuItem icon={<MegaphoneIcon />} label="공지사항" href={"#" as any} />
+        <MenuItem
+          icon={<MegaphoneIcon />}
+          label="공지사항"
+          href={"/mypage/notices" as any}
+        />
         <MenuItem
           icon={<QuestionIcon />}
           label="자주하는 질문"
-          href={"#" as any}
+          href={"/mypage/faq" as any}
         />
       </section>
 

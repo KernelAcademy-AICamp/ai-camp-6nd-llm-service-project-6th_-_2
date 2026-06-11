@@ -109,13 +109,13 @@ export function AvocadoNotice({
 
   return (
     <>
-      {/* FAB — 컨테이너 우하단. 캐릭터 이미지 자체가 동그란 형태라 배경/링 없이 그대로. */}
+      {/* FAB — 컨테이너 우상단(헤더 아래). 캐릭터 이미지 자체가 동그란 형태라 배경/링 없이 그대로. */}
       <button
         type="button"
         onClick={handleFabTap}
         aria-label="방장봇 안내 열기"
         className={cn(
-          "absolute bottom-28 right-4 z-20 flex h-16 w-16 items-center justify-center",
+          "fixed top-16 right-[max(1rem,calc(50%-13rem))] z-40 flex h-16 w-16 items-center justify-center",
           "transition-transform hover:scale-110 active:scale-95",
           // 마운트 시 살짝 통통 (한 번)
           "animate-[avo-pop_400ms_ease-out]",
@@ -137,7 +137,7 @@ export function AvocadoNotice({
         <div
           role="dialog"
           aria-label={notice.title}
-          className="absolute bottom-44 right-4 z-20 w-[min(20rem,80vw)] origin-bottom-right"
+          className="fixed top-36 right-[max(1rem,calc(50%-13rem))] z-40 w-[min(20rem,80vw)] origin-top-right"
         >
           <div className="relative rounded-2xl bg-white p-4 shadow-xl ring-1 ring-black/5">
             <header className="flex items-start justify-between gap-2">
@@ -173,10 +173,10 @@ export function AvocadoNotice({
                 자세히 보기 →
               </a>
             )}
-            {/* 꼬리 — FAB 방향 */}
+            {/* 꼬리 — FAB(위) 방향 */}
             <span
               aria-hidden
-              className="absolute -bottom-1.5 right-7 h-3 w-3 rotate-45 bg-white ring-1 ring-black/5"
+              className="absolute -top-1.5 right-7 h-3 w-3 rotate-45 bg-white ring-1 ring-black/5"
             />
           </div>
         </div>

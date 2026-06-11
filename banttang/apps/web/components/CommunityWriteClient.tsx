@@ -199,8 +199,8 @@ export function CommunityWriteClient({
         {error && <p className="text-[14px] font-medium text-rose-500">{error}</p>}
       </div>
 
-      {/* 하단 툴바 */}
-      <div className="flex items-center gap-3 border-t border-zinc-100 px-4 py-3">
+      {/* 하단 툴바 — 탭 메뉴(BottomNav)와 겹치지 않게 아래 여백 */}
+      <div className="mb-3 flex items-center gap-3 border-t border-zinc-100 px-4 py-3">
         <input
           ref={fileRef}
           type="file"

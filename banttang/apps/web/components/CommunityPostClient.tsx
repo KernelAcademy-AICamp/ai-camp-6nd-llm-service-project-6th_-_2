@@ -286,8 +286,8 @@ export function CommunityPostClient({
         </section>
       </div>
 
-      {/* 댓글 입력 (BottomNav 위에 정렬) */}
-      <div className="border-t border-zinc-100 bg-white">
+      {/* 댓글 입력 (BottomNav 위에 정렬, 탭 메뉴와 겹치지 않게 아래 여백) */}
+      <div className="mb-3 border-t border-zinc-100 bg-white">
         {replyTo && (
           <div className="flex items-center justify-between bg-zinc-50 px-4 py-2 text-[12px] text-zinc-500">
             <span>

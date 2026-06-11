@@ -138,7 +138,7 @@ export function ChatInputBar({
 
   if (readOnly) {
     return (
-      <div className="border-t border-black/[0.06] bg-gray-50 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+      <div className="mb-3 border-t border-black/[0.06] bg-gray-50 px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
         <p className="text-center text-[12px] text-gray-500">{readOnlyHint}</p>
       </div>
     );
@@ -151,7 +151,7 @@ export function ChatInputBar({
   return (
     <form
       onSubmit={handleSubmit}
-      className="border-t border-black/[0.06] bg-white px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2"
+      className="mb-3 border-t border-black/[0.06] bg-white px-3 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2"
     >
       {(error || showCounter) && (
         <div className="mb-1 flex items-center justify-between px-1">

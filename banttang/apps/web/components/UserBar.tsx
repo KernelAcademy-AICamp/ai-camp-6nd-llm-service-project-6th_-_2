@@ -109,6 +109,9 @@ export function UserBar({
   } else if (seg[0] === "feed" && seg[1] === "search") {
     // 검색 전용 화면 — 자체 헤더 사용
     mode = "hidden";
+  } else if (seg[0] === "store" && seg[1] === "search") {
+    // 스토어 검색 전용 화면 — 자체 헤더 사용
+    mode = "hidden";
   } else if (seg[0] === "mypage" && seg[1] === "reviews") {
     // 띵동 후기 목록/상세 — 자체 헤더(← + 타이틀 인라인) 사용 → UserBar 숨김
     mode = "hidden";
