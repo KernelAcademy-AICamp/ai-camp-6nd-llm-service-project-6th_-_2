@@ -26,8 +26,12 @@ async function reverseGeocodeRegion(lat: number, lng: number): Promise<Region | 
       }>;
     };
     const docs = json.documents ?? [];
-    // 법정동(B) 우선 — neighborhoods 시드가 법정동명("신림동") 기준.
-    const doc = docs.find((d) => d.region_type === "B") ?? docs[0];
+    // 행정동(H) 우선 — 동네를 "역삼1동"처럼 더 잘게 쪼개서 매칭.
+    // 행정동이 없으면 법정동(B)으로 폴백("역삼동").
+    const doc =
+      docs.find((d) => d.region_type === "H") ??
+      docs.find((d) => d.region_type === "B") ??
+      docs[0];
     if (!doc?.region_1depth_name || !doc?.region_2depth_name || !doc?.region_3depth_name) {
       return null;
     }
@@ -84,24 +88,34 @@ export async function POST(req: Request) {
     });
 
     // rin의 중간지점 추천(recommend-midpoint)이 auth.users.user_metadata.home를 읽으므로 같이 저장.
+    // 갱신 실패는 onboarding 흐름 자체를 막지 않지만, 조용히 삼키면 디버깅이 불가능하므로 로그를 남긴다.
     try {
       const ssr = createSsrClient();
       const {
         data: { user },
       } = await ssr.auth.getUser();
-      if (user) {
+      if (!user) {
+        console.warn("[onboarding/address] 로그인 유저 없음 — 동네/프로필 갱신 스킵");
+      } else {
         const admin = getServiceClient();
-        await admin.auth.admin.updateUserById(user.id, {
+        const { error: metaErr } = await admin.auth.admin.updateUserById(user.id, {
           user_metadata: {
             ...(user.user_metadata ?? {}),
             home: { lat, lng, address: resolved },
           },
         });
+        if (metaErr) {
+          console.error("[onboarding/address] user_metadata 갱신 실패:", metaErr);
+        }
 
         // 동네 find-or-create → profiles.neighborhood_id 연결.
         // 미리 시드하지 않고, 유저가 고른 동네가 없으면 그때 생성(on-demand).
-        if (region) {
-          const { data: neighborhoodId } = await admin.rpc(
+        if (!region) {
+          console.warn(
+            "[onboarding/address] region 역지오코딩 실패 — 동네/프로필 갱신 스킵 (KAKAO_REST_API_KEY 확인)",
+          );
+        } else {
+          const { data: neighborhoodId, error: rpcErr } = await admin.rpc(
             "find_or_create_neighborhood",
             {
               p_city: region.city,
@@ -111,16 +125,22 @@ export async function POST(req: Request) {
               p_lng: lng,
             },
           );
-          if (neighborhoodId) {
-            await admin
+          if (rpcErr) {
+            console.error("[onboarding/address] find_or_create_neighborhood 실패:", rpcErr);
+          } else if (neighborhoodId) {
+            const { error: updErr } = await admin
               .from("profiles")
               .update({ neighborhood_id: neighborhoodId })
               .eq("id", user.id);
+            if (updErr) {
+              console.error("[onboarding/address] profiles.neighborhood_id 갱신 실패:", updErr);
+            }
           }
         }
       }
-    } catch {
-      // metadata/동네 갱신 실패는 onboarding 흐름 자체를 막지 않음
+    } catch (e) {
+      // metadata/동네 갱신 실패는 onboarding 흐름 자체를 막지 않지만, 원인은 남긴다.
+      console.error("[onboarding/address] 동네/프로필 갱신 중 예외:", e);
     }
   }
   return NextResponse.json({ ok: true, address: resolved });

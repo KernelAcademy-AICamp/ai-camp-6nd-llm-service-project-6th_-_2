@@ -150,7 +150,7 @@ export function AddressOnboardingClient({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-3.75rem)] flex-col">
+    <div className="flex h-[calc(100dvh-7.25rem)] flex-col">
       {sdk.status === "error" && (
         <div className="m-4 rounded-xl bg-rose-50 p-3 text-xs text-rose-700">
           <p className="font-semibold">카카오 지도 SDK 로드 실패</p>
@@ -325,7 +325,7 @@ function SearchStage({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-3 p-4">
+    <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">
       <header>
         <h1 className="text-lg font-bold">위치 설정</h1>
         <p className="text-xs text-zinc-500">같은 동네 이웃과 매칭하기 위해 필요해요.</p>
@@ -590,7 +590,7 @@ function MapStage({
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="border-b border-zinc-100 bg-white px-4 py-3">
+      <div className="shrink-0 border-b border-zinc-100 bg-white px-4 py-3">
         <div className="flex items-center gap-2">
           <button onClick={onBack} className="text-sm text-zinc-500">← 검색</button>
           <h2 className="text-sm font-semibold">위치 미세 조정</h2>
@@ -611,7 +611,7 @@ function MapStage({
         </div>
       </div>
 
-      <div className="relative flex-1 min-h-[20rem]">
+      <div className="relative flex-1 min-h-0">
         {/* 검색 결과 dropdown — 지도 위에 겹쳐서 */}
         {results.length > 0 && (
           <ul className="absolute left-3 right-3 top-3 z-30 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
@@ -654,7 +654,7 @@ function MapStage({
         )}
       </div>
 
-      <div className="border-t border-zinc-100 bg-white p-4">
+      <div className="shrink-0 border-t border-zinc-100 bg-white p-4">
         <div className="flex items-center justify-between">
           <p className="text-[11px] text-zinc-400">지도를 움직여서 정확한 위치를 맞춰주세요</p>
           {verified && (

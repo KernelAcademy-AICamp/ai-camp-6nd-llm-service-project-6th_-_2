@@ -57,7 +57,7 @@ export function EmailLoginForm() {
       return;
     }
     // 신규 가입자는 챗봇 온보딩으로, 로그인은 피드로
-    router.push(mode === "signup" ? "/onboarding/tour" : "/feed");
+    router.push((mode === "signup" ? "/onboarding/tour" : "/feed") as any);
     router.refresh();
   }
 

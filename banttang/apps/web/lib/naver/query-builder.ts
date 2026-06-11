@@ -17,6 +17,7 @@ export type NaverSearchType = "local" | "shop" | "blog" | "news";
 // 추천 피드 카테고리 (스토어 카테고리 아이콘과 1:1)
 export type FeedSection =
   | "delivery"
+  | "market" // 동네 주변 마트/마켓 (지역검색 local)
   | "food"
   | "health"
   | "living"
@@ -45,7 +46,7 @@ export type SearchQuery = {
 
 // ---------- 카테고리별 기본 쇼핑 키워드 (관심사·연령 없을 때 폴백) ----------
 
-const SHOP_DEFAULTS: Record<Exclude<FeedSection, "delivery">, string[]> = {
+const SHOP_DEFAULTS: Record<Exclude<FeedSection, "delivery" | "market">, string[]> = {
   food: ["1인가구 밀키트", "자취 식재료", "소포장 반찬"],
   health: ["건강식품", "비타민 영양제", "홈트레이닝 용품"],
   living: ["자취 생활용품", "1인가구 주방용품", "자취방 수납"],
@@ -93,6 +94,13 @@ export function buildSearchQueries(profile: ProfileInput): SearchQuery[] {
   queries.push(
     { section: "delivery", type: "local", query: `${nb} 맛집`, sort: "random" },
     { section: "delivery", type: "local", query: `${district} 배달 맛집`, sort: "comment" },
+  );
+
+  // 1-2) 주변 마켓 (local) — 동네 마트/마켓
+  queries.push(
+    { section: "market", type: "local", query: `${nb} 마트`, sort: "random" },
+    { section: "market", type: "local", query: `${nb} 마켓`, sort: "random" },
+    { section: "market", type: "local", query: `${district} 대형마트`, sort: "comment" },
   );
 
   // 2) 쇼핑 카테고리 5개 (shop) — 전국. 기본 키워드

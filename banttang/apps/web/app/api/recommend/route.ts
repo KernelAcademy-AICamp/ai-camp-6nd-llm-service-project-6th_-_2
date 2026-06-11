@@ -15,6 +15,7 @@ import type { FeedSection } from "@/lib/naver/query-builder";
 
 const EMPTY_SECTIONS: Record<FeedSection, never[]> = {
   delivery: [],
+  market: [],
   food: [],
   health: [],
   living: [],

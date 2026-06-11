@@ -1,21 +1,25 @@
-// 파티 상태 전이 FastAPI 호출.
-// parties.status 변경은 RLS UPDATE 정책으로도 가능하지만, 영수증 검증 완료 조건이나
-// 추후 정산 알림톡 발송 등 부수 작업이 묶여 있어 서버 측 라우터를 거친다.
-
-import { fastApiFetch } from "./client";
-import type { Party } from "@/lib/types/domain";
+// 파티 상태 전이. FastAPI 대신 Next.js 자체 API 라우트(/api/parties/[id]/complete) 사용.
+// 단순 상태 전이 + 시스템 메시지 + 알림은 Supabase 직접으로 충분 (CLAUDE.md 원칙).
+//
+// accessToken은 시그니처 호환을 위해 받지만 실제로는 쿠키 세션을 사용한다.
 
 interface CompletePartyInput {
   partyId: string;
-  accessToken: string;
+  accessToken?: string;
 }
 
 export async function completeParty({
   partyId,
-  accessToken,
-}: CompletePartyInput): Promise<Party> {
-  return await fastApiFetch<Party>(`/parties/${partyId}/complete`, {
+}: CompletePartyInput): Promise<{ ok: true } | { ok: false; error: string }> {
+  const res = await fetch(`/api/parties/${partyId}/complete`, {
     method: "POST",
-    accessToken,
   });
+  const j = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    error?: string;
+  };
+  if (!res.ok || !j.ok) {
+    throw new Error(j.error ?? `거래 완료 처리 실패 (${res.status})`);
+  }
+  return { ok: true };
 }

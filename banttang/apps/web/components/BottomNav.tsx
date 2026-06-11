@@ -6,13 +6,16 @@ import { useEffect, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 
-// 하단 4탭: 홈 / 스토어 / 채팅 / 마이.
+// 하단 5탭: 홈 / 커뮤니티 / 스토어 / 채팅 / 마이.
 // "주문 등록"은 홈 화면의 플로팅 버튼으로 이동.
+// 아이콘은 마이페이지(만든 주문/띵동 후기 등)와 톤을 맞춘 커스텀 SVG.
+// fill은 currentColor라 활성(text-brand)/비활성(text-zinc-400) 색을 자동으로 따라간다.
 const tabs = [
-  { href: "/feed", label: "홈", icon: "🏠" },
-  { href: "/store", label: "스토어", icon: "🛍️" },
-  { href: "/chat", label: "채팅", icon: "💬" },
-  { href: "/mypage", label: "마이", icon: "👤" },
+  { href: "/feed", label: "홈", Icon: HomeIcon },
+  { href: "/community", label: "커뮤니티", Icon: CommunityIcon },
+  { href: "/store", label: "스토어", Icon: BagIcon },
+  { href: "/chat", label: "채팅", Icon: ChatIcon },
+  { href: "/mypage", label: "마이", Icon: PersonIcon },
 ] as const;
 
 export function BottomNav({ chatUnreadTotal = 0 }: { chatUnreadTotal?: number }) {
@@ -86,7 +89,7 @@ export function BottomNav({ chatUnreadTotal = 0 }: { chatUnreadTotal?: number })
               active ? "text-brand" : "text-zinc-400",
             )}
           >
-            <span className="text-lg leading-none">{t.icon}</span>
+            <t.Icon active={active} />
             <span>{t.label}</span>
             {showBadge && (
               <span
@@ -100,5 +103,125 @@ export function BottomNav({ chatUnreadTotal = 0 }: { chatUnreadTotal?: number })
         );
       })}
     </nav>
+  );
+}
+
+// ── 탭 아이콘 ────────────────────────────────────────────────
+// 모두 viewBox 24, fill="currentColor"로 통일 → 활성/비활성 색을 부모 text 색에서 상속.
+// 활성 시엔 꽉 찬 실루엣, 비활성 시엔 1.8 두께 외곽선으로 무게감 차이를 준다.
+type TabIconProps = { active?: boolean };
+
+// 홈
+function HomeIcon({ active }: TabIconProps) {
+  return active ? (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M11.3 3.5 3.7 9.6A2 2 0 0 0 3 11.1V20a1 1 0 0 0 1 1h4.5v-5a1 1 0 0 1 1-1h5a1 1 0 0 1 1 1v5H20a1 1 0 0 0 1-1v-8.9a2 2 0 0 0-.7-1.5l-7.6-6.1a1.1 1.1 0 0 0-1.4 0Z" />
+    </svg>
+  ) : (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// 커뮤니티 — 이웃(두 사람)
+function CommunityIcon({ active }: TabIconProps) {
+  return active ? (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="9" cy="8" r="3.4" />
+      <circle cx="16.5" cy="9.2" r="2.7" />
+      <path d="M2.8 18.2c0-3.1 2.78-5.2 6.2-5.2s6.2 2.1 6.2 5.2a.8.8 0 0 1-.8.8H3.6a.8.8 0 0 1-.8-.8Z" />
+      <path d="M16.5 13.2c2.7 0 4.7 1.7 4.7 4.2a.8.8 0 0 1-.8.8h-3.2c.13-.5.2-1.05.2-1.6 0-1.36-.43-2.55-1.16-3.4.08 0 .17 0 .26 0Z" />
+    </svg>
+  ) : (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M3.6 18.4c0-2.9 2.5-4.8 5.4-4.8s5.4 1.9 5.4 4.8"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path
+        d="M15.5 7.2a2.5 2.5 0 0 1 0 5M17.4 18.4c0-2.2-1-3.9-2.7-4.6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+// 스토어 — 쇼핑백
+function BagIcon({ active }: TabIconProps) {
+  return active ? (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M6.2 7.5h11.6l.86 11.6A2 2 0 0 1 16.67 21H7.33a2 2 0 0 1-1.99-1.9L6.2 7.5Z" />
+      <path
+        d="M8.7 9V6.9a3.3 3.3 0 0 1 6.6 0V9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        fill="none"
+      />
+    </svg>
+  ) : (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M6.4 7.8h11.2l.82 11A1.6 1.6 0 0 1 16.83 20.5H7.17a1.6 1.6 0 0 1-1.59-1.7l.82-11Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M8.7 9V6.9a3.3 3.3 0 0 1 6.6 0V9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+// 채팅 — 말풍선
+function ChatIcon({ active }: TabIconProps) {
+  return active ? (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-6.6L7 19.3a.6.6 0 0 1-1-.5V16a2 2 0 0 1-2-2V6Z" />
+    </svg>
+  ) : (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4.8 6.2A1.8 1.8 0 0 1 6.6 4.5h10.8a1.8 1.8 0 0 1 1.8 1.7V14a1.8 1.8 0 0 1-1.8 1.8h-6.2L7 18.8a.5.5 0 0 1-.8-.4v-2.6A1.8 1.8 0 0 1 4.8 14V6.2Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+// 마이 — 사람
+function PersonIcon({ active }: TabIconProps) {
+  return active ? (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4.5 19.5c0-3.9 3.36-6.5 7.5-6.5s7.5 2.6 7.5 6.5a.9.9 0 0 1-.9.9H5.4a.9.9 0 0 1-.9-.9Z" />
+    </svg>
+  ) : (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="8" r="3.6" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M5.2 19.4c0-3.6 3.05-6 6.8-6s6.8 2.4 6.8 6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
   );
 }

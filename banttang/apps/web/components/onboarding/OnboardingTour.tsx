@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useKakaoSdk } from "@/lib/use-kakao-sdk";
+import { saveOnboarding } from "@/app/_actions/save-onboarding";
 import {
   STEPS,
   type ChipOption,
@@ -85,8 +86,25 @@ export function OnboardingTour() {
     setIdx((i) => i + 1);
   }
 
-  function finish(nextHref: string) {
-    // 추후: save-onboarding 서버 액션 호출. 지금은 라우팅만.
+  async function finish(nextHref: string) {
+    // 온보딩 선택(주 사용 유형·관심 몰·관심 품목)을 평탄화해 DB에 저장.
+    // 저장 실패는 라우팅을 막지 않는다(맞춤 추천만 폴백될 뿐).
+    const bySaveAs = (key: string) => {
+      const step = STEPS.find((s) => (s as { saveAs?: string }).saveAs === key);
+      return step ? responses[step.id]?.value : undefined;
+    };
+    const primary_usage = bySaveAs("primary_usage");
+    const favorite_malls = bySaveAs("favorite_malls");
+    const favorite_categories = bySaveAs("favorite_categories");
+    try {
+      await saveOnboarding({
+        primary_usage: typeof primary_usage === "string" ? primary_usage : null,
+        favorite_malls: Array.isArray(favorite_malls) ? favorite_malls : [],
+        favorite_categories: Array.isArray(favorite_categories) ? favorite_categories : [],
+      });
+    } catch {
+      // 무시 — 흐름 우선
+    }
     router.push(nextHref as any);
   }
 

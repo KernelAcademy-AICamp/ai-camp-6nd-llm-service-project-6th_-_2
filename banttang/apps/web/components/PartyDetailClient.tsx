@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { StatusBadge } from "./StatusBadge";
@@ -13,6 +13,7 @@ import {
   minutesUntil,
 } from "@/lib/party-status";
 import { PartyPhotosGallery } from "./PartyPhotosGallery";
+import { pushRecentViewed } from "./SearchPageClient";
 import type { DisplayStatus, PartyRow } from "@/lib/types";
 
 type Member = {
@@ -37,10 +38,23 @@ type Props = {
 
 export function PartyDetailClient({ me, party, members }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // 호스트가 방금 글 생성하고 진입한 경우만 "확인" 노출 (?created=1).
+  const justCreated = searchParams?.get("created") === "1";
   const supabase = useMemo(() => createClient(), []);
   const [busy, setBusy] = useState(false);
   const [showJoinConfirm, setShowJoinConfirm] = useState(false);
   const [showHostAccept, setShowHostAccept] = useState(false);
+
+  // 진입 시 localStorage에 "최근 본 목록" 저장 — /feed/search에서 노출됨.
+  useEffect(() => {
+    pushRecentViewed({
+      id: party.id,
+      store_name: party.store_name,
+      photo_path: party.photo_paths?.[0] ?? null,
+      representative_menu: party.representative_menu ?? null,
+    });
+  }, [party.id, party.store_name, party.photo_paths, party.representative_menu]);
 
   // 실시간 인원 카운트 — 누가 신청/승인/취소되면 즉시 SSR 재계산.
   // 호스트 화면에서 새 신청 즉시 보이고, 다른 사용자 화면에서도 정원 마감 반영.
@@ -161,7 +175,7 @@ export function PartyDetailClient({ me, party, members }: Props) {
         </div>
         <h1 className="mt-1 text-xl font-bold">{party.store_name}</h1>
         {party.representative_menu && (
-          <p className="text-sm text-zinc-500">{party.representative_menu}</p>
+          <MenuOrLink text={party.representative_menu} />
         )}
 
         <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
@@ -277,6 +291,15 @@ export function PartyDetailClient({ me, party, members }: Props) {
             참여 취소
           </button>
         )}
+        {/* 호스트가 방금 생성하고 들어온 직후 한 번만 — 인라인 회색 버튼. */}
+        {isHost && justCreated && (
+          <Link
+            href="/feed"
+            className="rounded-xl border border-zinc-200 py-3 text-center font-semibold text-zinc-600 active:bg-zinc-50"
+          >
+            확인
+          </Link>
+        )}
       </section>
 
       {/* 참여 확인 모달 */}
@@ -285,7 +308,11 @@ export function PartyDetailClient({ me, party, members }: Props) {
           <h3 className="text-lg font-semibold">참여 확인</h3>
           <div className="mt-3 space-y-1 text-sm text-zinc-600">
             <p>📦 {party.store_name}</p>
-            {party.representative_menu && <p>· {party.representative_menu}</p>}
+            {party.representative_menu && (
+              <div>
+                · <MenuOrLink text={party.representative_menu} />
+              </div>
+            )}
             <p>💸 예상 1인 {formatKRW(party.price_per_person)}</p>
             <p>📍 {party.pickup_name ?? "미정"}</p>
             <p>🕒 {formatKstShort(party.deal_at)}</p>
@@ -327,7 +354,36 @@ export function PartyDetailClient({ me, party, members }: Props) {
           </div>
         </Modal>
       )}
+
     </div>
+  );
+}
+
+// 대표 메뉴/링크 — URL이면 도메인 표기 + 새 탭 링크, 아니면 일반 텍스트.
+function MenuOrLink({ text }: { text: string }) {
+  const trimmed = text.trim();
+  const isUrl = /^https?:\/\//i.test(trimmed);
+  if (!isUrl) {
+    return <p className="text-sm text-zinc-500">{trimmed}</p>;
+  }
+  let host = trimmed;
+  try {
+    host = new URL(trimmed).host.replace(/^www\./, "");
+  } catch {
+    // URL 파싱 실패 시 원본 사용
+  }
+  return (
+    <a
+      href={trimmed}
+      target="_blank"
+      rel="noreferrer"
+      className="mt-1 inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-zinc-100 px-3 py-1 text-[12px] font-semibold text-zinc-700 hover:bg-zinc-200"
+      title={trimmed}
+    >
+      <span aria-hidden>🔗</span>
+      <span className="truncate">{host}</span>
+      <span aria-hidden>↗</span>
+    </a>
   );
 }
 
