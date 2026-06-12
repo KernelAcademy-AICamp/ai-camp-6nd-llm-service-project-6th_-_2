@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { COOKIE_NAME } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase/admin";
+import { createClient as createSsrClient } from "@/lib/supabase/server";
 
 const NICKNAME_RE = /^[가-힣a-zA-Z0-9_]+$/;
 
@@ -49,18 +50,13 @@ export async function POST(req: Request) {
       );
     const userId = created.user.id;
 
-    // 신림동 베타 동네 (있으면 매칭)
-    const { data: nb } = await sb
-      .from("neighborhoods")
-      .select("id")
-      .eq("name", "신림동")
-      .maybeSingle();
-
+    // neighborhood_id는 가입 시 비워둔다 — 온보딩(위치 설정)에서 실제 동네로 채운다.
+    // 신림동을 기본으로 박으면 위치를 설정해도 신림동에 고정되는 문제가 생긴다.
     const { error: profErr } = await sb.from("profiles").insert({
       id: userId,
       nickname: nick,
       gender,
-      neighborhood_id: nb?.id ?? null,
+      neighborhood_id: null,
     });
     if (profErr) {
       // 롤백: auth.users 정리
@@ -68,6 +64,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: profErr.message }, { status: 500 });
     }
 
+    // Supabase 세션(sb-*)도 세운다 — email-signin과 동일.
+    // 이게 없으면 auth.getUser()에 의존하는 서버 액션/라우트(승인·띵동·중간지점·영수증 등)가
+    // 갓 가입한 유저에서 "비로그인"으로 실패한다. SSR 클라이언트가 쿠키를 자동 설정.
+    const ssr = createSsrClient();
+    const { error: signErr } = await ssr.auth.signInWithPassword({ email, password });
+    if (signErr) {
+      // 세션 세팅 실패해도 커스텀 쿠키로 기본 흐름은 가능하므로 가입 자체는 성공 처리하되 로그는 남긴다.
+      console.error("[email-signup] 세션 생성 실패(signInWithPassword):", signErr);
+    }
+
+    // 커스텀 쿠키(banttang_user_id) — 기존 라우트 호환용. Supabase 세션과 함께 세팅.
     cookies().set({
       name: COOKIE_NAME,
       value: userId,

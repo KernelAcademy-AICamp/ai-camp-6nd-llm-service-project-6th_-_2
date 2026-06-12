@@ -11,14 +11,16 @@ export default async function NewPartyPage() {
     redirect("/login?next=/parties/new");
   }
 
-  // 프로필에서 neighborhood_id 조회. 없으면 신림동(seed) 사용.
+  // 프로필에서 neighborhood_id 조회. 없으면 동네 설정(온보딩)을 먼저 시킨다.
   const { data: profile } = await supabase
     .from("profiles")
     .select("neighborhood_id")
     .eq("id", user.id)
     .maybeSingle<{ neighborhood_id: string | null }>();
-  const neighborhoodId =
-    profile?.neighborhood_id ?? "00000000-0000-0000-0000-000000000001";
+  if (!profile?.neighborhood_id) {
+    redirect("/onboarding/address");
+  }
+  const neighborhoodId = profile.neighborhood_id;
 
   const { data: locs } = await supabase
     .from("pickup_locations")

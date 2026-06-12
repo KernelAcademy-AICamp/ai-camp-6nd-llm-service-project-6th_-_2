@@ -2,15 +2,15 @@
 
 // 채팅 이미지 업로드 — Server Action.
 // 클라이언트가 직접 storage에 올리려면 RLS 정책이 필요해서, 우선 server에서
-// admin 클라이언트로 업로드한다(파티 멤버십 검증은 user 세션으로 먼저 확인).
+// admin 클라이언트로 업로드한다(파티 멤버십은 user_id 본인 스코프로 먼저 확인).
 //
 // 명세서:
 //   - E803: JPG/PNG/WEBP, 10MB 이하 (HEIC은 브라우저 호환 이슈로 제외)
 //   - A206: 인증 이미지와 일반 이미지를 구분(이 액션은 일반)
 
 import { randomUUID } from "node:crypto";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -47,15 +47,14 @@ export async function uploadChatPhoto(
       return { ok: false, error: "JPG, PNG, WEBP 형식만 업로드할 수 있어요." };
     }
 
-    // 1) 멤버십 검증 — user 세션으로
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) {
+    // 1) 멤버십 검증
+    const userId = await getAuthedUserId();
+    if (!userId) {
       return { ok: false, error: "로그인이 필요해요." };
     }
-    const userId = auth.user.id;
 
-    const { data: membership } = await supabase
+    const admin = createAdminClient();
+    const { data: membership } = await admin
       .from("party_participants")
       .select("id")
       .eq("party_id", partyId)
@@ -67,7 +66,6 @@ export async function uploadChatPhoto(
     }
 
     // 2) admin으로 업로드 (RLS 우회). 경로 = {party_id}/{uuid}.{ext}
-    const admin = createAdminClient();
     const ext = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
     const storagePath = `${partyId}/${randomUUID()}.${ext}`;
 

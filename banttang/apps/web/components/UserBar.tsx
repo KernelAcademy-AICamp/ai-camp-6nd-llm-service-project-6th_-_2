@@ -118,8 +118,9 @@ export function UserBar({
   } else if (seg[0] === "notifications") {
     // 알림함 — 자체 헤더 사용
     mode = "hidden";
-  } else if (seg[0] === "community") {
-    // 커뮤니티(목록/작성/상세) — 자체 헤더 사용
+  } else if (seg[0] === "community" && seg.length > 1) {
+    // 커뮤니티 작성(/community/new)·상세(/community/[id]) — 자체 뒤로가기 헤더 사용.
+    // 목록(/community)은 전역 헤더(위치·알림 바)를 그대로 노출(home 모드로 fall-through).
     mode = "hidden";
   } else if (seg[0] === "groupbuy") {
     // 공동구매 상세 — 자체 헤더 사용

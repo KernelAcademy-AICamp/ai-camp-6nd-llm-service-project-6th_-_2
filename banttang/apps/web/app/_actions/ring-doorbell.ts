@@ -8,8 +8,8 @@
 // - 활성화 윈도우: deal_at - 15분 ~ deal_at + 60분
 // - 쿨다운: 같은 사용자가 5초 내 재발사 불가
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 // [TEMP-DEV] 띵동 기능 테스트를 위해 윈도우를 30일로 확장. 운영 배포 전 원복:
 //   const ACTIVATION_BEFORE_MS = 15 * 60 * 1000;
@@ -22,10 +22,8 @@ export async function ringDoorbell(
   partyId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
-    const userId = auth.user.id;
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
     const admin = createAdminClient();
 

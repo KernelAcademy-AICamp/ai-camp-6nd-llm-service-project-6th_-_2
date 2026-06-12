@@ -108,7 +108,8 @@ export function AddressOnboardingClient({ userId }: { userId: string }) {
     });
     setBusy(false);
     if (!res.ok) {
-      setError("저장 실패");
+      const j = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(j?.error ?? "저장 실패");
       return false;
     }
     router.push("/feed");

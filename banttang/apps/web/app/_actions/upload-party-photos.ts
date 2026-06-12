@@ -5,8 +5,8 @@
 // 기존 사진과 중복 슬롯 없이 빈 index를 골라 채워넣는다 (재호출 안전).
 
 import { randomUUID } from "node:crypto";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -55,10 +55,9 @@ export async function uploadPartyPhotos(
       }
     }
 
-    // 호스트 권한 검증 (user 세션)
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) {
+    // 호스트 권한 검증
+    const userId = await getAuthedUserId();
+    if (!userId) {
       return { ok: false, error: "로그인이 필요해요." };
     }
 
@@ -71,7 +70,7 @@ export async function uploadPartyPhotos(
     if (partyErr || !party) {
       return { ok: false, error: "파티를 찾을 수 없어요." };
     }
-    if (party.host_id !== auth.user.id) {
+    if (party.host_id !== userId) {
       return { ok: false, error: "호스트만 사진을 올릴 수 있어요." };
     }
 

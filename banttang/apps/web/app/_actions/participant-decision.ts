@@ -5,15 +5,14 @@
 // 호출자(=호스트)의 RLS 컨텍스트로 실행되어 실패할 수 있다(SECURITY DEFINER 미적용 케이스).
 // 여기선 admin client(service_role)로 실행해 RLS를 우회 + 트리거도 service_role로 동작.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 async function ensureHostOfParticipant(
   participantId: string,
 ): Promise<{ ok: true; partyId: string } | { ok: false; error: string }> {
-  const supabase = createServerClient();
-  const { data: auth, error: authErr } = await supabase.auth.getUser();
-  if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
+  const userId = await getAuthedUserId();
+  if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
   const admin = createAdminClient();
   const { data: row, error: rowErr } = await admin
@@ -26,7 +25,7 @@ async function ensureHostOfParticipant(
   }
   const hostId =
     (row.party as unknown as { host_id?: string } | null)?.host_id ?? null;
-  if (hostId !== auth.user.id) {
+  if (hostId !== userId) {
     return { ok: false, error: "호스트만 처리할 수 있어요." };
   }
   return { ok: true, partyId: row.party_id as string };

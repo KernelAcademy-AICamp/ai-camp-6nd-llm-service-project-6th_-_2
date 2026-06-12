@@ -17,10 +17,19 @@ export default async function AppLayout({
   const me = await getCurrentUser();
   if (!me) redirect("/");
 
-  // 첫 진입 시 주소 설정 필요
-  const address = cookies().get(ADDRESS_COOKIE)?.value;
-
   const sb = getServiceClient();
+
+  // 헤더 표시 주소: 쿠키 우선, 없으면 영속값(neighborhood_id)에서 동네명 파생.
+  // 로그아웃/기기 변경으로 쿠키가 사라져도 동네는 DB에 남아 있으므로 헤더가 비지 않는다.
+  let address = cookies().get(ADDRESS_COOKIE)?.value ?? null;
+  if (!address && me.neighborhood_id) {
+    const { data: nb } = await sb
+      .from("neighborhoods")
+      .select("name, district")
+      .eq("id", me.neighborhood_id)
+      .maybeSingle();
+    if (nb?.name) address = nb.district ? `${nb.district} ${nb.name}` : nb.name;
+  }
   const { data: notifs } = await sb
     .from("notifications")
     .select("id, title, body, link_path, is_read, created_at")

@@ -3,16 +3,15 @@
 // 호스트가 중간지점 추천 카드의 "그대로 둘게요"를 눌렀을 때 — 메시지 metadata에
 // decided='dismissed'를 영구 저장해 다시 들어와도 버튼이 안 보이게 한다.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 export async function dismissMidpointRecommendation(
   messageId: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
     const admin = createAdminClient();
 
@@ -38,7 +37,7 @@ export async function dismissMidpointRecommendation(
       .eq("id", room.party_id)
       .maybeSingle();
     if (!party) return { ok: false, error: "파티를 찾을 수 없어요." };
-    if (party.host_id !== auth.user.id) {
+    if (party.host_id !== userId) {
       return { ok: false, error: "호스트만 처리할 수 있어요." };
     }
 
