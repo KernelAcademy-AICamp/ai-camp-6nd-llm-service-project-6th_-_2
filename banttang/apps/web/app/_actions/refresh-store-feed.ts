@@ -4,24 +4,23 @@
 // search_cache 를 즉시 갱신한다. (배달/쇼핑 링크 등 정제 로직 변경을 바로 반영)
 
 import { revalidatePath } from "next/cache";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getNeighborhoodFeed } from "@/lib/naver/cache";
+import { getAuthedUserId } from "@/lib/auth";
 
 export async function refreshStoreFeed(): Promise<
   { ok: true } | { ok: false; error: string }
 > {
   try {
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
     // 내 동네 조회
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("profiles")
       .select("neighborhood_id, neighborhoods(id, name, district)")
-      .eq("id", auth.user.id)
+      .eq("id", userId)
       .maybeSingle();
 
     const nbRaw = profile?.neighborhoods;

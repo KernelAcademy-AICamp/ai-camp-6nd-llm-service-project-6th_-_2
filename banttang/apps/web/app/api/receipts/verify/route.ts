@@ -16,7 +16,8 @@ import sharp from "sharp";
 import { Prisma, PrismaClient, RedemptionResult } from "@prisma/client";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
-import { createClient as createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 import { extractReceipt, type ExtractResult } from "@/lib/receipt/extract";
 import {
   DUPLICATE_MESSAGES,
@@ -263,23 +264,30 @@ export async function POST(req: NextRequest) {
   }
   const partyId = partyIdRaw;
 
-  // 1.5 Supabase 세션 → Prisma User upsert (UUID 키로 매핑)
+  // 1.5 인증 신원 → Prisma User upsert (UUID 키로 매핑)
+  // 커스텀 쿠키(banttang_user_id) 우선 + 세션 폴백으로 신원을 얻는다.
   // Supabase auth.users(UUID)와 Prisma users(BIGINT) 사이를 supabase_user_id로 잇는다.
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user: supabaseUser },
-  } = await supabase.auth.getUser();
-  if (!supabaseUser) {
+  const admin = createAdminClient();
+  const authedUserId = await getAuthedUserId();
+  if (!authedUserId) {
     return jsonErr("UNAUTHORIZED", "로그인이 필요합니다.", 401);
+  }
+  // email은 best-effort — admin auth API로 조회(없어도 진행).
+  let authedEmail: string | null = null;
+  try {
+    const { data: au } = await admin.auth.admin.getUserById(authedUserId);
+    authedEmail = au?.user?.email ?? null;
+  } catch {
+    authedEmail = null;
   }
   let userId: bigint;
   try {
     const dbUser = await prisma.user.upsert({
-      where: { supabaseUserId: supabaseUser.id },
-      update: { email: supabaseUser.email ?? null },
+      where: { supabaseUserId: authedUserId },
+      update: { email: authedEmail },
       create: {
-        supabaseUserId: supabaseUser.id,
-        email: supabaseUser.email ?? null,
+        supabaseUserId: authedUserId,
+        email: authedEmail,
       },
       select: { id: true },
     });
@@ -295,19 +303,11 @@ export async function POST(req: NextRequest) {
 
   // 1.6 파티 조회 + 호스트 권한 검증
   // 영수증 인증은 호스트만 가능 — 멤버가 호스트 영수증을 멋대로 인증 못 함.
-  const partyRes = await supabase
+  const partyRes = await admin
     .from("parties")
     .select("id, host_id, category, store_name, max_participants, price_per_person, deal_at")
     .eq("id", partyId)
-    .maybeSingle<{
-      id: string;
-      host_id: string;
-      category: PartyCategory;
-      store_name: string;
-      max_participants: number;
-      price_per_person: number;
-      deal_at: string;
-    }>();
+    .maybeSingle();
   if (partyRes.error || !partyRes.data) {
     await writeLog({
       userId,
@@ -317,12 +317,20 @@ export async function POST(req: NextRequest) {
     });
     return jsonErr("PARTY_NOT_FOUND", "파티를 찾지 못했어요.", 404);
   }
-  const party = partyRes.data;
-  if (party.host_id !== supabaseUser.id) {
+  const party = partyRes.data as {
+    id: string;
+    host_id: string;
+    category: PartyCategory;
+    store_name: string;
+    max_participants: number;
+    price_per_person: number;
+    deal_at: string;
+  };
+  if (party.host_id !== authedUserId) {
     await writeLog({
       userId,
       result: RedemptionResult.error,
-      errorMessage: `호스트 아님 (host=${party.host_id}, user=${supabaseUser.id})`,
+      errorMessage: `호스트 아님 (host=${party.host_id}, user=${authedUserId})`,
       durationMs: Date.now() - startedAt,
     });
     return jsonErr("FORBIDDEN", "호스트만 영수증을 인증할 수 있어요.", 403);

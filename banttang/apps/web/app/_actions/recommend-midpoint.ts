@@ -10,8 +10,8 @@
 //   6) chat_messages에 type='system', metadata.kind='midpoint_recommendation' 으로 게시
 //      (이미 같은 metadata.kind의 메시지가 있으면 no-op — idempotent)
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 interface Home {
   user_id: string;
@@ -57,21 +57,20 @@ export async function recommendMidpoint(
 > {
   try {
     // 1) 호출자 멤버십 검증
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
-    const { data: membership } = await supabase
+    const admin = createAdminClient();
+    const { data: membership } = await admin
       .from("party_participants")
       .select("id")
       .eq("party_id", partyId)
-      .eq("user_id", auth.user.id)
+      .eq("user_id", userId)
       .eq("status", "approved")
       .maybeSingle();
     if (!membership) return { ok: false, error: "파티 멤버가 아니에요." };
 
     // 2) chat_room 존재 확인 + 이미 추천 메시지가 있는지 체크 (idempotent)
-    const admin = createAdminClient();
     const { data: room } = await admin
       .from("chat_rooms")
       .select("id")

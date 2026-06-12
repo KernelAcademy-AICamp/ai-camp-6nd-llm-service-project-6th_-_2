@@ -652,13 +652,19 @@ function AddressPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ method: "current_location", lat, lng }),
       });
-      const json = (await res.json()) as { address?: string };
+      const json = (await res.json()) as { ok?: boolean; address?: string; error?: string };
+      // 동네 확정 실패(역지오코딩 실패 등) — 진행하면 매칭이 깨지므로 멈추고 재시도 유도.
+      if (!res.ok) {
+        setError(json.error ?? "위치 저장에 실패했어요. 다시 시도해 주세요.");
+        return;
+      }
       if (json.address) address = json.address;
       // 저장된 쿠키/동네를 (app) 공유 레이아웃(UserBar 주소 등)이 다시 읽도록 갱신.
       // 레이아웃은 화면 이동만으론 재렌더되지 않아 명시적 refresh가 필요.
       router.refresh();
     } catch {
-      // 저장 실패해도 온보딩 흐름은 계속 진행
+      setError("네트워크 오류로 위치를 저장하지 못했어요. 다시 시도해 주세요.");
+      return;
     }
     onSubmit(address);
   }

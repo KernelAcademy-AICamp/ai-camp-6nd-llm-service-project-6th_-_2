@@ -16,8 +16,8 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = new Set([
@@ -107,9 +107,8 @@ export async function verifyReceiptWithClaude(
     }
 
     // 2) 호스트 권한 검증
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
     const admin = createAdminClient();
     const { data: party, error: partyErr } = await admin
@@ -118,7 +117,7 @@ export async function verifyReceiptWithClaude(
       .eq("id", partyIdRaw)
       .maybeSingle();
     if (partyErr || !party) return { ok: false, error: "파티를 찾을 수 없어요." };
-    if (party.host_id !== auth.user.id) {
+    if (party.host_id !== userId) {
       return { ok: false, error: "호스트만 영수증을 등록할 수 있어요." };
     }
 
@@ -255,7 +254,7 @@ export async function verifyReceiptWithClaude(
       .insert({
         id: receiptId,
         party_id: partyIdRaw,
-        uploader_id: auth.user.id,
+        uploader_id: userId,
         storage_path: storagePath,
         image_sha256: imageSha256,
         ocr_store_name: verdict.merchant,

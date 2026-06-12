@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { ADDRESS_COOKIE, requireCurrentUser } from "@/lib/auth";
+import { requireCurrentUser } from "@/lib/auth";
 import { listParties } from "@/lib/queries";
 import { FeedClient } from "@/components/FeedClient";
 
@@ -12,7 +11,8 @@ export default async function FeedPage({
   searchParams?: { tab?: string; sort?: string; view?: string; q?: string };
 }) {
   const me = await requireCurrentUser();
-  if (!cookies().get(ADDRESS_COOKIE)) redirect("/onboarding/address");
+  // 위치 설정 여부는 영속값(neighborhood_id)으로 판단 — 쿠키는 로그아웃 등으로 사라질 수 있다.
+  if (!me.neighborhood_id) redirect("/onboarding/address");
 
   const sort = searchParams?.sort === "latest" ? "latest" : "deadline";
   const view = searchParams?.view === "map" ? "map" : "list";
