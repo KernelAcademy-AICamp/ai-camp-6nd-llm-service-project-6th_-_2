@@ -119,6 +119,7 @@ export interface Profile {
   total_review_count: number;
   no_show_count: number;
   is_beta_user: boolean;
+  is_admin: boolean;
   joined_at: string;
   last_active_at: string;
   created_at: string;
@@ -321,6 +322,7 @@ type DefaultedProfile =
   | 'total_review_count'
   | 'no_show_count'
   | 'is_beta_user'
+  | 'is_admin'
   | 'joined_at'
   | 'last_active_at';
 type DefaultedParty =
