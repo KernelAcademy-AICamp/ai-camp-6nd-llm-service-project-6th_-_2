@@ -21,13 +21,31 @@ export function CommunityClient({
   posts,
   neighborhoodName,
   category,
+  scope = "all",
+  residence = null,
 }: {
   posts: CommunityPostRow[];
   neighborhoodName: string | null;
   category: CommunityCategory | null;
+  scope?: "all" | "residence";
+  residence?: string | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+
+  // scope·category 보존하며 링크 생성
+  const buildHref = (next: {
+    scope?: "all" | "residence";
+    category?: CommunityCategory | null;
+  }): string => {
+    const s = next.scope ?? scope;
+    const c = next.category === undefined ? category : next.category;
+    const p = new URLSearchParams();
+    if (s === "residence") p.set("scope", "residence");
+    if (c) p.set("category", c);
+    const qs = p.toString();
+    return qs ? `/community?${qs}` : "/community";
+  };
 
   useEffect(() => {
     const channel = supabase
@@ -75,16 +93,34 @@ export function CommunityClient({
     <div className="flex flex-1 flex-col bg-white pb-24">
       <Header neighborhoodName={neighborhoodName} />
 
+      {/* 큰 탭: 전체글 | 거주지(건물명) */}
+      <div className="flex border-b border-zinc-200 px-2">
+        <BigTab label="전체글" active={scope === "all"} href={buildHref({ scope: "all" })} />
+        {residence ? (
+          <BigTab
+            label={residence}
+            active={scope === "residence"}
+            href={buildHref({ scope: "residence" })}
+          />
+        ) : (
+          <BigTab label="거주지 설정" active={false} href="/mypage/profile" muted />
+        )}
+      </div>
+
       {/* 카테고리 칩 (가로 스크롤) */}
       <div className="sticky top-0 z-20 border-b border-zinc-100 bg-white">
         <div className="flex gap-2 overflow-x-auto px-5 py-3 [&::-webkit-scrollbar]:hidden">
-          <Chip label="전체" active={category === null} href="/community" />
+          <Chip
+            label="전체"
+            active={category === null}
+            href={buildHref({ category: null })}
+          />
           {COMMUNITY_CATEGORIES.map((c) => (
             <Chip
               key={c.value}
               label={`${c.emoji} ${c.label}`}
               active={category === c.value}
-              href={`/community?category=${c.value}`}
+              href={buildHref({ category: c.value })}
             />
           ))}
         </div>
@@ -137,6 +173,34 @@ function Header({ neighborhoodName }: { neighborhoodName: string | null }) {
         </p>
       )}
     </header>
+  );
+}
+
+function BigTab({
+  label,
+  active,
+  href,
+  muted = false,
+}: {
+  label: string;
+  active: boolean;
+  href: string;
+  muted?: boolean;
+}) {
+  return (
+    <Link
+      href={href as any}
+      className={cn(
+        "flex max-w-[55%] flex-1 items-center justify-center truncate border-b-2 px-3 py-3 text-[15px] font-bold",
+        active
+          ? "border-brand text-zinc-900"
+          : muted
+            ? "border-transparent text-zinc-300"
+            : "border-transparent text-zinc-400",
+      )}
+    >
+      {label}
+    </Link>
   );
 }
 

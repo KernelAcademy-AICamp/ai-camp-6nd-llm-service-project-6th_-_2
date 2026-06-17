@@ -12,6 +12,7 @@ export type CurrentUser = {
   level: "dandelion" | "tree" | "king";
   gender: "female" | "male" | "prefer_not_to_say";
   neighborhood_id: string | null;
+  residence: string | null;
   transaction_count: number;
   good_review_count: number;
   bad_review_count: number;
@@ -28,7 +29,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const { data } = await sb
     .from("profiles")
     .select(
-      "id, nickname, level, gender, neighborhood_id, transaction_count, good_review_count, bad_review_count, is_admin",
+      "id, nickname, level, gender, neighborhood_id, residence, transaction_count, good_review_count, bad_review_count, is_admin",
     )
     .eq("id", id)
     .maybeSingle();

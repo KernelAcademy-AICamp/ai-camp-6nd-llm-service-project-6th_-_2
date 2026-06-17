@@ -59,7 +59,10 @@ export default async function ProfilePage() {
       {/* 닉네임 편집 */}
       <section className="rounded-2xl bg-white p-5 shadow-sm">
         <h2 className="text-[14px] font-bold text-zinc-900">프로필 편집</h2>
-        <ProfileEditForm initialNickname={me.nickname} />
+        <ProfileEditForm
+          initialNickname={me.nickname}
+          initialResidence={me.residence ?? ""}
+        />
       </section>
     </div>
   );

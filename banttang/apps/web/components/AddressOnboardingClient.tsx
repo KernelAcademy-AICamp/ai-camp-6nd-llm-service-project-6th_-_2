@@ -3,12 +3,17 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useKakaoSdk } from "@/lib/use-kakao-sdk";
+import { cn } from "@/lib/utils";
 
 type Stage = "search" | "map";
 type Coords = { lat: number; lng: number };
 type Address = { road: string | null; jibun: string | null; building: string | null };
-export type AliasKey = "home" | "school";
-export const ALIAS_LABEL: Record<AliasKey, string> = { home: "집", school: "학교" };
+export type AliasKey = "home" | "school" | "company";
+export const ALIAS_LABEL: Record<AliasKey, string> = {
+  home: "집",
+  school: "학교",
+  company: "회사",
+};
 
 function HomeIcon({ className }: { className?: string }) {
   return (
@@ -46,9 +51,29 @@ function SchoolIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+function CompanyIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="4" y="3" width="11" height="18" rx="1" />
+      <path d="M15 8h5v13H4" />
+      <path d="M7.5 7h2M7.5 11h2M7.5 15h2" />
+    </svg>
+  );
+}
 const ALIAS_ICON_COMP: Record<AliasKey, (p: { className?: string }) => JSX.Element> = {
   home: HomeIcon,
   school: SchoolIcon,
+  company: CompanyIcon,
 };
 
 const FALLBACK: Coords = { lat: 37.4842, lng: 126.9296 }; // 신림역
@@ -94,7 +119,11 @@ export function AddressOnboardingClient({ userId }: { userId: string }) {
     setStage("map");
   }
 
-  async function applyAddress(label: string, coords?: Coords) {
+  async function applyAddress(
+    label: string,
+    coords?: Coords,
+    detail?: string,
+  ) {
     setBusy(true);
     const res = await fetch("/api/onboarding/address", {
       method: "POST",
@@ -104,6 +133,7 @@ export function AddressOnboardingClient({ userId }: { userId: string }) {
         address: label,
         lat: coords?.lat,
         lng: coords?.lng,
+        detail: detail?.trim() || undefined, // 건물명/상세주소 → 거주지
       }),
     });
     setBusy(false);
@@ -112,34 +142,39 @@ export function AddressOnboardingClient({ userId }: { userId: string }) {
       setError(j?.error ?? "저장 실패");
       return false;
     }
-    router.push("/feed");
-    router.refresh();
     return true;
   }
 
-  async function confirm() {
+  // 확정 — 건물명(detail) + 라벨(집/학교/회사) 저장 후 목록(검색 단계)으로 복귀.
+  async function confirm(opts?: { detail?: string; label?: AliasKey | null }) {
     if (!pickedCoords || !pickedLabel) return;
-    if (saveAs)
-      saveAlias(userId, saveAs, {
+    const alias = opts?.label ?? saveAs;
+    if (alias)
+      saveAlias(userId, alias, {
         label: pickedLabel,
         lat: pickedCoords.lat,
         lng: pickedCoords.lng,
       });
-    await applyAddress(pickedLabel, pickedCoords);
+    const ok = await applyAddress(pickedLabel, pickedCoords, opts?.detail);
+    if (!ok) return;
+    // 홈으로 가지 않고 내 장소 목록(이전 화면)으로 복귀 — 등록한 장소가 보이도록.
+    setSaveAs(null);
+    setPickedCoords(null);
+    setPickedLabel("");
+    setStage("search");
+    router.refresh();
   }
 
-  // 저장된 집/학교 단축 적용 (저장 있을 때) or 등록 확인 모달 (저장 없을 때)
+  // 집/학교/회사 탭 → 지도에서 등록(없을 때)·변경(있을 때). 저장 좌표가 있으면 거기서 시작.
   function handleAliasClick(alias: AliasKey) {
     const saved = loadAlias(userId, alias);
-    if (saved) {
-      const c =
-        typeof saved.lat === "number" && typeof saved.lng === "number"
-          ? { lat: saved.lat, lng: saved.lng }
-          : undefined;
-      applyAddress(saved.label, c);
-      return;
-    }
-    setRegisterPrompt(alias);
+    setSaveAs(alias);
+    setPickedCoords(
+      saved && typeof saved.lat === "number" && typeof saved.lng === "number"
+        ? { lat: saved.lat, lng: saved.lng }
+        : FALLBACK,
+    );
+    setStage("map");
   }
 
   // 모달의 "등록하기" → 등록 모드 활성화 + 지도 단계로 바로 진입
@@ -170,6 +205,7 @@ export function AddressOnboardingClient({ userId }: { userId: string }) {
 
       {stage === "search" && (
         <SearchStage
+          userId={userId}
           sdkReady={sdkReady}
           onPicked={gotoMap}
           onAliasClick={handleAliasClick}
@@ -248,17 +284,32 @@ function RegisterPromptModal({
 /* ------------------------------ SEARCH STAGE ------------------------------ */
 
 function SearchStage({
+  userId,
   sdkReady,
   onPicked,
   onAliasClick,
   saveAs,
 }: {
+  userId: string;
   sdkReady: boolean;
   onPicked: (c: Coords) => void;
   onAliasClick: (alias: AliasKey) => void;
   saveAs: AliasKey | null;
 }) {
   const [query, setQuery] = useState("");
+  // 저장된 집/학교/회사 — localStorage는 마운트 후에만 읽어야 SSR 하이드레이션 불일치가 없다.
+  const [aliases, setAliases] = useState<Record<AliasKey, AliasValue | null>>({
+    home: null,
+    school: null,
+    company: null,
+  });
+  useEffect(() => {
+    setAliases({
+      home: loadAlias(userId, "home"),
+      school: loadAlias(userId, "school"),
+      company: loadAlias(userId, "company"),
+    });
+  }, [userId]);
   const [results, setResults] = useState<
     Array<{ name: string; address: string; lat: number; lng: number }>
   >([]);
@@ -332,6 +383,31 @@ function SearchStage({
         <p className="text-xs text-zinc-500">같은 동네 이웃과 매칭하기 위해 필요해요.</p>
       </header>
 
+      <div className="relative">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400"
+        >
+          <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
+          <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="도로명, 지번, 건물명으로 검색"
+          className="w-full rounded-xl border border-zinc-200 bg-white py-3 pl-11 pr-4 text-sm"
+        />
+        {searching && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-zinc-400">
+            검색 중…
+          </span>
+        )}
+      </div>
+
       <button
         onClick={useCurrentLocation}
         disabled={geoLoading}
@@ -343,36 +419,44 @@ function SearchStage({
 
       {error && <p className="text-xs text-rose-500">{error}</p>}
 
-      <div className="relative">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="도로명, 지번, 건물명으로 검색"
-          className="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm"
-        />
-        {searching && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-zinc-400">
-            검색 중…
-          </span>
-        )}
+      {/* 내가 등록한 장소 — 등록된 것만 표시(미등록 숨김). 등록은 검색/현재위치 → 지도에서. */}
+      {(["home", "school", "company"] as const).some((a) => aliases[a]) && (
+      <div>
+        <p className="mb-2 px-1 text-[12px] font-semibold text-zinc-500">
+          내가 등록한 장소
+        </p>
+        <ul className="flex flex-col gap-2">
+          {(["home", "school", "company"] as const).map((alias) => {
+            const Icon = ALIAS_ICON_COMP[alias];
+            const saved = aliases[alias];
+            if (!saved) return null; // 미등록은 숨김
+            return (
+              <li key={alias}>
+                <button
+                  onClick={() => onAliasClick(alias)}
+                  className="flex w-full items-center gap-3 rounded-xl border border-zinc-200 bg-white px-3.5 py-3 text-left active:bg-zinc-50"
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100">
+                    <Icon className="text-zinc-500" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] font-semibold text-zinc-800">
+                      {ALIAS_LABEL[alias]}
+                    </span>
+                    <span className="block truncate text-[12px] text-zinc-500">
+                      {saved.label}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-[12px] font-medium text-brand">
+                    변경
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
       </div>
-
-      {/* 집/학교 단축 — 저장돼 있으면 1탭 적용, 없으면 검색 흐름 진입 */}
-      <div className="flex gap-5 px-1">
-        {(["home", "school"] as const).map((alias) => {
-          const Icon = ALIAS_ICON_COMP[alias];
-          return (
-            <button
-              key={alias}
-              onClick={() => onAliasClick(alias)}
-              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-brand"
-            >
-              <Icon />
-              <span>{ALIAS_LABEL[alias]}</span>
-            </button>
-          );
-        })}
-      </div>
+      )}
 
       {query.trim() && results.length === 0 && !searching && (
         <p className="rounded-xl bg-white p-4 text-center text-xs text-zinc-400">
@@ -415,11 +499,15 @@ function MapStage({
   initial: Coords;
   onBack: () => void;
   onAddressChange: (c: Coords, label: string) => void;
-  onConfirm: () => void;
+  onConfirm: (opts: { detail?: string; label?: AliasKey | null }) => void;
   busy: boolean;
   error: string | null;
   saveAs: AliasKey | null;
 }) {
+  // 건물명(→ 거주지) + 라벨(집/학교/회사)
+  const [detail, setDetail] = useState("");
+  const detailTouched = useRef(false); // 사용자가 직접 고친 적 있는지
+  const [addrLabel, setAddrLabel] = useState<AliasKey | null>(saveAs);
   const mapEl = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const geocoderRef = useRef<any>(null);
@@ -456,6 +544,8 @@ function MapStage({
       const jibun = r.address?.address_name ?? null;
       const building = r.road_address?.building_name || null;
       setAddress({ road, jibun, building });
+      // 감지된 건물명을 거주지 입력에 자동 채움 (사용자가 직접 고치기 전까지)
+      if (!detailTouched.current) setDetail(building ?? "");
       onAddressChange({ lat, lng }, road || jibun || "주소 미확인");
     });
   }
@@ -594,15 +684,25 @@ function MapStage({
       <div className="shrink-0 border-b border-zinc-100 bg-white px-4 py-3">
         <div className="flex items-center gap-2">
           <button onClick={onBack} className="text-sm text-zinc-500">← 검색</button>
-          <h2 className="text-sm font-semibold">위치 미세 조정</h2>
         </div>
         {/* 검색 입력 — 지도 이동의 빠른 대안 */}
         <div className="relative mt-2">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
+          >
+            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.8" />
+            <path d="M20 20l-3.2-3.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="도로명, 지번, 건물명 검색"
-            className="w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm"
+            className="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-10 pr-3 text-sm"
           />
           {searching && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-zinc-400">
@@ -682,17 +782,53 @@ function MapStage({
             </>
           )}
         </div>
+        {/* 건물명(거주지) — 감지되면 자동 채움, 직접 수정 가능 */}
+        <input
+          value={detail}
+          onChange={(e) => {
+            detailTouched.current = true;
+            setDetail(e.target.value);
+          }}
+          maxLength={30}
+          placeholder="건물명 (예: 에피소드 서초 393)"
+          className="mt-3 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:border-brand focus:outline-none"
+        />
+
+        {/* 라벨 칩 — 집 / 학교 / 회사 */}
+        <div className="mt-2 flex gap-2">
+          {(["home", "school", "company"] as AliasKey[]).map((k) => {
+            const Icon = ALIAS_ICON_COMP[k];
+            const on = addrLabel === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setAddrLabel(on ? null : k)}
+                className={cn(
+                  "flex items-center gap-1 rounded-full border px-3 py-1.5 text-[13px] font-medium transition",
+                  on
+                    ? "border-brand bg-brand-50 text-brand"
+                    : "border-zinc-200 text-zinc-500",
+                )}
+              >
+                <Icon className={on ? "text-brand" : "text-zinc-400"} />
+                {ALIAS_LABEL[k]}
+              </button>
+            );
+          })}
+        </div>
+
         {verifyError && <p className="mt-2 text-xs text-rose-500">{verifyError}</p>}
         {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
         <button
-          onClick={onConfirm}
+          onClick={() => onConfirm({ detail, label: addrLabel })}
           disabled={busy || resolving || (!address.road && !address.jibun && !address.building)}
           className="mt-3 w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
         >
           {busy
             ? "저장 중…"
-            : saveAs
-              ? `이 주소 ${ALIAS_LABEL[saveAs]}으로 등록하기`
+            : addrLabel
+              ? `이 주소 ${ALIAS_LABEL[addrLabel]}으로 등록하기`
               : "이 위치로 설정"}
         </button>
       </div>
