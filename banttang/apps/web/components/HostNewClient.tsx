@@ -58,6 +58,7 @@ export function HostNewClient({
   initialTab,
   initialLink,
   initialImageUrl,
+  initialPrice,
 }: {
   userAddress: string | null;
   userCoords: Coords;
@@ -66,6 +67,7 @@ export function HostNewClient({
   initialTab?: "delivery" | "shopping"; // 쇼핑 카드 → 장보기 탭
   initialLink?: string; // 쇼핑 카드 → 장보기 "링크" 필드(=menu)
   initialImageUrl?: string; // 카드 이미지 → 상품 사진으로 프리필(프록시 경유)
+  initialPrice?: number; // 추천 방 카드 → 1인 가격 프리필
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -83,12 +85,13 @@ export function HostNewClient({
   const [splitMode, setSplitMode] = useState<SplitMode | null>(
     initialStoreName ? "single_order" : null,
   );
-  // 위저드 단계: 1=음식/장보기, 2=같은것/각자, 3=상세 작성
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // 위저드 단계: 1=음식/장보기, 2=같은것/각자, 3=상세 작성.
+  // 상품 카드에서 프리필로 진입하면(종류·방식 이미 정해짐) 바로 작성 단계로.
+  const [step, setStep] = useState<1 | 2 | 3>(initialStoreName ? 3 : 1);
   const [storeName, setStoreName] = useState(initialStoreName ?? "");
   // single_order: 배달=대표 메뉴 / 장보기=링크. 쇼핑 카드 반띵이면 링크 프리필.
   const [menu, setMenu] = useState(initialLink ?? "");
-  const [price, setPrice] = useState(8000);
+  const [price, setPrice] = useState(initialPrice ?? 8000);
   // individual_items 전용: 최소주문금액·배송비 분담 항목
   const [hasMinOrder, setHasMinOrder] = useState(false);
   const [minOrderAmount, setMinOrderAmount] = useState(0);

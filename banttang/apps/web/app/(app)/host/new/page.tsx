@@ -9,7 +9,7 @@ const FALLBACK_COORDS = { lat: 37.4842, lng: 126.9296 }; // 신림역
 export default async function HostNewPage({
   searchParams,
 }: {
-  searchParams: { store?: string; tab?: string; link?: string; image?: string };
+  searchParams: { store?: string; tab?: string; link?: string; image?: string; price?: string };
 }) {
   await requireCurrentUser();
   const c = cookies();
@@ -27,6 +27,9 @@ export default async function HostNewPage({
   const initialTab = searchParams.tab === "shopping" ? "shopping" : undefined;
   const initialLink = searchParams.link?.trim() || undefined;
   const initialImageUrl = searchParams.image?.trim() || undefined;
+  const priceNum = Number(searchParams.price);
+  const initialPrice =
+    Number.isFinite(priceNum) && priceNum > 0 ? Math.floor(priceNum) : undefined;
   return (
     <HostNewClient
       userAddress={address}
@@ -35,6 +38,7 @@ export default async function HostNewPage({
       initialTab={initialTab}
       initialLink={initialLink}
       initialImageUrl={initialImageUrl}
+      initialPrice={initialPrice}
     />
   );
 }

@@ -71,11 +71,12 @@ async function reverseGeocodeRegion(lat: number, lng: number): Promise<Region | 
 }
 
 export async function POST(req: Request) {
-  const { method, address, lat, lng } = (await req.json()) as {
+  const { method, address, lat, lng, detail } = (await req.json()) as {
     method: "current_location" | "manual";
     address?: string;
     lat?: number;
     lng?: number;
+    detail?: string; // 건물명/상세주소 → profiles.residence
   };
 
   const hasCoords = typeof lat === "number" && typeof lng === "number";
@@ -170,6 +171,18 @@ export async function POST(req: Request) {
             .eq("id", me.id);
           if (updErr) {
             console.error("[onboarding/address] profiles.neighborhood_id 갱신 실패:", updErr);
+          }
+        }
+
+        // 건물명/상세주소 → profiles.residence (커뮤니티 거주지 탭 기준)
+        const cleanDetail = detail?.trim();
+        if (cleanDetail) {
+          const { error: resErr } = await admin
+            .from("profiles")
+            .update({ residence: cleanDetail.slice(0, 30) })
+            .eq("id", me.id);
+          if (resErr) {
+            console.error("[onboarding/address] profiles.residence 갱신 실패:", resErr);
           }
         }
       }

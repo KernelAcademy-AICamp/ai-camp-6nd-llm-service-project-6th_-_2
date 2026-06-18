@@ -45,3 +45,29 @@ export async function updateNickname(
   revalidatePath("/mypage/profile");
   return { ok: true };
 }
+
+// 거주지(건물명) 변경. 빈 값이면 거주지 해제(null).
+export async function updateResidence(
+  raw: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const me = await getCurrentUser();
+  if (!me) return { ok: false, error: "로그인이 필요해요." };
+
+  const residence = (raw ?? "").trim();
+  if (residence.length > 30) {
+    return { ok: false, error: "거주지는 30자 이하로 입력해 주세요." };
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({ residence: residence || null })
+    .eq("id", me.id);
+  if (error) {
+    return { ok: false, error: "거주지 변경에 실패했어요. 다시 시도해 주세요." };
+  }
+
+  revalidatePath("/mypage/profile");
+  revalidatePath("/community");
+  return { ok: true };
+}

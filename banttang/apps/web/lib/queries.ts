@@ -43,6 +43,8 @@ export async function listParties(opts: {
   }
   if (opts.statuses?.length) q = q.in("status", opts.statuses);
   if (opts.hostId) q = q.eq("host_id", opts.hostId);
+  // AI 추천 방(시스템 호스트)은 메인 목록에서 제외 — 추천 섹션에만 노출.
+  q = q.eq("is_ai_pick", false);
 
   const { data: views, error } = await q;
   if (error) throw error;
