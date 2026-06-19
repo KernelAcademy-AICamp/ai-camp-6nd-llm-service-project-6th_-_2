@@ -22,13 +22,26 @@ export async function ensureAvocadoNoticeMessage(
       .maybeSingle();
     if (!room) return { ok: true, inserted: false };
 
+    // 방당 봇 카드는 1개만 — 버전과 무관하게 이미 있으면 스킵(중복 방지).
+    const { count: existing } = await admin
+      .from("chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("room_id", room.id)
+      .eq("metadata->>kind", "avocado_notice");
+    if ((existing ?? 0) > 0) return { ok: true, inserted: false };
+
+    // 봇 카드지만 type은 system으로 둔다(별도 enum 마이그레이션 불필요).
+    // 화면에서는 metadata.kind='avocado_notice'를 보고 봇 말풍선/카드로 렌더한다.
     const { error } = await admin.from("chat_messages").insert({
       room_id: room.id,
       sender_id: null,
       type: "system",
-      content: `🥑 방장봇 아보카도: ${notice.body}`,
+      content: notice.body,
       metadata: {
+        // 중복 방지 unique 인덱스(uq_chat_messages_avocado_notice)가
+        // kind='avocado_notice'만 커버하므로 kind는 유지한다.
         kind: "avocado_notice",
+        bot: "avocado",
         version: notice.version,
         title: notice.title,
       },

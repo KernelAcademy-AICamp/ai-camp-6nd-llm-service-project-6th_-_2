@@ -47,7 +47,9 @@ export type MessageType =
   | 'receipt_card'
   | 'payment_card';
 export type SystemEventType =
-  | 'party_closed'
+  | 'party_closed' // (deprecated) 거래방 오픈/퇴장이 섞여 있던 legacy 이벤트
+  | 'chat_opened' // 모집 완료 → 거래방 오픈
+  | 'member_left' // 파티원이 채팅방을 나감
   | 'pickup_location_set'
   | 'receipt_uploaded'
   | 'before_30min'

@@ -69,8 +69,9 @@ export async function closePartyIfFull(
         room_id: room.id,
         sender_id: null,
         type: "system",
-        system_event: "party_closed",
-        content: "모집 완료! 거래방이 열렸어요",
+        system_event: "chat_opened",
+        content:
+          "모집이 완료되어 거래방이 열렸어요. 이제 주문과 나눔 일정을 확인해 주세요.",
       });
     }
 
