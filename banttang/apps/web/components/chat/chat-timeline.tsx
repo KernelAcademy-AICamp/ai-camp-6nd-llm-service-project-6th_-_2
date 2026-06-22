@@ -28,8 +28,12 @@ interface Props {
   onDismissMidpoint?: (messageId: string) => Promise<void> | void;
   // 띵동 시스템 메시지의 "내 거래 카드보기" 버튼을 누를 때.
   onOpenTransactionCard?: () => void;
-  // 아보카도 봇 "거래 방법 보기" — 안내를 최신 메시지로 전송.
-  onShowGuide?: () => Promise<void> | void;
+  // 아보카도 봇 "거래 방법 보기" — 거래 방법 안내 페이지로 이동.
+  onShowGuide?: () => void;
+  // 아보카도 봇 "띵동이란?" — 띵동 안내 페이지로 이동.
+  onShowDoorbell?: () => void;
+  // 영수증 인증 요청 카드의 '영수증 등록'(호스트) 버튼.
+  onUploadReceipt?: () => void;
 }
 
 // 같은 날짜인지 비교 (KST 기준 YYYY-MM-DD)
@@ -55,6 +59,8 @@ export function ChatTimeline({
   onDismissMidpoint,
   onOpenTransactionCard,
   onShowGuide,
+  onShowDoorbell,
+  onUploadReceipt,
 }: Props) {
   // 메시지 하나의 안읽은 수 — 보낸이 외 멤버 중 last_read_at < 메시지 created_at 인 사람 수
   function unreadCountFor(message: { sender_id: string | null; created_at: string }): number {
@@ -212,6 +218,52 @@ export function ChatTimeline({
                   </Fragment>
                 );
               }
+              // 거래 1시간 전 띵동 안내 — 봇 카드 + '띵동이란?' 버튼
+              if (metaKind === "avocado_doorbell") {
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard
+                        content={m.content ?? ""}
+                        onShowDoorbell={onShowDoorbell}
+                      />
+                    </li>
+                  </Fragment>
+                );
+              }
+              // 영수증 인증 요청 — 요청자(나)는 오른쪽 정렬, 프로필 없음 + (호스트) 영수증 등록 버튼
+              if (metaKind === "receipt_request") {
+                const meta = m.metadata as { sender_id?: string } | null;
+                const mineReq = meta?.sender_id === currentUserId;
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li className={cn("my-2 flex px-1", mineReq ? "justify-end" : "justify-start")}>
+                      <div
+                        className={cn(
+                          "max-w-[82%] border border-amber-200 bg-amber-50 p-3.5",
+                          mineReq ? "rounded-2xl rounded-tr-md" : "rounded-2xl rounded-tl-md",
+                        )}
+                      >
+                        <p className="text-[13px] leading-relaxed text-amber-900">
+                          {m.content}
+                        </p>
+                        {isHost && onUploadReceipt && (
+                          <button
+                            type="button"
+                            onClick={onUploadReceipt}
+                            className="mt-3 w-full rounded-lg bg-amber-600 py-2 text-[13px] font-bold text-white active:opacity-80"
+                          >
+                            영수증 등록
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  </Fragment>
+                );
+              }
+
               // 거래 방법 안내 — 버튼 없는 봇 말풍선
               if (metaKind === "avocado_guide") {
                 return (

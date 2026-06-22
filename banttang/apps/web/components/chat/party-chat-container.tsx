@@ -10,7 +10,6 @@ import { ringDoorbell } from "@/app/_actions/ring-doorbell";
 import { recommendMidpoint } from "@/app/_actions/recommend-midpoint";
 import { updatePartyPickup } from "@/app/_actions/update-party-pickup";
 import { dismissMidpointRecommendation } from "@/app/_actions/dismiss-midpoint";
-import { sendTransactionGuide } from "@/app/_actions/send-transaction-guide";
 import {
   approveParticipant,
   rejectParticipant,
@@ -26,6 +25,9 @@ import { CompleteSheet, type CompleteSubmitInput } from "./complete-sheet";
 import { PartyInfoCard } from "./party-info-card";
 import { ActionBanner } from "./action-banner";
 import { DoorbellCta } from "./doorbell-cta";
+import { ChatQuickChips } from "./chat-quick-chips";
+import { ReceiptViewSheet } from "./receipt-view-sheet";
+import { requestReceipt } from "@/app/_actions/request-receipt";
 import { TransactionCardSheet } from "./transaction-card-sheet";
 import { buildTimeline, type ReceiptCardItem } from "@/lib/types/chat";
 import { derivePhase } from "@/lib/types/phase";
@@ -82,6 +84,8 @@ export function PartyChatContainer({
   const [doorbellCooldown, setDoorbellCooldown] = useState(0);
   // 띵동을 한 번이라도 보냈는지 — '전송 완료/다시 보내기' 상태 구분.
   const [doorbellSent, setDoorbellSent] = useState(false);
+  // 게스트 영수증 확인 시트.
+  const [receiptViewOpen, setReceiptViewOpen] = useState(false);
   const [managing, setManaging] = useState(false);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const senderCacheRef = useRef<Map<string, ChatMessageWithSender["sender"]>>(
@@ -730,26 +734,16 @@ export function PartyChatContainer({
               }
             : undefined
         }
+        quickChips={
+          <ChatQuickChips
+            onGuide={() => router.push("/guide" as any)}
+            onReceipt={() => (isHost ? setReceiptOpen(true) : setReceiptViewOpen(true))}
+            onSettlement={() => setCardOpen(true)}
+          />
+        }
         notice={
           <>
-            {phase === "verify_pending" && isHost && (
-              <ActionBanner
-                tone="warning"
-                icon="receipt"
-                title="주문 내역을 인증해주세요"
-                description="반띵 시간이 다가왔어요. 영수증 또는 결제 내역을 등록하면 거래 확인 단계로 넘어갑니다."
-                actionLabel="영수증 등록"
-                onAction={() => setReceiptOpen(true)}
-              />
-            )}
-            {phase === "verify_pending" && !isHost && (
-              <ActionBanner
-                tone="warning"
-                icon="receipt"
-                title="호스트의 주문 내역 인증을 기다리고 있어요"
-                description="반띵 시간이 다가왔어요. 호스트가 영수증을 등록하면 거래 확인 단계로 넘어갑니다."
-              />
-            )}
+            {/* 영수증 인증 관련 안내는 상단 '영수증 인증' 칩/요청 흐름으로 대체 → 배너 제거 */}
             {(phase === "verified" || phase === "review_pending") && !isHost && (
               <ActionBanner
                 tone="info"
@@ -774,39 +768,7 @@ export function PartyChatContainer({
         }
       />
 
-      {/* 정보 카드 자리 — '반띵 카드 보기' + 호스트 전용 '주문 인증' 가로 병렬. */}
-      <section className="flex items-center gap-2 border-b border-black/[0.06] bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setCardOpen(true)}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand/10 px-4 py-3 text-[14px] font-semibold text-brand transition-colors active:bg-brand/15"
-        >
-          <span aria-hidden>🪪</span>
-          <span>반띵 카드 보기</span>
-        </button>
-        {isHost && (() => {
-          // 영수증 등록됐거나 거래가 끝난 후엔 비활성 "인증 완료" 상태로 노출.
-          // 진행 단계에서만 클릭 가능.
-          const isVerified = receipts.length > 0;
-          const lockedAfterTrade = isPostTrade; // completed/cancelled
-          const disabled = isVerified || lockedAfterTrade;
-          return (
-            <button
-              type="button"
-              onClick={() => !disabled && setReceiptOpen(true)}
-              disabled={disabled}
-              className={
-                disabled
-                  ? "flex shrink-0 items-center gap-1.5 rounded-xl bg-zinc-200 px-4 py-3 text-[14px] font-semibold text-zinc-500 cursor-not-allowed"
-                  : "flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-3 text-[14px] font-semibold text-white transition-opacity active:opacity-80"
-              }
-            >
-              <span aria-hidden>{isVerified ? "✓" : "🧾"}</span>
-              <span>{isVerified ? "인증 완료" : "주문 인증"}</span>
-            </button>
-          );
-        })()}
-      </section>
+      {/* 반띵 카드 보기 / 영수증 인증은 상단 칩으로 일원화 → 하단 섹션 제거 */}
 
       <ChatTimeline
         items={items}
@@ -817,11 +779,9 @@ export function PartyChatContainer({
         reads={reads}
         scrollAnchorRef={scrollAnchorRef}
         onOpenTransactionCard={() => setCardOpen(true)}
-        onShowGuide={async () => {
-          const res = await sendTransactionGuide(party.id);
-          if (!res.ok) throw new Error(res.error);
-          // 새 메시지는 realtime INSERT 구독으로 최신 메시지에 자동 추가됨
-        }}
+        onShowGuide={() => router.push("/guide" as any)}
+        onShowDoorbell={() => router.push("/guide/doorbell" as any)}
+        onUploadReceipt={() => setReceiptOpen(true)}
         onChangePickup={
           isHost
             ? async (input) => {
@@ -887,6 +847,14 @@ export function PartyChatContainer({
         open={receiptOpen}
         onClose={() => setReceiptOpen(false)}
         onSubmit={handleSubmitReceipt}
+      />
+
+      <ReceiptViewSheet
+        open={receiptViewOpen}
+        onClose={() => setReceiptViewOpen(false)}
+        receipt={receipts.length ? receipts[receipts.length - 1] : null}
+        participantCount={members.length}
+        onRequest={() => requestReceipt(party.id)}
       />
 
       <CompleteSheet

@@ -63,8 +63,8 @@ export function DoorbellCta({
           className="absolute bottom-24 right-3 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-zinc-100 shadow-lg ring-1 ring-black/5 transition-transform active:scale-95"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/ding-avocado.svg" alt="" width={34} height={34} className="opacity-40 grayscale" />
-          <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-zinc-300 ring-2 ring-white" />
+          <img src="/icons/ding-avocado.svg" alt="" width={34} height={34} className="opacity-70" />
+          <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-[#F97316] ring-2 ring-white" />
         </button>
       </>
     );

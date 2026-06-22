@@ -27,6 +27,8 @@ interface Props {
   onLeaveParty?: () => void;
   // 헤더(sticky) 안에 함께 고정 노출할 단계 안내 배너 등.
   notice?: React.ReactNode;
+  // 헤더(sticky) 하단 빠른 안내 칩 바.
+  quickChips?: React.ReactNode;
 }
 
 const STATUS_LABEL: Record<PartyStatus, string> = {
@@ -63,6 +65,7 @@ export function ChatHeader({
   onKickMember,
   onLeaveParty,
   notice,
+  quickChips,
 }: Props) {
   const router = useRouter();
   const canMemberReview = !isHost && party.status === "completed";
@@ -144,6 +147,9 @@ export function ChatHeader({
           onLeaveParty={onLeaveParty}
         />
       </div>
+
+      {/* 빠른 안내 칩 — 헤더와 함께 sticky 고정 */}
+      {quickChips}
 
       {/* 단계 안내 배너 — 헤더와 함께 sticky 고정 (페이지 스크롤해도 상단 유지) */}
       {notice}
