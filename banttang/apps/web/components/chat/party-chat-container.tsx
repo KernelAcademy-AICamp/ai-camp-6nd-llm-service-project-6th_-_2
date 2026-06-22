@@ -25,6 +25,7 @@ import { ReceiptSheet } from "./receipt-sheet";
 import { CompleteSheet, type CompleteSubmitInput } from "./complete-sheet";
 import { PartyInfoCard } from "./party-info-card";
 import { ActionBanner } from "./action-banner";
+import { DoorbellCta } from "./doorbell-cta";
 import { TransactionCardSheet } from "./transaction-card-sheet";
 import { buildTimeline, type ReceiptCardItem } from "@/lib/types/chat";
 import { derivePhase } from "@/lib/types/phase";
@@ -77,8 +78,10 @@ export function PartyChatContainer({
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
-  // 띵동 쿨다운 — 남은 초. 0이면 가능, 5→0으로 카운트다운.
+  // 띵동 쿨다운 — 남은 초. 0이면 가능, 60→0으로 카운트다운.
   const [doorbellCooldown, setDoorbellCooldown] = useState(0);
+  // 띵동을 한 번이라도 보냈는지 — '전송 완료/다시 보내기' 상태 구분.
+  const [doorbellSent, setDoorbellSent] = useState(false);
   const [managing, setManaging] = useState(false);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const senderCacheRef = useRef<Map<string, ChatMessageWithSender["sender"]>>(
@@ -148,17 +151,20 @@ export function PartyChatContainer({
   const isReadOnly = phase === "cancelled";
   const isPostTrade = phase === "completed" || phase === "cancelled";
 
-  // 띵동 활성화: deal_at - 15분 ~ deal_at + 60분
-  // [TEMP-DEV] 테스트 위해 30일로 확장. 운영 전 원복:
-  //   nowMs >= dealMs - 15 * 60 * 1000 && nowMs <= dealMs + 60 * 60 * 1000
+  // 띵동 CTA 정책 — 우측 하단 플로팅 벨 아이콘:
+  //   - 노출: 거래 1시간 전 ~ 거래시간 +1시간 (그 외/완료·취소는 미노출)
+  //   - 비활성(흐린 회색): 거래 1시간 전 ~ 15분 전 → 탭 시 안내 툴팁
+  //   - 활성: 거래 15분 전 ~ +1시간 → 탭 시 띵동 전송
   const dealMs = new Date(party.deal_at).getTime();
-  const DOORBELL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-  const doorbellActive =
+  const DOORBELL_LEAD_MS = 15 * 60 * 1000; // 거래 15분 전(활성 시작)
+  const DOORBELL_WINDOW_MS = 60 * 60 * 1000; // 1시간(노출 범위)
+  const doorbellShown =
     !!chatRoom &&
-    nowMs >= dealMs - DOORBELL_WINDOW_MS &&
-    nowMs <= dealMs + DOORBELL_WINDOW_MS &&
     party.status !== "completed" &&
-    party.status !== "cancelled";
+    party.status !== "cancelled" &&
+    nowMs >= dealMs - DOORBELL_WINDOW_MS &&
+    nowMs <= dealMs + DOORBELL_WINDOW_MS;
+  const doorbellEnabled = nowMs >= dealMs - DOORBELL_LEAD_MS; // 15분 전부터 활성
 
   // 띵동 쿨다운 카운트다운 (1초마다 -1, 0이면 정지)
   useEffect(() => {
@@ -169,8 +175,9 @@ export function PartyChatContainer({
 
   async function handleRingDoorbell() {
     if (doorbellCooldown > 0) return;
-    // 쿨다운 즉시 시작 (서버 에러 와도 5초 잠금 — 도배 방지 일관성)
-    setDoorbellCooldown(5);
+    // 전송 즉시 '전송 완료' 상태 + 60초 잠금(중복 전송 방지). 이후 '다시 보내기' 노출.
+    setDoorbellSent(true);
+    setDoorbellCooldown(60);
     const res = await ringDoorbell(party.id);
     if (!res.ok) alert(res.error);
   }
@@ -723,6 +730,48 @@ export function PartyChatContainer({
               }
             : undefined
         }
+        notice={
+          <>
+            {phase === "verify_pending" && isHost && (
+              <ActionBanner
+                tone="warning"
+                icon="receipt"
+                title="주문 내역을 인증해주세요"
+                description="반띵 시간이 다가왔어요. 영수증 또는 결제 내역을 등록하면 거래 확인 단계로 넘어갑니다."
+                actionLabel="영수증 등록"
+                onAction={() => setReceiptOpen(true)}
+              />
+            )}
+            {phase === "verify_pending" && !isHost && (
+              <ActionBanner
+                tone="warning"
+                icon="receipt"
+                title="호스트의 주문 내역 인증을 기다리고 있어요"
+                description="반띵 시간이 다가왔어요. 호스트가 영수증을 등록하면 거래 확인 단계로 넘어갑니다."
+              />
+            )}
+            {(phase === "verified" || phase === "review_pending") && !isHost && (
+              <ActionBanner
+                tone="info"
+                icon="check"
+                title="거래를 완료해주세요"
+                description="주문 내역과 결제 금액이 맞는지 확인하고 후기를 작성하면 거래가 완료됩니다."
+                actionLabel="거래 완료"
+                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
+              />
+            )}
+            {phase === "completed" && (
+              <ActionBanner
+                tone="info"
+                icon="check"
+                title="거래가 완료되었어요"
+                description="함께한 분들에게 후기를 남겨보세요. 이미 작성했다면 후기를 다시 볼 수 있어요."
+                actionLabel="거래 후기 작성"
+                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
+              />
+            )}
+          </>
+        }
       />
 
       {/* 정보 카드 자리 — '반띵 카드 보기' + 호스트 전용 '주문 인증' 가로 병렬. */}
@@ -814,65 +863,14 @@ export function PartyChatContainer({
         }
       />
 
-      {/* 단계별 액션 안내 — 호스트가 영수증을 등록하거나 모두가 평가를 제출하도록 유도. */}
-      {phase === "verify_pending" && isHost && (
-        <ActionBanner
-          tone="warning"
-          icon="receipt"
-          title="주문 내역을 인증해주세요"
-          description="반띵 시간이 다가왔어요. 영수증 또는 결제 내역을 등록하면 거래 확인 단계로 넘어갑니다."
-          actionLabel="영수증 등록"
-          onAction={() => setReceiptOpen(true)}
-        />
-      )}
-      {phase === "verify_pending" && !isHost && (
-        <ActionBanner
-          tone="warning"
-          icon="receipt"
-          title="호스트의 주문 내역 인증을 기다리고 있어요"
-          description="반띵 시간이 다가왔어요. 호스트가 영수증을 등록하면 거래 확인 단계로 넘어갑니다."
-        />
-      )}
-      {/* 거래 완료 처리는 파티원만 — 영수증 인증 직후부터 노출 (verified/review_pending).
-          버튼 클릭 시 후기 작성 페이지로 이동만 한다. 후기 작성 완료 전까지는 'completed' 전이 X. */}
-      {(phase === "verified" || phase === "review_pending") && !isHost && (
-        <ActionBanner
-          tone="info"
-          icon="check"
-          title="거래를 완료해주세요"
-          description="주문 내역과 결제 금액이 맞는지 확인하고 후기를 작성하면 거래가 완료됩니다."
-          actionLabel="거래 완료"
-          onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
-        />
-      )}
-      {/* 완료된 반띵 — 마이페이지 후기 작성 화면으로 진입. 작성/조회 화면이 같은 라우트라
-          이미 쓴 사람도 같은 버튼으로 본인 후기 확인 가능. */}
-      {phase === "completed" && (
-        <ActionBanner
-          tone="info"
-          icon="check"
-          title="거래가 완료되었어요"
-          description="함께한 분들에게 후기를 남겨보세요. 이미 작성했다면 후기를 다시 볼 수 있어요."
-          actionLabel="거래 후기 작성"
-          onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
-        />
-      )}
-
-      {/* 띵동 — 거래 시각 ±윈도우 내에서만 활성. 호스트는 전원 broadcast, 참여자는 호스트에게만. */}
-      {doorbellActive && (
-        <ActionBanner
-          tone="info"
-          icon="check"
-          title="이제 띵동할 수 있어요"
-          description={
-            isHost
-              ? "다 모였으면 모든 멤버에게 띵동을 보내 위치를 알려주세요."
-              : "현장에 도착했으면 호스트에게 띵동을 보내세요."
-          }
-          actionLabel={
-            doorbellCooldown > 0 ? `다시 띵동까지 ${doorbellCooldown}초` : "🔔 띵동하기"
-          }
-          onAction={doorbellCooldown > 0 ? () => {} : handleRingDoorbell}
+      {/* 띵동 CTA — 우측 하단 플로팅 벨 아이콘 (비활성/활성/전송완료). 호스트는 전원, 참여자는 호스트에게. */}
+      {doorbellShown && (
+        <DoorbellCta
+          enabled={doorbellEnabled}
+          sent={doorbellSent}
+          cooldown={doorbellCooldown}
+          isHost={isHost}
+          onRing={handleRingDoorbell}
         />
       )}
 

@@ -118,7 +118,7 @@ export default async function ChatPage({ params }: { params: { partyId: string }
   return (
     // 부모(app)/main이 flex flex-col pb-20이라 flex-1로 가용 공간 그대로 사용.
     // input bar(컨테이너의 마지막 자식)는 자연스럽게 pb-20 영역 위쪽 = BottomNav 바로 위에 정렬됨.
-    <main className="mx-auto flex flex-1 max-w-2xl flex-col">
+    <main className="mx-auto flex w-full flex-1 max-w-md flex-col">
       <PartyChatContainer
         party={party}
         currentUserId={user.id}
