@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { PartyChatContainer } from "@/components/chat/party-chat-container";
 import { closePartyIfFull } from "@/app/_actions/party-lifecycle";
 import { ensureAvocadoNoticeMessage } from "@/app/_actions/ensure-avocado-notice";
+import { ensureTypeGuideMessage } from "@/app/_actions/ensure-type-guide";
 import { parseEwkbPoint } from "@/lib/queries";
 import { DEFAULT_ENTRY_NOTICE } from "@/lib/types/avocado-notice";
 import type {
@@ -43,6 +44,13 @@ export default async function ChatPage({ params }: { params: { partyId: string }
     .maybeSingle<PartyWithStats>();
   if (!partyRes.data) notFound();
   const party = partyRes.data;
+
+  // 거래 유형 안내 — 카테고리·나눔 방식 기반 1회 안내 (방당 1건).
+  await ensureTypeGuideMessage(
+    partyId,
+    party.category as "delivery" | "offline_shopping" | "online_shopping",
+    party.price_per_person,
+  );
 
   // 1.5) 읽음 처리(last_read_at 갱신)는 여기(렌더 도중)에서 하지 않는다.
   //   렌더 중 UPDATE → Realtime party_participants UPDATE → BottomNav/ChatListRealtime의
