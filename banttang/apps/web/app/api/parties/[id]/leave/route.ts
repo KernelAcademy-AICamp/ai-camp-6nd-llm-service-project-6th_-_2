@@ -48,7 +48,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       await sb.from("chat_messages").insert({
         room_id: room.id,
         type: "system",
-        system_event: "party_closed",
+        system_event: "member_left",
         content: `${profile?.nickname ?? "파티원"} 님이 채팅방을 나갔어요.`,
       });
     }

@@ -10,6 +10,7 @@ import { ringDoorbell } from "@/app/_actions/ring-doorbell";
 import { recommendMidpoint } from "@/app/_actions/recommend-midpoint";
 import { updatePartyPickup } from "@/app/_actions/update-party-pickup";
 import { dismissMidpointRecommendation } from "@/app/_actions/dismiss-midpoint";
+import { sendTransactionGuide } from "@/app/_actions/send-transaction-guide";
 import {
   approveParticipant,
   rejectParticipant,
@@ -25,10 +26,8 @@ import { CompleteSheet, type CompleteSubmitInput } from "./complete-sheet";
 import { PartyInfoCard } from "./party-info-card";
 import { ActionBanner } from "./action-banner";
 import { TransactionCardSheet } from "./transaction-card-sheet";
-import { AvocadoNotice } from "./avocado-notice";
 import { buildTimeline, type ReceiptCardItem } from "@/lib/types/chat";
 import { derivePhase } from "@/lib/types/phase";
-import { DEFAULT_ENTRY_NOTICE } from "@/lib/types/avocado-notice";
 import type {
   ChatMessage,
   ChatMessageWithSender,
@@ -769,6 +768,11 @@ export function PartyChatContainer({
         reads={reads}
         scrollAnchorRef={scrollAnchorRef}
         onOpenTransactionCard={() => setCardOpen(true)}
+        onShowGuide={async () => {
+          const res = await sendTransactionGuide(party.id);
+          if (!res.ok) throw new Error(res.error);
+          // 새 메시지는 realtime INSERT 구독으로 최신 메시지에 자동 추가됨
+        }}
         onChangePickup={
           isHost
             ? async (input) => {
@@ -879,11 +883,7 @@ export function PartyChatContainer({
         readOnlyHint={readOnlyHint}
       />
 
-      {/* 방장봇 아보카도 — FAB + 입장 안내. storage key는 사용자×파티 단위. */}
-      <AvocadoNotice
-        notice={DEFAULT_ENTRY_NOTICE}
-        storageKey={`avocado-notice:${party.id}:${currentUserId}`}
-      />
+      {/* 아보카도 안내는 플로팅 팝업 대신 타임라인 봇 카드(AvocadoBotCard)로 일원화. */}
 
       <ReceiptSheet
         open={receiptOpen}

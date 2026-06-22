@@ -6,6 +6,7 @@ import { cn, formatKstDateLabel, formatKstTime } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { ReceiptCardMessage } from "./receipt-card-message";
 import { KakaoMiniMap } from "./kakao-mini-map";
+import { AvocadoBotCard } from "./avocado-bot-card";
 
 interface Props {
   items: ChatItem[];
@@ -27,6 +28,8 @@ interface Props {
   onDismissMidpoint?: (messageId: string) => Promise<void> | void;
   // 띵동 시스템 메시지의 "내 거래 카드보기" 버튼을 누를 때.
   onOpenTransactionCard?: () => void;
+  // 아보카도 봇 "거래 방법 보기" — 안내를 최신 메시지로 전송.
+  onShowGuide?: () => Promise<void> | void;
 }
 
 // 같은 날짜인지 비교 (KST 기준 YYYY-MM-DD)
@@ -51,6 +54,7 @@ export function ChatTimeline({
   onChangePickup,
   onDismissMidpoint,
   onOpenTransactionCard,
+  onShowGuide,
 }: Props) {
   // 메시지 하나의 안읽은 수 — 보낸이 외 멤버 중 last_read_at < 메시지 created_at 인 사람 수
   function unreadCountFor(message: { sender_id: string | null; created_at: string }): number {
@@ -190,6 +194,36 @@ export function ChatTimeline({
                 );
               }
 
+              // 아보카도 봇 메시지 — 왼쪽 봇 말풍선/카드 (회색 시스템 메시지 아님).
+              const metaKind = (m.metadata as { kind?: string } | null)?.kind;
+              // 입장 안내 카드 — "거래 방법 보기" 버튼 포함
+              if (metaKind === "avocado_intro" || metaKind === "avocado_notice") {
+                // legacy 행은 "🥑 방장봇 아보카도: " 접두어가 붙어 있어 제거.
+                const text = (m.content ?? "").replace(
+                  /^🥑\s*방장봇 아보카도:\s*/,
+                  "",
+                );
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard content={text} onShowGuide={onShowGuide} />
+                    </li>
+                  </Fragment>
+                );
+              }
+              // 거래 방법 안내 — 버튼 없는 봇 말풍선
+              if (metaKind === "avocado_guide") {
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard content={m.content ?? ""} />
+                    </li>
+                  </Fragment>
+                );
+              }
+
               // 영수증 확인 요청 — 강조 카드(amber).
               const meta = m.metadata as { kind?: string; title?: string } | null;
               if (meta?.kind === "receipt_confirm_prompt") {
@@ -207,10 +241,14 @@ export function ChatTimeline({
                 );
               }
 
-              // party_closed (DB trigger가 INSERT) — 새 spec copy로 override
+              // 시스템 메시지는 DB content를 그대로 노출.
+              // (이벤트 분리 전 legacy 'party_closed'는 거래방 오픈/퇴장이 섞여 있었으나,
+              //  거래방 오픈 행만 옛 문구라 신규 카피로 보정. 퇴장 행은 content에 닉네임이
+              //  들어가므로 그대로 노출. 신규는 chat_opened/member_left로 구분됨)
               const displayContent =
-                m.system_event === "party_closed"
-                  ? "반띵 채팅방이 열렸어요. 서로 인사를 나눠보세요 👋"
+                m.system_event === "party_closed" &&
+                m.content === "모집 완료! 거래방이 열렸어요"
+                  ? "모집이 완료되어 거래방이 열렸어요. 이제 주문과 나눔 일정을 확인해 주세요."
                   : m.content;
               return (
                 <Fragment key={`m-${m.id}`}>
