@@ -129,26 +129,31 @@ function HomeIcon({ active }: TabIconProps) {
   );
 }
 
-// 커뮤니티 — 이웃(두 사람)
+// 커뮤니티 — 이웃(두 사람). 머리=온전한 원 2개 + 어깨 곡선 2개로 또렷하게.
 function CommunityIcon({ active }: TabIconProps) {
   return active ? (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <circle cx="9" cy="8" r="3.4" />
-      <circle cx="16.5" cy="9.2" r="2.7" />
-      <path d="M2.8 18.2c0-3.1 2.78-5.2 6.2-5.2s6.2 2.1 6.2 5.2a.8.8 0 0 1-.8.8H3.6a.8.8 0 0 1-.8-.8Z" />
-      <path d="M16.5 13.2c2.7 0 4.7 1.7 4.7 4.2a.8.8 0 0 1-.8.8h-3.2c.13-.5.2-1.05.2-1.6 0-1.36-.43-2.55-1.16-3.4.08 0 .17 0 .26 0Z" />
+      {/* 뒷사람 */}
+      <circle cx="16.6" cy="9.3" r="2.5" />
+      <path d="M16.6 14c2.6 0 4.4 1.8 4.4 4.4a.7.7 0 0 1-.7.7h-3.7v-.5c0-1.7-.6-3.2-1.6-4.4.4-.1.8-.2 1.2-.2Z" />
+      {/* 앞사람 */}
+      <circle cx="9.2" cy="8.6" r="3.2" />
+      <path d="M9.2 13.2c3.3 0 5.7 2.1 5.7 5.2a.7.7 0 0 1-.7.7H4.2a.7.7 0 0 1-.7-.7c0-3.1 2.4-5.2 5.7-5.2Z" />
     </svg>
   ) : (
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="9" cy="8" r="3" stroke="currentColor" strokeWidth="1.8" />
+      {/* 뒷사람 */}
+      <circle cx="16.6" cy="9.3" r="2.3" stroke="currentColor" strokeWidth="1.8" />
       <path
-        d="M3.6 18.4c0-2.9 2.5-4.8 5.4-4.8s5.4 1.9 5.4 4.8"
+        d="M16.3 14.1c.4-.07.8-.1 1.2-.1 2.4 0 4 1.7 4 4.2"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"
       />
+      {/* 앞사람 */}
+      <circle cx="9.2" cy="8.6" r="3" stroke="currentColor" strokeWidth="1.8" />
       <path
-        d="M15.5 7.2a2.5 2.5 0 0 1 0 5M17.4 18.4c0-2.2-1-3.9-2.7-4.6"
+        d="M3.7 18.3c0-3 2.4-5 5.5-5s5.5 2 5.5 5"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinecap="round"

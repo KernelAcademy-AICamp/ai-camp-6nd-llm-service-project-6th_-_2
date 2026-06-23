@@ -25,6 +25,10 @@ interface Props {
   onKickMember?: (memberUserId: string) => void;
   // 파티원이 본인 채팅방에서 나가기.
   onLeaveParty?: () => void;
+  // 헤더(sticky) 안에 함께 고정 노출할 단계 안내 배너 등.
+  notice?: React.ReactNode;
+  // 헤더(sticky) 하단 빠른 안내 칩 바.
+  quickChips?: React.ReactNode;
 }
 
 const STATUS_LABEL: Record<PartyStatus, string> = {
@@ -60,14 +64,11 @@ export function ChatHeader({
   managing = false,
   onKickMember,
   onLeaveParty,
+  notice,
+  quickChips,
 }: Props) {
   const router = useRouter();
   const canMemberReview = !isHost && party.status === "completed";
-
-  const hasMenu =
-    canManage &&
-    ((isHost && onKickMember && participants.some((p) => p.id !== hostId)) ||
-      (!isHost && !!onLeaveParty));
 
   return (
     <header className="sticky top-0 z-10 border-b border-black/[0.06] bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80">
@@ -137,74 +138,22 @@ export function ChatHeader({
           </button>
         )}
 
-        {hasMenu && (
-          <OverflowMenu
-            isHost={isHost}
-            hostId={hostId}
-            participants={participants}
-            managing={managing}
-            onKickMember={onKickMember}
-            onLeaveParty={onLeaveParty}
-          />
-        )}
+        <OverflowMenu
+          isHost={isHost}
+          hostId={hostId}
+          participants={participants}
+          managing={managing}
+          onKickMember={onKickMember}
+          onLeaveParty={onLeaveParty}
+        />
       </div>
 
-      {/* 2줄: 참여자 아바타 스택 */}
-      {participants.length > 0 && (
-        <div className="flex items-center gap-2 px-4 pb-2.5">
-          <AvatarStack
-            participants={participants}
-            hostId={hostId}
-            max={4}
-          />
-          <span className="text-[12px] text-gray-500">
-            {participants.find((p) => p.id === hostId)?.nickname ?? "호스트"}
-            <span className="text-gray-300"> · </span>
-            <span className="text-gray-400">호스트</span>
-          </span>
-        </div>
-      )}
-    </header>
-  );
-}
+      {/* 빠른 안내 칩 — 헤더와 함께 sticky 고정 */}
+      {quickChips}
 
-function AvatarStack({
-  participants,
-  hostId,
-  max,
-}: {
-  participants: Pick<UserProfile, "id" | "nickname">[];
-  hostId: string;
-  max: number;
-}) {
-  // 호스트를 가장 앞에 두기
-  const sorted = [...participants].sort((a, b) => {
-    if (a.id === hostId) return -1;
-    if (b.id === hostId) return 1;
-    return 0;
-  });
-  const visible = sorted.slice(0, max);
-  const rest = sorted.length - visible.length;
-  return (
-    <div className="flex items-center">
-      {visible.map((p, i) => (
-        <span
-          key={p.id}
-          className="rounded-full ring-2 ring-white"
-          style={{ marginLeft: i === 0 ? 0 : -8, zIndex: visible.length - i }}
-        >
-          <Avatar nickname={p.nickname} size={26} />
-        </span>
-      ))}
-      {rest > 0 && (
-        <span
-          className="ml-[-8px] flex h-[26px] min-w-[26px] items-center justify-center rounded-full bg-gray-100 px-1.5 text-[10px] font-semibold text-gray-600 ring-2 ring-white"
-          style={{ zIndex: 0 }}
-        >
-          +{rest}
-        </span>
-      )}
-    </div>
+      {/* 단계 안내 배너 — 헤더와 함께 sticky 고정 (페이지 스크롤해도 상단 유지) */}
+      {notice}
+    </header>
   );
 }
 
@@ -250,6 +199,10 @@ function OverflowMenu({
   const kickableMembers = participants.filter((p) => p.id !== hostId);
   const showKickItem = isHost && !!onKickMember && kickableMembers.length > 0;
   const showLeave = !isHost && !!onLeaveParty;
+  // 호스트를 가장 앞에
+  const sortedParticipants = [...participants].sort((a, b) =>
+    a.id === hostId ? -1 : b.id === hostId ? 1 : 0,
+  );
 
   return (
     <div ref={rootRef} className="relative">
@@ -260,18 +213,59 @@ function OverflowMenu({
         aria-label="더보기"
         className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-700 transition-colors active:bg-black/[0.04] disabled:opacity-40"
       >
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <circle cx="12" cy="5" r="1.6" fill="currentColor" />
-          <circle cx="12" cy="12" r="1.6" fill="currentColor" />
-          <circle cx="12" cy="19" r="1.6" fill="currentColor" />
-        </svg>
+        {participants.length <= 2 ? (
+          // 1:1 방 — 미트볼
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <circle cx="12" cy="5" r="1.6" fill="currentColor" />
+            <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+            <circle cx="12" cy="19" r="1.6" fill="currentColor" />
+          </svg>
+        ) : (
+          // 다대다 방 — 햄버거
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M4 7h16M4 12h16M4 17h16"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
       </button>
 
       {open && (
         <div
           role="menu"
-          className="absolute right-2 top-full z-20 mt-1 min-w-[180px] overflow-hidden rounded-2xl border border-black/5 bg-white py-1 shadow-xl"
+          className="absolute right-2 top-full z-20 mt-1 min-w-[220px] overflow-hidden rounded-2xl border border-black/5 bg-white py-1 shadow-xl"
         >
+          {/* 참여자 목록 */}
+          {sortedParticipants.length > 0 && (
+            <div className="px-4 pb-2 pt-3">
+              <p className="mb-2 text-[11px] font-semibold text-gray-400">
+                참여자 {sortedParticipants.length}명
+              </p>
+              <ul className="flex flex-col gap-2">
+                {sortedParticipants.map((p) => (
+                  <li key={p.id} className="flex items-center gap-2">
+                    <Avatar nickname={p.nickname} size={26} />
+                    <span className="truncate text-[13px] text-gray-800">
+                      {p.nickname}
+                    </span>
+                    {p.id === hostId && (
+                      <span className="shrink-0 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
+                        호스트
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {(showKickItem || showLeave) && (
+            <div className="my-1 border-t border-black/5" />
+          )}
+
           {showKickItem && (
             <button
               type="button"

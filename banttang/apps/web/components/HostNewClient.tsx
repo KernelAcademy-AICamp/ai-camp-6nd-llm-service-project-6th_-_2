@@ -87,7 +87,7 @@ export function HostNewClient({
   );
   // 위저드 단계: 1=음식/장보기, 2=같은것/각자, 3=상세 작성.
   // 상품 카드에서 프리필로 진입하면(종류·방식 이미 정해짐) 바로 작성 단계로.
-  const [step, setStep] = useState<1 | 2 | 3>(initialStoreName ? 3 : 1);
+  const [step, setStep] = useState<1 | 2 | 3>(initialStoreName ? 2 : 1);
   const [storeName, setStoreName] = useState(initialStoreName ?? "");
   // single_order: 배달=대표 메뉴 / 장보기=링크. 쇼핑 카드 반띵이면 링크 프리필.
   const [menu, setMenu] = useState(initialLink ?? "");
@@ -214,6 +214,21 @@ export function HostNewClient({
     return true;
   })();
 
+  // 2단계(상품 정보)까지 필수 입력이 채워졌는지 — '다음으로' 활성화 기준.
+  const step2Valid = (() => {
+    if (!splitMode) return false;
+    if (!storeName.trim()) return false;
+    if (splitMode === "single_order") {
+      if (category === "delivery" && !menu.trim()) return false;
+      if (price <= 0) return false;
+    } else {
+      const min = hasMinOrder && minOrderAmount > 0;
+      const del = hasDelivery && deliveryAmount > 0;
+      if (!min && !del) return false;
+    }
+    return true;
+  })();
+
   async function submit() {
     if (!isValid) return;
     // individual_items: 선택된 항목으로 representative_menu 구성
@@ -270,81 +285,116 @@ export function HostNewClient({
 
   return (
     <div className="flex flex-col gap-4 p-4 pb-32">
-      <h1 className="text-lg font-bold">반띵 주문 만들기</h1>
+      <h1 className="text-lg font-bold">띵동 만들기</h1>
 
-      {/* 단계 표시 */}
-      <StepDots step={step} />
-
-      {/* 1단계: 무엇을 나눌까 */}
+      {/* 1단계: 주문 유형 + 방식 */}
       {step === 1 && (
-        <section className="flex flex-col gap-3">
-          <p className="px-1 text-[15px] font-bold text-zinc-900">무엇을 나눌까요?</p>
-          {[
-            { v: "delivery", emoji: "🍕", title: "음식 나눠요", desc: "배달·포장 음식을 함께 시켜요" },
-            { v: "shopping", emoji: "🛒", title: "장보기 나눠요", desc: "마트·온라인 장보기를 함께 사요" },
-          ].map((c) => (
-            <button
-              key={c.v}
-              onClick={() => {
-                setTab(c.v as "delivery" | "shopping");
-                setStep(2);
-              }}
-              className={cn(
-                "flex items-center gap-4 rounded-2xl border bg-white p-5 text-left shadow-sm active:scale-[0.99]",
-                tab === c.v ? "border-brand" : "border-zinc-200",
-              )}
-            >
-              <span className="text-3xl" aria-hidden>{c.emoji}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-bold text-zinc-900">{c.title}</span>
-                <span className="mt-0.5 block text-[13px] text-zinc-500">{c.desc}</span>
-              </span>
-              <StepChevron />
-            </button>
-          ))}
+        <section className="flex flex-col gap-5">
+          <div>
+            <span className="inline-block rounded-full bg-zinc-100 px-3 py-1 text-[12px] font-semibold text-zinc-500">
+              1 / 3단계
+            </span>
+            <h2 className="mt-3 text-[22px] font-extrabold leading-snug text-zinc-900">
+              주문 방식을
+              <br />
+              선택해 주세요
+            </h2>
+            <p className="mt-2 text-[14px] text-zinc-500">
+              함께 주문할 유형과 방식을 선택해 주세요.
+            </p>
+          </div>
+
+          {/* 주문 유형 */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[15px] font-bold text-zinc-900">주문 유형</p>
+              <span className="text-[12px] font-semibold text-zinc-400">필수</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { v: "shopping", emoji: "🛒", title: "공동구매" },
+                { v: "delivery", emoji: "🍗", title: "배달 음식" },
+              ].map((c) => (
+                <button
+                  key={c.v}
+                  type="button"
+                  onClick={() => setTab(c.v as "delivery" | "shopping")}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-2xl border-2 bg-white py-6 shadow-sm transition active:scale-[0.99]",
+                    tab === c.v ? "border-brand bg-brand-50" : "border-zinc-200",
+                  )}
+                >
+                  <span className="text-3xl" aria-hidden>{c.emoji}</span>
+                  <span className="text-[16px] font-bold text-zinc-900">{c.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 어떤 방식으로 주문할까요? */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[15px] font-bold text-zinc-900">어떤 방식으로 주문할까요?</p>
+              <span className="text-[12px] font-semibold text-zinc-400">필수</span>
+            </div>
+            <div className="flex flex-col gap-3">
+              {[
+                {
+                  v: "single_order" as SplitMode,
+                  emoji: "📦",
+                  title: "같은 상품 나누기",
+                  desc: "같은 상품이나 메뉴를 함께 주문하고 나눠요",
+                },
+                {
+                  v: "individual_items" as SplitMode,
+                  emoji: "🧺",
+                  title: "각자 담아 주문하기",
+                  desc: "각자 원하는 걸 담고 배송비·최소주문금액을 같이 맞춰요",
+                },
+              ].map((m) => (
+                <button
+                  key={m.v}
+                  type="button"
+                  onClick={() => setSplitMode(m.v)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border-2 bg-white p-4 text-left shadow-sm transition active:scale-[0.99]",
+                    splitMode === m.v ? "border-brand bg-brand-50" : "border-zinc-200",
+                  )}
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-2xl" aria-hidden>
+                    {m.emoji}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold text-zinc-900">{m.title}</span>
+                    <span className="mt-0.5 block text-[12px] leading-snug text-zinc-500">{m.desc}</span>
+                  </span>
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2",
+                      splitMode === m.v ? "border-brand bg-brand text-white" : "border-zinc-300",
+                    )}
+                    aria-hidden
+                  >
+                    {splitMode === m.v && (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12l4 4 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
       )}
 
-      {/* 2단계: 어떻게 나눌까 */}
-      {step === 2 && (
-        <section className="flex flex-col gap-3">
-          <StepBack
-            onClick={() => setStep(1)}
-            label={tab === "delivery" ? "음식 나눠요" : "장보기 나눠요"}
-          />
-          <p className="px-1 text-[15px] font-bold text-zinc-900">어떻게 나눌까요?</p>
-          {getSplitModes(tab).map((m) => (
-            <button
-              key={m.v}
-              onClick={() => {
-                setSplitMode(m.v);
-                setStep(3);
-              }}
-              className={cn(
-                "flex items-center gap-4 rounded-2xl border bg-white p-5 text-left shadow-sm active:scale-[0.99]",
-                splitMode === m.v ? "border-brand" : "border-zinc-200",
-              )}
-            >
-              <span className="text-3xl" aria-hidden>{m.emoji}</span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[16px] font-bold text-zinc-900">{m.title}</span>
-                <span className="mt-0.5 block text-[13px] text-zinc-500">
-                  {getSplitModeDesc(m.v, tab)}
-                </span>
-              </span>
-              <StepChevron />
-            </button>
-          ))}
-        </section>
-      )}
-
-      {/* 3단계: 상세 작성 */}
-      {step === 3 && splitMode && (
+      {/* 2단계: 상품 정보 */}
+      {step === 2 && splitMode && (
         <>
           <StepBack
-            onClick={() => setStep(2)}
-            label={`${tab === "delivery" ? "음식" : "장보기"} · ${
-              splitMode === "single_order" ? "같은 것 나누기" : "각자 담기"
+            onClick={() => setStep(1)}
+            label={`${tab === "delivery" ? "배달 음식" : "공동구매"} · ${
+              splitMode === "single_order" ? "같은 상품 나누기" : "각자 담아 주문하기"
             }`}
           />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
@@ -433,7 +483,13 @@ export function HostNewClient({
               userCoords={userCoords}
             />
           )}
+        </>
+      )}
 
+      {/* 3단계: 모집 조건 */}
+      {step === 3 && splitMode && (
+        <>
+          <StepBack onClick={() => setStep(2)} label="상품 정보" />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>반띵 인원</Label>
             <div className="mt-2 flex items-center justify-center gap-6">
@@ -614,6 +670,29 @@ export function HostNewClient({
         </>
       )}
 
+      {/* 하단 고정 액션 버튼 — 단계별 */}
+      {step === 1 && (
+        <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
+          <button
+            onClick={() => splitMode && setStep(2)}
+            disabled={!splitMode}
+            className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
+          >
+            다음으로
+          </button>
+        </div>
+      )}
+      {step === 2 && (
+        <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
+          <button
+            onClick={() => step2Valid && setStep(3)}
+            disabled={!step2Valid}
+            className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
+          >
+            다음으로
+          </button>
+        </div>
+      )}
       {step === 3 && (
         <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
           <button
@@ -621,7 +700,7 @@ export function HostNewClient({
             disabled={busy || !isValid}
             className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
           >
-            {busy ? "등록 중…" : "반띵 등록하기"}
+            {busy ? "등록 중…" : "띵동 등록하기"}
           </button>
         </div>
       )}
@@ -631,7 +710,7 @@ export function HostNewClient({
 
 // ─── 위저드 보조 컴포넌트 ───
 function StepDots({ step }: { step: 1 | 2 | 3 }) {
-  const labels = ["종류", "방식", "작성"];
+  const labels = ["유형·방식", "상품", "모집"];
   return (
     <div className="flex items-center gap-2 px-1">
       {labels.map((l, i) => {
