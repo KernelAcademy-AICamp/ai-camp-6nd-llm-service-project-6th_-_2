@@ -19,7 +19,9 @@ export default async function FeedPage({
   if (!me.neighborhood_id) redirect("/onboarding/address");
 
   const sort = searchParams?.sort === "latest" ? "latest" : "deadline";
-  const view = searchParams?.view === "map" ? "map" : "list";
+  // 기본값을 "지도"로 — 사용자가 명시적으로 ?view=list 줘야 주문별 보기.
+  // 프로토타입(/prototype/v2)의 랜딩 경험과 동일하게 맞춤.
+  const view = searchParams?.view === "list" ? "list" : "map";
   const parties = await listParties({
     statuses: ["recruiting"],
     forUserGender: me.gender,

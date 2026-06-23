@@ -12,7 +12,7 @@ import { formatKRW } from "@/lib/party-status";
 import { cn } from "@/lib/utils";
 
 // 한 탭(그룹)에 노출할 방 개수
-const PER_GROUP = 3;
+const PER_GROUP = 4;
 
 // 그룹별 AI 추천 사유 문구 풀 (실제 분석 아님, 데모용 고정 텍스트)
 const REASONS: Record<PickGroup, string[]> = {
@@ -45,19 +45,29 @@ function hostNewHref(r: PickRoom): string {
 
 export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
   const [group, setGroup] = useState<PickGroup | "all">("all");
-  // 펼쳐진 카드 id (아코디언). 기본: 첫 카드 펼침.
-  const [openId, setOpenId] = useState<string | null>(rooms[0]?.id ?? null);
+  // 펼쳐진 카드 id (아코디언). 기본: 접힘 — 사용자가 명시적으로 탭해야 호스팅/매칭 선택지를 본다.
+  const [openId, setOpenId] = useState<string | null>(null);
+  // "전체" 탭에서만 사용하는 페이지 (4건 단위)
+  const [page, setPage] = useState(0);
 
   if (rooms.length === 0) return null;
 
   const byGroup = (key: PickGroup) =>
     rooms.filter((r) => r.group === key).slice(0, PER_GROUP);
-  const visible =
+  const all =
     group === "all"
       ? PICK_GROUPS.flatMap((g) => byGroup(g.key))
       : byGroup(group);
 
-  if (visible.length === 0) return null;
+  if (all.length === 0) return null;
+
+  // 그룹 바꿔서 전체 항목이 줄면 페이지가 범위를 벗어날 수 있어 클램프
+  const totalPages = Math.max(1, Math.ceil(all.length / PER_GROUP));
+  const safePage = group === "all" ? Math.min(page, totalPages - 1) : 0;
+  const start = safePage * PER_GROUP;
+  const visible =
+    group === "all" ? all.slice(start, start + PER_GROUP) : all;
+  const showPager = group === "all" && totalPages > 1;
 
   return (
     <section className="-mx-4 border-t-8 border-zinc-100 px-4 pb-2 pt-5">
@@ -77,13 +87,23 @@ export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
       {/* 칩 + 건수 */}
       <div className="mt-3 flex items-center gap-2">
         <div className="flex flex-1 gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
-          <Chip label="전체" active={group === "all"} onClick={() => setGroup("all")} />
+          <Chip
+            label="전체"
+            active={group === "all"}
+            onClick={() => {
+              setGroup("all");
+              setPage(0);
+            }}
+          />
           {PICK_GROUPS.map((g) => (
             <Chip
               key={g.key}
               label={`${g.emoji} ${g.label}`}
               active={group === g.key}
-              onClick={() => setGroup(g.key)}
+              onClick={() => {
+                setGroup(g.key);
+                setPage(0);
+              }}
             />
           ))}
         </div>
@@ -99,12 +119,47 @@ export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
             key={r.id}
             room={r}
             reason={REASONS[r.group][i % REASONS[r.group].length]}
-            hot={i === 0}
+            hot={group === "all" && safePage === 0 && i === 0}
             open={openId === r.id}
             onToggle={() => setOpenId((cur) => (cur === r.id ? null : r.id))}
           />
         ))}
       </div>
+
+      {/* 페이지네이션 — "전체" 탭에서만 노출. 4건씩 넘겨서 보기. */}
+      {showPager && (
+        <div className="mt-3 flex items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={safePage === 0}
+            aria-label="이전 추천"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 disabled:opacity-30"
+          >
+            ‹
+          </button>
+          <div className="flex items-center gap-1">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === safePage ? "w-4 bg-brand" : "w-1.5 bg-zinc-300",
+                )}
+              />
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={safePage >= totalPages - 1}
+            aria-label="다음 추천"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 disabled:opacity-30"
+          >
+            ›
+          </button>
+        </div>
+      )}
     </section>
   );
 }
@@ -150,12 +205,18 @@ function RoomCard({
   const router = useRouter();
   const [joining, setJoining] = useState(false);
 
+  const isDemo = room.id.startsWith("demo-");
+
   async function matchMe(e: React.MouseEvent) {
     e.stopPropagation();
     if (joining) return;
+    if (isDemo) {
+      alert("(데모) 실제 시드 후에 매칭이 가능해요.");
+      return;
+    }
     setJoining(true);
     try {
-      const res = await fetch(`/api/parties/${room.id}/join`, { method: "POST" });
+      await fetch(`/api/parties/${room.id}/join`, { method: "POST" });
       // 이미 참여했거나 성공이면 상세로 이동
       router.push(`/feed/${room.id}` as any);
     } catch {
@@ -165,6 +226,7 @@ function RoomCard({
 
   function host(e: React.MouseEvent) {
     e.stopPropagation();
+    // 데모 카드도 호스팅 신규 작성 진입은 허용 — store/image/price 프리필이 유효함.
     router.push(hostNewHref(room) as any);
   }
 
@@ -209,7 +271,7 @@ function RoomCard({
         </div>
       </button>
 
-      {/* 펼침: 두 역할 버튼 */}
+      {/* 펼침: 두 역할 버튼 — 프로토타입과 동일한 카피로 동기화 */}
       {open && (
         <div className="grid grid-cols-2 gap-2 border-t border-zinc-100 p-3">
           <button
@@ -217,9 +279,9 @@ function RoomCard({
             onClick={host}
             className="rounded-xl bg-brand px-3 py-2.5 text-center active:scale-[0.98]"
           >
-            <span className="block text-[13px] font-bold text-white">호스트하기</span>
-            <span className="mt-0.5 block text-[11px] leading-tight text-white/85">
-              상품을 주문하고 내가 원하는 장소로 반띵
+            <span className="block text-[13px] font-bold text-white">호스팅하기</span>
+            <span className="mt-1 block text-[10.5px] leading-snug text-white/85">
+              호스트로서 상품을 주문하고, 내가 원하는 장소를 설정해 반띵해요.
             </span>
           </button>
           <button
@@ -231,8 +293,8 @@ function RoomCard({
             <span className="block text-[13px] font-bold text-brand-dark">
               {joining ? "참여 중…" : "매칭받기"}
             </span>
-            <span className="mt-0.5 block text-[11px] leading-tight text-zinc-500">
-              주문은 호스트에게, 장소에서 받기만
+            <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500">
+              주문은 호스트에게 맡기고, 반띵 장소에서 물건만 나눠요.
             </span>
           </button>
         </div>
