@@ -2,6 +2,7 @@
 // 혜택·쿠폰·청년 지원 정보 자리이며, 1단계로 네이버 검색 기반 추천 피드를 보여준다.
 // (app) 레이아웃이 로그인을 보장 → 서버에서 직접 getNeighborhoodFeed 호출.
 
+import { Suspense } from "react";
 import Link from "next/link";
 import type { Route } from "next";
 import { getCurrentUser } from "@/lib/auth";
@@ -15,7 +16,12 @@ import {
   naverShoppingSearchUrl,
   naverMapSearchUrl,
 } from "@/lib/naver/client";
-import { buildSearchQueries, ALL_INTERESTS, type FeedSection } from "@/lib/naver/query-builder";
+import {
+  buildSearchQueries,
+  ALL_INTERESTS,
+  type FeedSection,
+  type SearchQuery,
+} from "@/lib/naver/query-builder";
 import { StoreFeedTabs, type StoreSection } from "@/components/StoreFeedTabs";
 import { StoreDebugQueries } from "@/components/StoreDebugQueries";
 import { StoreRefreshButton } from "@/components/StoreRefreshButton";
@@ -23,8 +29,14 @@ import { StoreAdCarousel } from "@/components/StoreAdCarousel";
 import { StoreSearchResults } from "@/components/StoreSearchResults";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import type { StoreCardData } from "@/components/StoreCard";
-import { personalizeSections, buildPersonalizedQueries } from "@/lib/naver/personalize";
+import { rankSections, buildPersonalizedQueries, type FeedPrefs } from "@/lib/naver/personalize";
+import type { CurrentUser } from "@/lib/auth";
+import { getRankingSignals } from "@/lib/naver/signals";
+import { logUserEvent } from "@/lib/store-events";
 import { getFavoritedLinks } from "@/app/_actions/store-favorites";
+import { getAiRecommendationCards } from "@/lib/recommend/read";
+import { getHotDealCards } from "@/lib/hotdeal/read";
+import { GROUP_BUYS, groupBuyDiscountRate } from "@/lib/groupbuy";
 
 export const dynamic = "force-dynamic";
 
@@ -117,6 +129,9 @@ export default async function StorePage({
     if (!isNaverConfigured()) {
       return <EmptyState message={"검색을 사용할 수 없어요."} />;
     }
+    // 추천 개인화 신호 5(검색 이력) — best-effort, 결과를 기다리지 않음.
+    // 섹션은 logUserEvent가 keyword 역매칭으로 채운다(중앙 처리).
+    void logUserEvent({ userId: me.id, kind: "search", keyword: q });
     const [places, items, favLinkArr] = await Promise.all([
       searchLocal(q, { display: 12 }).catch(() => []),
       searchShop(q, { display: 20 }).catch(() => []),
@@ -185,7 +200,7 @@ export default async function StorePage({
   const { data: profile } = await sb
     .from("profiles")
     .select(
-      "neighborhood_id, primary_usage, favorite_categories, neighborhoods(id, name, district)",
+      "neighborhood_id, gender, primary_usage, favorite_categories, neighborhoods(id, name, district)",
     )
     .eq("id", me.id)
     .maybeSingle();
@@ -204,39 +219,10 @@ export default async function StorePage({
     );
   }
 
-  let feed;
-  try {
-    const result = await getNeighborhoodFeed({
-      neighborhoodId: nb.id,
-      name: nb.name,
-      district: nb.district,
-    });
-    feed = result.feed;
-  } catch {
-    return <EmptyState message={"추천을 불러오지 못했어요.\n잠시 후 다시 시도해 주세요."} />;
-  }
-
-  // market 은 동네명을 끼워 "{동네} 주변 마켓"으로 표기.
-  const sectionTitle = (key: FeedSection) =>
-    key === "market" ? `${nb.name} 주변 마켓` : SECTION_META[key].title;
-
-  // 카테고리 아이콘은 항상 모두 노출 (비어도 탭 유지)
-  const baseSections: StoreSection[] = SECTION_ORDER.map((key) => ({
-    key,
-    title: sectionTitle(key),
-    shortLabel: SECTION_META[key].label,
-    emoji: SECTION_META[key].emoji,
-    cards: feed.sections[key] ?? [],
-  }));
-
-  const prefs = {
+  const prefs: FeedPrefs = {
     primary_usage: profile?.primary_usage ?? null,
     favorite_categories: profile?.favorite_categories ?? [],
   };
-
-  // 카테고리 탭 줄은 고정 순서(SECTION_ORDER) 유지 — 음식점 → 주변 마켓 → … 가 안정적으로 보이도록.
-  // 개인화(섹션 순서/카드 가중치)는 ✨추천 탭(recommendSections)에만 적용한다.
-  const sections = baseSections;
 
   // 테스트용 — 이 동네 프로필로 생성되는 추천 검색어 (네이버 호출에 쓰이는 그대로)
   const debugQueries = buildSearchQueries({
@@ -250,37 +236,17 @@ export default async function StorePage({
     district: nb.district,
   });
 
-  // 맞춤 검색어로 추천 탭을 채운다(네이버 호출 → 동네+선호도 1시간 캐시).
-  // 결과를 섹션 카드로 만들고 선호도 순서로 정렬, 카드 있는 섹션만.
-  let recommendSections: StoreSection[] = [];
-  try {
-    const personalizedFeed = await getPersonalizedFeed(nb.id, personalizedQueries, nb.name);
-    recommendSections = personalizeSections(
-      SECTION_ORDER.map((key) => ({
-        key,
-        title: sectionTitle(key),
-        shortLabel: SECTION_META[key].label,
-        emoji: SECTION_META[key].emoji,
-        cards: personalizedFeed[key] ?? [],
-      })),
-      prefs,
-    ).filter((s) => s.cards.length > 0);
-  } catch {
-    // 맞춤 피드 실패 시 추천 탭은 동네 피드로 폴백(빈 배열 → StoreFeedTabs 폴백)
-    recommendSections = [];
-  }
-
-  // 이미 찜한 항목 — 카드 하트 채워서 시작 (StoreFeedTabs 가 각 카드에 적용)
-  const favoritedLinks = await getFavoritedLinks();
-
   return (
     <main className="flex flex-1 flex-col gap-4 px-4 py-5">
       {/* 헤더 + 갱신 버튼 + 검색어 디버그(테스트용) */}
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-xl font-bold text-zinc-900">스토어</h1>
         <div className="flex items-center gap-2">
-          <StoreRefreshButton />
-          <StoreDebugQueries queries={debugQueries} personalizedQueries={personalizedQueries} />
+          {/* 갱신·디버그는 어드민(슈퍼 계정)에게만 노출 */}
+          {me.is_admin && <StoreRefreshButton />}
+          {me.is_admin && (
+            <StoreDebugQueries queries={debugQueries} personalizedQueries={personalizedQueries} />
+          )}
         </div>
       </div>
 
@@ -292,16 +258,174 @@ export default async function StorePage({
         <StoreAdCarousel />
       </div>
 
-      {/* 카테고리 아이콘 + 맞춤 정보 피드 */}
-      <StoreFeedTabs
-        sections={sections}
-        userLabel={me.nickname}
-        regionLabel={nb.name}
-        recommendSections={recommendSections}
-        favoritedLinks={favoritedLinks}
-      />
+      {/* 카테고리 아이콘 + 맞춤 정보 피드 — 네이버 크롤링이 무거우므로 Suspense 로 스트리밍.
+          셸(헤더·검색바·배너)을 즉시 그리고, 피드는 준비되는 대로 채운다.
+          첫 진입(캐시 미스)에 네이버 크롤링이 끝날 때까지 빈 화면을 보던 문제 해결. */}
+      <Suspense fallback={<StoreFeedSkeleton />}>
+        <StoreFeed
+          me={me}
+          nb={nb}
+          prefs={prefs}
+          gender={profile?.gender ?? null}
+          personalizedQueries={personalizedQueries}
+        />
+      </Suspense>
 
       <ScrollToTop />
     </main>
+  );
+}
+
+// 무거운 네이버 피드 로딩을 전담하는 비동기 서버 컴포넌트.
+// StorePage 셸은 즉시 렌더되고, 이 컴포넌트가 resolve 되면 그 자리만 채워진다.
+// 독립적인 호출(동네 피드·신호·찜·핫딜·맞춤 피드)은 Promise.all 로 병렬화한다.
+async function StoreFeed({
+  me,
+  nb,
+  prefs,
+  gender,
+  personalizedQueries,
+}: {
+  me: CurrentUser;
+  nb: { id: string; name: string; district: string };
+  prefs: FeedPrefs;
+  gender: string | null;
+  personalizedQueries: SearchQuery[];
+}) {
+  // market 은 동네명을 끼워 "{동네} 주변 마켓"으로 표기.
+  const sectionTitle = (key: FeedSection) =>
+    key === "market" ? `${nb.name} 주변 마켓` : SECTION_META[key].title;
+
+  // 서로 독립적인 호출은 한 번에 — 직렬 await 로 누적되던 지연을 제거.
+  // - 동네 피드: 실패 시 null → 아래에서 에러 메시지로 폴백
+  // - 맞춤 피드: 실패 시 null → 추천 탭은 동네 피드로 폴백
+  // - 신호: 관심사(S1)+찜(S3)+공구(S4)+검색·클릭(S5), 정렬만 per-user
+  const [feed, personalizedFeed, rankingSignals, favoritedLinks, crawledDeals] =
+    await Promise.all([
+      getNeighborhoodFeed({ neighborhoodId: nb.id, name: nb.name, district: nb.district })
+        .then((r) => r.feed)
+        .catch(() => null),
+      getPersonalizedFeed(nb.id, personalizedQueries, nb.name).catch(() => null),
+      getRankingSignals(me.id, {
+        favoriteCategories: prefs.favorite_categories,
+        gender,
+      }),
+      getFavoritedLinks(),
+      getHotDealCards(20),
+    ]);
+
+  if (!feed) {
+    return (
+      <p className="rounded-2xl border border-dashed border-zinc-300 bg-white p-6 text-center text-sm text-zinc-500">
+        추천을 불러오지 못했어요.
+        <br />
+        잠시 후 다시 시도해 주세요.
+      </p>
+    );
+  }
+
+  // 카테고리 아이콘은 항상 모두 노출 (비어도 탭 유지). 고정 순서(SECTION_ORDER).
+  // 개인화(섹션 순서/카드 가중치)는 ✨추천 탭(recommendSections)에만 적용한다.
+  const sections: StoreSection[] = SECTION_ORDER.map((key) => ({
+    key,
+    title: sectionTitle(key),
+    shortLabel: SECTION_META[key].label,
+    emoji: SECTION_META[key].emoji,
+    cards: feed.sections[key] ?? [],
+  }));
+
+  // 맞춤 피드 → 섹션 카드로 만들고 5신호 점수로 재정렬, 카드 있는 섹션만.
+  const recommendSections: StoreSection[] = personalizedFeed
+    ? rankSections(
+        SECTION_ORDER.map((key) => ({
+          key,
+          title: sectionTitle(key),
+          shortLabel: SECTION_META[key].label,
+          emoji: SECTION_META[key].emoji,
+          cards: personalizedFeed[key] ?? [],
+        })),
+        rankingSignals,
+        { primaryUsage: prefs.primary_usage },
+      ).filter((s) => s.cards.length > 0)
+    : [];
+
+  // AI 추천(배치 생성) — 동네 피드로 ref 해석. 없으면 빈 배열(레일 미표시 → 기존 추천 폴백).
+  const aiCards = await getAiRecommendationCards(me.id, feed.sections);
+
+  // 핫딜 탭 — 모집중 플랫폼 공구(정가→공구가 할인율) + 커뮤니티 RSS 핫딜.
+  const dealNow = Date.now();
+  const groupBuyDeals: StoreCardData[] = GROUP_BUYS.filter(
+    (gb) => Date.parse(gb.deadlineAt) > dealNow,
+  ).map((gb) => {
+    const opt = gb.options[0];
+    const rate = opt ? groupBuyDiscountRate(opt) : 0;
+    const subtitle = opt
+      ? `${opt.retailPrice.toLocaleString("ko-KR")}원 → ${opt.groupPrice.toLocaleString("ko-KR")}원${rate ? ` (${rate}%↓)` : ""}`
+      : gb.subtitle;
+    return { title: gb.title, subtitle, link: `/groupbuy/${gb.slug}`, image: null };
+  });
+  // 공구(우리 인벤토리·전환 목표) 상단 → 크롤 핫딜.
+  const hotDealCards = [...groupBuyDeals, ...(crawledDeals ?? [])];
+
+  return (
+    <StoreFeedTabs
+      sections={sections}
+      userLabel={me.nickname}
+      regionLabel={nb.name}
+      recommendSections={recommendSections}
+      favoritedLinks={favoritedLinks}
+      aiCards={aiCards}
+      hotDealCards={hotDealCards}
+      isAdmin={me.is_admin}
+    />
+  );
+}
+
+// 피드 로딩 중 스켈레톤 — StoreFeedTabs 레이아웃(아이콘 행 + 헤더 + 카드 레일)에 맞춤.
+// 첫 진입(캐시 미스)은 네이버 크롤링이라 수 초 걸릴 수 있어, 안내 문구로 대기 상태를 알린다.
+function StoreFeedSkeleton() {
+  return (
+    <div>
+      {/* 카테고리 아이콘 행 (펄스 플레이스홀더) */}
+      <div className="flex animate-pulse gap-3 overflow-hidden pb-1" aria-hidden>
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div key={i} className="flex shrink-0 flex-col items-center gap-1">
+            <div className="h-12 w-12 rounded-full bg-zinc-200" />
+            <div className="h-2.5 w-8 rounded bg-zinc-200" />
+          </div>
+        ))}
+      </div>
+
+      {/* 로딩 안내 — 스피너 + 문구 (✨ 맞춤 인트로 자리) */}
+      <div
+        className="mb-4 mt-6 flex items-center gap-2.5 text-brand"
+        role="status"
+        aria-live="polite"
+      >
+        <span
+          className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-brand/30 border-t-brand"
+          aria-hidden
+        />
+        <p className="text-sm font-semibold">맞춤 추천 상품을 불러오고 있어요…</p>
+      </div>
+
+      {/* 카드 레일 2줄 (펄스 플레이스홀더) */}
+      <div className="animate-pulse" aria-hidden>
+        {Array.from({ length: 2 }).map((_, r) => (
+          <section key={r} className="mb-7">
+            <div className="mb-3 h-4 w-32 rounded bg-zinc-200" />
+            <div className="-mx-4 flex gap-3 overflow-hidden px-4 pb-1">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="w-[15rem] shrink-0">
+                  <div className="aspect-[4/3] w-full rounded-xl bg-zinc-200" />
+                  <div className="mt-2 h-3 w-3/4 rounded bg-zinc-200" />
+                  <div className="mt-1.5 h-3 w-1/2 rounded bg-zinc-200" />
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
   );
 }

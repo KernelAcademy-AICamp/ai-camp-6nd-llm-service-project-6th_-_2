@@ -28,9 +28,9 @@ export default async function AdminPartyDetailPage({ params }: { params: { id: s
   const { party, participants, messages } = detail;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 bg-zinc-50 p-4">
+    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-4 bg-brand-50/40 p-4">
       <div className="flex items-center justify-between">
-        <Link href={"/admin" as any} className="text-xs text-zinc-500">
+        <Link href={"/admin/board" as any} className="text-xs text-zinc-500">
           ‹ 전체 모집글
         </Link>
         <AdminDeleteButton
@@ -38,12 +38,12 @@ export default async function AdminPartyDetailPage({ params }: { params: { id: s
           id={party.id}
           label="모집글 삭제"
           confirmText="이 모집글을 삭제할까요? 참여자·채팅·영수증까지 모두 삭제되며 되돌릴 수 없어요."
-          redirectTo="/admin"
+          redirectTo="/admin/board"
         />
       </div>
 
       {/* 모집글 헤더 */}
-      <section className="rounded-2xl border border-black/[0.04] bg-white p-4">
+      <section className="rounded-2xl border border-zinc-200/70 bg-white p-4 shadow-sm shadow-black/[0.02]">
         <div className="flex items-center gap-1.5">
           <h1 className="text-base font-bold text-zinc-900">{party.store_name}</h1>
           <span
@@ -70,7 +70,7 @@ export default async function AdminPartyDetailPage({ params }: { params: { id: s
       </section>
 
       {/* 참여자 */}
-      <section className="rounded-2xl border border-black/[0.04] bg-white p-4">
+      <section className="rounded-2xl border border-zinc-200/70 bg-white p-4 shadow-sm shadow-black/[0.02]">
         <h2 className="mb-2 text-sm font-bold text-zinc-900">참여자 ({participants.length})</h2>
         <ul className="flex flex-col gap-1.5">
           {participants.map((pt) => (
@@ -89,7 +89,7 @@ export default async function AdminPartyDetailPage({ params }: { params: { id: s
       </section>
 
       {/* 채팅 전문 */}
-      <section className="rounded-2xl border border-black/[0.04] bg-white p-4">
+      <section className="rounded-2xl border border-zinc-200/70 bg-white p-4 shadow-sm shadow-black/[0.02]">
         <h2 className="mb-3 text-sm font-bold text-zinc-900">채팅 전문 ({messages.length})</h2>
         {messages.length === 0 ? (
           <p className="py-6 text-center text-[13px] text-zinc-400">메시지가 없어요.</p>

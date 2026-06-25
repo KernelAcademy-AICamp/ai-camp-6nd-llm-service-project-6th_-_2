@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>봇/운영 인사이트 — 목업</title>
+<style>
+  :root{
+    --zinc50:#fafafa; --zinc100:#f4f4f5; --zinc200:#e4e4e7; --zinc400:#a1a1aa;
+    --zinc500:#71717a; --zinc600:#52525b; --zinc700:#3f3f46; --zinc900:#18181b;
+    --blue:#3b82f6; --emerald:#059669; --amber:#d97706; --rose:#e11d48; --violet:#7c3aed;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--zinc50);color:var(--zinc900);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;}
+  .layout{display:flex;min-height:100vh}
+  /* 사이드바 (어드민 모방) */
+  .side{position:sticky;top:0;height:100vh;width:176px;flex:none;background:#fff;
+    border-right:1px solid var(--zinc200);padding:12px;display:flex;flex-direction:column;gap:4px}
+  .side .brand{display:flex;align-items:center;gap:8px;padding:8px 4px;font-weight:800;font-size:14px}
+  .nav{display:flex;align-items:center;gap:12px;border-radius:12px;padding:10px;font-size:14px;
+    font-weight:700;color:var(--zinc600);text-decoration:none}
+  .nav:hover{background:var(--zinc100)}
+  .nav.active{background:var(--zinc900);color:#fff}
+  .content{flex:1;min-width:0;padding:18px;max-width:1100px;margin:0 auto}
+  h1{font-size:24px;margin:0}
+  .sub{color:var(--zinc500);font-size:12px}
+  .head{display:flex;align-items:flex-end;justify-content:space-between;padding:0 4px 4px}
+  .card{background:#fff;border:1px solid rgba(0,0,0,.04);border-radius:16px;padding:16px}
+  .grid{display:grid;gap:10px}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .sectitle{font-size:14px;font-weight:700;color:var(--zinc700)}
+  .secthint{font-size:11px;color:var(--zinc400)}
+  .metric .label{font-size:11px;color:var(--zinc500)}
+  .metric .val{font-size:26px;font-weight:800;margin-top:2px}
+  .metric .note{font-size:11px;margin-top:2px}
+  .good{color:var(--emerald)} .bad{color:var(--rose)} .warn{color:var(--amber)}
+  .row{display:flex;align-items:center;gap:10px}
+  .mt{margin-top:12px} .mt2{margin-top:18px}
+  /* 퍼널 */
+  .funnel{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .fstep{display:flex;align-items:center;gap:10px}
+  .fname{width:96px;font-size:12.5px;color:var(--zinc600);flex:none}
+  .fbarwrap{flex:1;background:var(--zinc100);border-radius:8px;overflow:hidden;height:30px;position:relative}
+  .fbar{height:100%;background:linear-gradient(90deg,#60a5fa,#3b82f6);display:flex;align-items:center;
+    padding-left:10px;color:#fff;font-size:12px;font-weight:700;border-radius:8px}
+  .fconv{width:120px;flex:none;font-size:11.5px;text-align:right;color:var(--zinc500)}
+  .drop{color:var(--rose);font-weight:700}
+  /* 막대 사유 */
+  .breakdown{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+  .brow{display:flex;align-items:center;gap:10px;font-size:12.5px}
+  .bname{width:84px;flex:none;color:var(--zinc600)}
+  .btrack{flex:1;height:10px;border-radius:99px;background:var(--zinc100);overflow:hidden}
+  .bfill{height:100%;border-radius:99px}
+  .bpct{width:64px;flex:none;text-align:right;font-weight:700;color:var(--zinc700)}
+  /* 도넛 */
+  .donutwrap{display:flex;align-items:center;gap:18px;margin-top:6px}
+  .donut{width:120px;height:120px;border-radius:50%;flex:none;position:relative}
+  .donut::after{content:"";position:absolute;inset:18px;background:#fff;border-radius:50%}
+  .legend{display:flex;flex-direction:column;gap:6px;font-size:12px}
+  .lg{display:flex;align-items:center;gap:7px}
+  .dot{width:10px;height:10px;border-radius:3px;flex:none}
+  /* 히트맵 */
+  .heat{margin-top:12px;overflow-x:auto}
+  table.hm{border-collapse:separate;border-spacing:3px;font-size:11px}
+  table.hm th{font-weight:600;color:var(--zinc500);padding:2px 4px;text-align:center;font-size:10.5px}
+  table.hm td.rowh{color:var(--zinc600);font-weight:700;text-align:left;padding-right:6px;white-space:nowrap}
+  .cell{width:30px;height:26px;border-radius:6px;text-align:center;line-height:26px;color:#fff;font-weight:700;font-size:10px}
+  /* 액션 실패율 */
+  .acts{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .act{display:flex;align-items:center;gap:10px;font-size:12.5px}
+  .aname{width:110px;flex:none;color:var(--zinc700);font-weight:600}
+  .atrack{flex:1;height:18px;border-radius:6px;background:var(--emerald);overflow:hidden;position:relative;display:flex}
+  .afail{height:100%;background:var(--rose)}
+  .apct{width:120px;flex:none;text-align:right;font-size:11.5px;color:var(--zinc500)}
+  /* 인사이트 */
+  .insight{display:flex;gap:10px;padding:12px;border-radius:12px;background:#fff;border:1px solid var(--zinc200)}
+  .ibadge{flex:none;width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .itext{font-size:12.5px;color:var(--zinc700);line-height:1.5}
+  .itext b{color:var(--zinc900)}
+  .pill{display:inline-block;font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:99px;margin-left:4px}
+  .pill.rose{background:#ffe4e6;color:var(--rose)} .pill.amber{background:#fef3c7;color:var(--amber)}
+  .pill.blue{background:#dbeafe;color:var(--blue)}
+  .tag{font-size:10px;background:var(--zinc100);color:var(--zinc500);padding:1px 6px;border-radius:6px;margin-left:6px;font-weight:600}
+</style>
+</head>
+<body>
+<div class="layout">
+  <!-- 사이드바 -->
+  <aside class="side">
+    <div class="brand"><span>🛠</span><span>Admin</span></div>
+    <a class="nav" href="#"><span>📊</span> 대시보드</a>
+    <a class="nav active" href="#"><span>🔬</span> 인사이트</a>
+    <a class="nav" href="#"><span>👤</span> 회원 관리</a>
+    <a class="nav" href="#"><span>🗂️</span> 게시판 관리</a>
+    <a class="nav" href="#"><span>🚨</span> 신고/분쟁</a>
+  </aside>
+
+  <main class="content">
+    <div class="head">
+      <div>
+        <h1>🔬 봇/운영 인사이트</h1>
+        <div class="sub" style="margin-top:4px">봇 활동으로 드러난 퍼널 누수·마찰·매칭 공백 <span class="tag">최근 7일 · 봇 30명</span></div>
+      </div>
+      <div class="sub">자동 새로고침 · 방금</div>
+    </div>
+
+    <!-- KPI -->
+    <div class="grid g4 mt">
+      <div class="card metric">
+        <div class="label">주간 거래 성사율</div>
+        <div class="val bad">32%</div>
+        <div class="note bad">목표 40% 미달 ▼8%p</div>
+      </div>
+      <div class="card metric">
+        <div class="label">평균 승인 지연 <span class="tag">신청→승인</span></div>
+        <div class="val warn">4.2h</div>
+        <div class="note warn">느림 · 자동승인 검토</div>
+      </div>
+      <div class="card metric">
+        <div class="label">평균 첫 응답 <span class="tag">방오픈→첫메시지</span></div>
+        <div class="val">18분</div>
+        <div class="note" style="color:var(--zinc400)">양호</div>
+      </div>
+      <div class="card metric">
+        <div class="label">미처리 신고</div>
+        <div class="val bad">14건</div>
+        <div class="note bad">정산 분쟁 다수</div>
+      </div>
+    </div>
+
+    <!-- 퍼널 -->
+    <div class="card mt2">
+      <div class="row" style="justify-content:space-between">
+        <span class="sectitle">거래 성사 퍼널</span>
+        <span class="secthint">단계별 전환율 · 봇 생성 모집글 기준</span>
+      </div>
+      <div class="funnel">
+        <div class="fstep">
+          <span class="fname">모집글</span>
+          <div class="fbarwrap"><div class="fbar" style="width:100%">142건</div></div>
+          <span class="fconv">기준 100%</span>
+        </div>
+        <div class="fstep">
+          <span class="fname">정원 충족</span>
+          <div class="fbarwrap"><div class="fbar" style="width:41%">58건</div></div>
+          <span class="fconv"><span class="drop">전환 41%</span> · 최대 누수</span>
+        </div>
+        <div class="fstep">
+          <span class="fname">거래중</span>
+          <div class="fbarwrap"><div class="fbar" style="width:38%">54건</div></div>
+          <span class="fconv">전환 93%</span>
+        </div>
+        <div class="fstep">
+          <span class="fname">거래 완료</span>
+          <div class="fbarwrap"><div class="fbar" style="width:31%">45건</div></div>
+          <span class="fconv">전환 83%</span>
+        </div>
+        <div class="fstep">
+          <span class="fname">리뷰 작성</span>
+          <div class="fbarwrap"><div class="fbar" style="width:9%;background:linear-gradient(90deg,#fda4af,#e11d48)">13건</div></div>
+          <span class="fconv"><span class="drop">전환 29%</span> · 누수</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2 mt2">
+      <!-- 분쟁 사유 막대 -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <span class="sectitle">분쟁 사유 분포</span>
+          <span class="secthint">reports.reason_code · 50건</span>
+        </div>
+        <div class="breakdown">
+          <div class="brow"><span class="bname">정산 분쟁</span><div class="btrack"><div class="bfill" style="width:38%;background:var(--rose)"></div></div><span class="bpct">38%</span></div>
+          <div class="brow"><span class="bname">노쇼</span><div class="btrack"><div class="bfill" style="width:24%;background:var(--amber)"></div></div><span class="bpct">24%</span></div>
+          <div class="brow"><span class="bname">지각/지연</span><div class="btrack"><div class="bfill" style="width:18%;background:var(--amber)"></div></div><span class="bpct">18%</span></div>
+          <div class="brow"><span class="bname">무례/시비</span><div class="btrack"><div class="bfill" style="width:12%;background:var(--violet)"></div></div><span class="bpct">12%</span></div>
+          <div class="brow"><span class="bname">금액/수량</span><div class="btrack"><div class="bfill" style="width:8%;background:var(--blue)"></div></div><span class="bpct">8%</span></div>
+        </div>
+      </div>
+
+      <!-- 차단 도넛 -->
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <span class="sectitle">차단 발생 맥락</span>
+          <span class="secthint">user_blocks · 19건</span>
+        </div>
+        <div class="donutwrap">
+          <div class="donut" style="background:conic-gradient(var(--rose) 0 47%, var(--amber) 47% 74%, var(--blue) 74% 100%)"></div>
+          <div class="legend">
+            <div class="lg"><span class="dot" style="background:var(--rose)"></span> 무례/시비 후 차단 · 47%</div>
+            <div class="lg"><span class="dot" style="background:var(--amber)"></span> 노쇼 상대 차단 · 27%</div>
+            <div class="lg"><span class="dot" style="background:var(--blue)"></span> 정산 갈등 후 · 26%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 수요-공급 히트맵 -->
+    <div class="card mt2">
+      <div class="row" style="justify-content:space-between">
+        <span class="sectitle">수요–공급 공백 (정원 충족률)</span>
+        <span class="secthint">동네 × 시간대 · 초록=충족 / 빨강=미충족</span>
+      </div>
+      <div class="heat">
+        <table class="hm">
+          <tr>
+            <th></th><th>0–4시</th><th>4–8시</th><th>8–12시</th><th>12–16시</th><th>16–20시</th><th>20–24시</th>
+          </tr>
+          <tr>
+            <td class="rowh">신림동</td>
+            <td><div class="cell" style="background:#e11d48">12</div></td>
+            <td><div class="cell" style="background:#f43f5e">21</div></td>
+            <td><div class="cell" style="background:#f59e0b">55</div></td>
+            <td><div class="cell" style="background:#10b981">78</div></td>
+            <td><div class="cell" style="background:#059669">84</div></td>
+            <td><div class="cell" style="background:#10b981">71</div></td>
+          </tr>
+          <tr>
+            <td class="rowh">역삼1동</td>
+            <td><div class="cell" style="background:#f59e0b">44</div></td>
+            <td><div class="cell" style="background:#f43f5e">19</div></td>
+            <td><div class="cell" style="background:#10b981">69</div></td>
+            <td><div class="cell" style="background:#059669">88</div></td>
+            <td><div class="cell" style="background:#059669">81</div></td>
+            <td><div class="cell" style="background:#10b981">73</div></td>
+          </tr>
+        </table>
+      </div>
+      <div class="secthint" style="margin-top:8px">숫자 = 정원 충족률(%). <b style="color:var(--rose)">신림동 새벽(0–8시)·역삼 새벽</b>은 수요는 있으나 공급이 비어 매칭이 거의 안 됨.</div>
+    </div>
+
+    <!-- 봇 액션 실패율 -->
+    <div class="card mt2">
+      <div class="row" style="justify-content:space-between">
+        <span class="sectitle">봇 액션 성공/실패율 <span class="tag">계측 필요(B)</span></span>
+        <span class="secthint">초록=성공 / 빨강=실패 · 어디서 시스템이 거부하나</span>
+      </div>
+      <div class="acts">
+        <div class="act"><span class="aname">참여 신청 join</span><div class="atrack"><div class="afail" style="width:14%"></div></div><span class="apct">실패 14% · 정원 race</span></div>
+        <div class="act"><span class="aname">모집 생성</span><div class="atrack"><div class="afail" style="width:6%"></div></div><span class="apct">실패 6%</span></div>
+        <div class="act"><span class="aname">승인 approve</span><div class="atrack"><div class="afail" style="width:3%"></div></div><span class="apct">실패 3%</span></div>
+        <div class="act"><span class="aname">채팅 chat</span><div class="atrack"><div class="afail" style="width:1%"></div></div><span class="apct">실패 1%</span></div>
+        <div class="act"><span class="aname">신고 report</span><div class="atrack"><div class="afail" style="width:2%"></div></div><span class="apct">실패 2%</span></div>
+      </div>
+    </div>
+
+    <!-- 자동 인사이트 -->
+    <div class="mt2 sectitle" style="padding-left:4px">💡 자동 도출 개선안</div>
+    <div class="grid g1 mt" style="gap:8px">
+      <div class="insight">
+        <span class="ibadge" style="background:#ffe4e6">🎯</span>
+        <span class="itext"><b>정원 충족이 최대 누수(41%).</b> 모집글의 59%가 사람을 못 모으고 만료됨. <span class="pill rose">매칭/노출</span>
+          → 임박 모집글 상단 고정·푸시, 정원 1명 남았을 때 알림으로 끌어올리기.</span>
+      </div>
+      <div class="insight">
+        <span class="ibadge" style="background:#fef3c7">⏱️</span>
+        <span class="itext"><b>승인까지 평균 4.2시간.</b> 그 사이 신청자 이탈 추정. <span class="pill amber">UX</span>
+          → 신뢰점수 높은 신청자 <b>자동승인(approval_type='auto')</b> 기본값 + 호스트 승인 알림.</span>
+      </div>
+      <div class="insight">
+        <span class="ibadge" style="background:#fef3c7">🧾</span>
+        <span class="itext"><b>분쟁의 38%가 정산.</b> 송금이 외부(카톡)라 확인이 안 됨. <span class="pill amber">플로우</span>
+          → 정산 미완료 리마인더·"받았어요" 확인 버튼 강화(payments 상태 전이 알림).</span>
+      </div>
+      <div class="insight">
+        <span class="ibadge" style="background:#dbeafe">🌙</span>
+        <span class="itext"><b>새벽 시간대 매칭 공백.</b> 신림 0–8시 충족률 12–21%. <span class="pill blue">공급</span>
+          → 야간 호스트 인센티브 또는 인접 동네 임시 통합 노출 실험.</span>
+      </div>
+      <div class="insight">
+        <span class="ibadge" style="background:#ffe4e6">🐞</span>
+        <span class="itext"><b>참여 신청 실패율 14%.</b> 동시 신청 시 정원 초과 거부(race). <span class="pill rose">버그</span>
+          → 마감 트리거 경합 구간 점검, 실패 시 대기열/안내 메시지.</span>
+      </div>
+      <div class="insight">
+        <span class="ibadge" style="background:#ede9fe">📝</span>
+        <span class="itext"><b>완료→리뷰 전환 29%.</b> 신뢰점수가 안 쌓여 매칭 신뢰 하락. <span class="pill blue">UX</span>
+          → 거래 완료 직후 리뷰 시트 자동 노출 + 미작성 1회 리마인더.</span>
+      </div>
+    </div>
+
+    <div style="height:30px"></div>
+  </main>
+</div>
+</body>
+</html>

@@ -128,6 +128,12 @@ export interface Profile {
   primary_usage: PrimaryUsage | null;
   favorite_malls: string[];
   favorite_categories: string[];
+  // 운영자 관리 컬럼 (20260618000002 admin_user_mgmt)
+  is_bot: boolean;
+  suspended_at: string | null;
+  suspended_reason: string | null;
+  // 경고 누적 (20260625000001 profiles_warning_count)
+  warning_count: number;
 }
 
 export interface TermsAgreement {
@@ -250,11 +256,19 @@ export interface Report {
   reporter_id: string | null;
   target_type: ReportTargetType;
   target_id: string;
+  party_id: string | null; // 신고 발생 거래(채팅 로그 점프용). 20260625000002
   reason_code: string;
   reason_detail: string | null;
   status: ReportStatus;
   resolved_at: string | null;
   resolved_note: string | null;
+  created_at: string;
+}
+
+// 회원 차단(개인 간) — 채팅 프로필에서 차단/해제. 상대 메시지 숨김은 클라이언트.
+export interface UserBlock {
+  blocker_id: string;
+  blocked_id: string;
   created_at: string;
 }
 
@@ -426,6 +440,7 @@ export interface Database {
       payments: { Row: Payment; Insert: NewPayment; Update: Partial<Payment> };
       reviews: { Row: Review; Insert: NewReview; Update: never };
       reports: { Row: Report; Insert: Partial<Report>; Update: Partial<Report> };
+      user_blocks: { Row: UserBlock; Insert: Partial<UserBlock>; Update: never };
       notifications: { Row: Notification; Insert: Partial<Notification>; Update: Partial<Notification> };
       phase2_alerts: { Row: Phase2Alert; Insert: Partial<Phase2Alert>; Update: Partial<Phase2Alert> };
       community_posts: { Row: CommunityPost; Insert: NewCommunityPost; Update: Partial<CommunityPost> };

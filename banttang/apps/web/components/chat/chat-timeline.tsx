@@ -27,6 +27,8 @@ interface Props {
   onDismissMidpoint?: (messageId: string) => Promise<void> | void;
   // 띵동 시스템 메시지의 "내 거래 카드보기" 버튼을 누를 때.
   onOpenTransactionCard?: () => void;
+  // 상대 메시지의 이름/아바타를 탭하면 회원 공개 프로필 시트를 연다.
+  onTapMember?: (userId: string, nickname: string) => void;
 }
 
 // 같은 날짜인지 비교 (KST 기준 YYYY-MM-DD)
@@ -51,6 +53,7 @@ export function ChatTimeline({
   onChangePickup,
   onDismissMidpoint,
   onOpenTransactionCard,
+  onTapMember,
 }: Props) {
   // 메시지 하나의 안읽은 수 — 보낸이 외 멤버 중 last_read_at < 메시지 created_at 인 사람 수
   function unreadCountFor(message: { sender_id: string | null; created_at: string }): number {
@@ -258,9 +261,18 @@ export function ChatTimeline({
                 >
                   {showHeader && (
                     <div className="mb-1 ml-9 flex items-center gap-1.5">
-                      <span className="text-[12px] font-medium text-gray-700">
+                      <button
+                        type="button"
+                        onClick={
+                          m.sender_id && onTapMember
+                            ? () => onTapMember(m.sender_id!, m.sender?.nickname ?? "회원")
+                            : undefined
+                        }
+                        className="text-[12px] font-medium text-gray-700 active:opacity-60"
+                        aria-label={`${m.sender?.nickname ?? "회원"} 프로필 보기`}
+                      >
                         {m.sender?.nickname ?? "알 수 없음"}
-                      </span>
+                      </button>
                     </div>
                   )}
                   <div
@@ -273,7 +285,18 @@ export function ChatTimeline({
                     {!mine && (
                       <span className="w-7 shrink-0">
                         {!prevIsSameSender && (
-                          <Avatar nickname={m.sender?.nickname ?? "?"} size={28} />
+                          <button
+                            type="button"
+                            onClick={
+                              m.sender_id && onTapMember
+                                ? () => onTapMember(m.sender_id!, m.sender?.nickname ?? "회원")
+                                : undefined
+                            }
+                            className="active:opacity-70"
+                            aria-label={`${m.sender?.nickname ?? "회원"} 프로필 보기`}
+                          >
+                            <Avatar nickname={m.sender?.nickname ?? "?"} size={28} />
+                          </button>
                         )}
                       </span>
                     )}
