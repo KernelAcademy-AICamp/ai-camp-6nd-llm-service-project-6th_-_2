@@ -466,24 +466,25 @@ export function ChatTimeline({
                       )}
                       <div
                         className={cn(
-                          "flex items-end gap-1.5",
-                          mine ? "flex-row-reverse" : "flex-row",
+                          "flex flex-col gap-1",
+                          mine ? "items-end" : "items-start",
                         )}
                       >
-                        {isImageMessage(m.metadata) ? (
-                          <ImageBubble
-                            meta={m.metadata as unknown as ImageMeta}
-                            mine={mine}
-                            prevIsSameSender={!!prevIsSameSender}
-                            nextIsSameSender={!!nextIsSameSender}
-                          />
-                        ) : (
-                          <div
-                            className={cn(
-                              "flex min-w-0 flex-col gap-1",
-                              mine ? "items-end" : "items-start",
-                            )}
-                          >
+                        {/* 메인 말풍선 + 시간 — 한 줄로 묶어 시간이 말풍선 옆에 붙도록 */}
+                        <div
+                          className={cn(
+                            "flex items-end gap-1.5",
+                            mine ? "flex-row-reverse" : "flex-row",
+                          )}
+                        >
+                          {isImageMessage(m.metadata) ? (
+                            <ImageBubble
+                              meta={m.metadata as unknown as ImageMeta}
+                              mine={mine}
+                              prevIsSameSender={!!prevIsSameSender}
+                              nextIsSameSender={!!nextIsSameSender}
+                            />
+                          ) : (
                             <div
                               className={cn(
                                 "whitespace-pre-wrap break-words px-3.5 py-2 text-[14px] leading-relaxed",
@@ -498,27 +499,29 @@ export function ChatTimeline({
                             >
                               {linkify(m.content ?? "", mine)}
                             </div>
-                            {firstUrl(m.content) && (
-                              <LinkPreview url={firstUrl(m.content)!} mine={mine} />
+                          )}
+
+                          <div className="mb-0.5 flex shrink-0 items-end gap-1 text-[10px] leading-none">
+                            {(() => {
+                              const unread = unreadCountFor(m);
+                              return unread > 0 ? (
+                                <span className="font-bold text-amber-500 tabular-nums">
+                                  {unread}
+                                </span>
+                              ) : null;
+                            })()}
+                            {showTime && (
+                              <time className="text-gray-400">
+                                {formatKstTime(m.created_at)}
+                              </time>
                             )}
                           </div>
-                        )}
-
-                        <div className="mb-0.5 flex shrink-0 items-end gap-1 text-[10px] leading-none">
-                          {(() => {
-                            const unread = unreadCountFor(m);
-                            return unread > 0 ? (
-                              <span className="font-bold text-amber-500 tabular-nums">
-                                {unread}
-                              </span>
-                            ) : null;
-                          })()}
-                          {showTime && (
-                            <time className="text-gray-400">
-                              {formatKstTime(m.created_at)}
-                            </time>
-                          )}
                         </div>
+
+                        {/* 링크 미리보기 — 말풍선 아래 별도 줄(폭 넓어도 시간 정렬에 영향 X) */}
+                        {!isImageMessage(m.metadata) && firstUrl(m.content) && (
+                          <LinkPreview url={firstUrl(m.content)!} mine={mine} />
+                        )}
                       </div>
                     </div>
                   </div>
