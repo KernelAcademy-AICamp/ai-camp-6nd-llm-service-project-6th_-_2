@@ -80,6 +80,7 @@ export const GROUP_BUYS: GroupBuy[] = [
   },
   {
     slug: "hanwoo-jeongol",
+    categoryValue: "meat",
     title: "한돈 생삼겹살 1+1",
     subtitle: "동네 정육점 사장님 직접 공급, 당일 손질",
     emoji: "🥩",
@@ -114,6 +115,7 @@ export const GROUP_BUYS: GroupBuy[] = [
   },
   {
     slug: "chungju-apple",
+    categoryValue: "fruit",
     title: "충주 꿀사과",
     subtitle: "아침 대용으로 딱, 새콤달콤 부사",
     emoji: "🍎",
@@ -148,6 +150,7 @@ export const GROUP_BUYS: GroupBuy[] = [
   },
   {
     slug: "fresh-egg",
+    categoryValue: "egg",
     title: "무항생제 신선란 30구",
     subtitle: "동네 마트 사장님 핫딜, 매주 입고",
     emoji: "🥚",
