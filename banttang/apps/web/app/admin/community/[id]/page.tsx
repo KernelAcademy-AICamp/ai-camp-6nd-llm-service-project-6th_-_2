@@ -27,7 +27,7 @@ export default async function AdminCommunityDetailPage({ params }: { params: { i
   const repliesOf = (id: string) => comments.filter((c) => c.parent_id === id);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-4 bg-zinc-50 p-4">
+    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-4 bg-brand-50/40 p-4">
       <div className="flex items-center justify-between">
         <Link href={"/admin/community" as any} className="text-xs text-zinc-500">
           ‹ 커뮤니티 전체
@@ -42,7 +42,7 @@ export default async function AdminCommunityDetailPage({ params }: { params: { i
       </div>
 
       {/* 글 본문 */}
-      <article className="rounded-2xl border border-black/[0.04] bg-white p-4">
+      <article className="rounded-2xl border border-zinc-200/70 bg-white p-4 shadow-sm shadow-black/[0.02]">
         <div className="flex items-center gap-1.5 text-[12px] text-zinc-500">
           <span>
             {cat.emoji} {cat.label}
@@ -75,7 +75,7 @@ export default async function AdminCommunityDetailPage({ params }: { params: { i
       </article>
 
       {/* 댓글 */}
-      <section className="rounded-2xl border border-black/[0.04] bg-white p-4">
+      <section className="rounded-2xl border border-zinc-200/70 bg-white p-4 shadow-sm shadow-black/[0.02]">
         <h2 className="mb-3 text-sm font-bold text-zinc-900">댓글 ({comments.length})</h2>
         {comments.length === 0 ? (
           <p className="py-6 text-center text-[13px] text-zinc-400">댓글이 없어요.</p>

@@ -8,6 +8,8 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getGroupBuy } from "@/lib/groupbuy";
+import { logUserEvent } from "@/lib/store-events";
+import { categoryInfoFor } from "@/lib/naver/personalize";
 
 type Result =
   | { ok: true }
@@ -45,6 +47,14 @@ export async function joinGroupBuy(input: {
       { onConflict: "slug,user_id" },
     );
   if (error) return { ok: false, error: error.message };
+
+  // 통합 행동 로그: 공구 참여를 성향 태깅 입력으로도 적재(slug→config→섹션).
+  void logUserEvent({
+    userId: me.id,
+    kind: "groupbuy",
+    keyword: gb.slug,
+    section: categoryInfoFor(gb.categoryValue)?.section ?? null,
+  });
 
   revalidatePath(`/groupbuy/${gb.slug}`);
   return { ok: true };

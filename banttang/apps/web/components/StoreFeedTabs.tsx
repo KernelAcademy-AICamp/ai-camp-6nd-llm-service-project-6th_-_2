@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { StoreCard } from "./StoreCard";
+import { StoreCard, type StoreCardData } from "./StoreCard";
 import type { FeedCard } from "@/lib/naver/cache";
+import { logStoreClick } from "@/app/_actions/store-events";
+import { RefreshRecommendationsButton } from "./RefreshRecommendationsButton";
+import { RefreshHotDealsButton } from "./RefreshHotDealsButton";
 
 export type StoreSection = {
   key: string;
@@ -15,6 +18,8 @@ export type StoreSection = {
 
 // "추천" 탭 — 배달 탭 앞에 두는 통합 탭. 섹션별 헤더 + 가로 스크롤 레일로 보여준다.
 const RECOMMEND_KEY = "recommend";
+// "핫딜" 탭 — 추천 옆. 모집중 공구(할인율) + 동네 저가 쇼핑.
+const HOTDEAL_KEY = "hotdeal";
 
 function banttangHrefFor(card: FeedCard): string {
   // 모든 카드에 "반띵" 버튼 — 가게명/상품명 프리필해 모집글 생성으로 이동.
@@ -35,6 +40,9 @@ export function StoreFeedTabs({
   regionLabel,
   recommendSections,
   favoritedLinks,
+  aiCards,
+  hotDealCards,
+  isAdmin,
 }: {
   sections: StoreSection[];
   userLabel: string;
@@ -43,6 +51,12 @@ export function StoreFeedTabs({
   recommendSections?: StoreSection[];
   // 이미 찜한 항목 link 목록 — 카드 하트 초기 상태.
   favoritedLinks?: string[];
+  // AI 추천(배치 생성) — 추천 탭 맨 위 레일. 이유 한 줄 포함. 없으면 미표시.
+  aiCards?: StoreCardData[];
+  // 핫딜 탭 카드 — 모집중 공구(할인율) + 동네 저가 쇼핑.
+  hotDealCards?: StoreCardData[];
+  // 어드민(슈퍼 계정)에게만 추천·핫딜 갱신 버튼을 노출.
+  isAdmin?: boolean;
 }) {
   // 기본 진입은 "추천" 탭.
   const [active, setActive] = useState(RECOMMEND_KEY);
@@ -55,6 +69,7 @@ export function StoreFeedTabs({
   });
 
   const isRecommend = active === RECOMMEND_KEY;
+  const isHotDeal = active === HOTDEAL_KEY;
   const currentSection = sections.find((s) => s.key === active);
   const currentCards = currentSection?.cards ?? [];
   // 추천 탭에 보일 섹션: 맞춤 검색어 결과가 있으면 그것, 없으면 동네 피드 집계로 폴백.
@@ -73,6 +88,12 @@ export function StoreFeedTabs({
           on={isRecommend}
           onClick={() => setActive(RECOMMEND_KEY)}
         />
+        <TabIcon
+          emoji="🔥"
+          label="핫딜"
+          on={isHotDeal}
+          onClick={() => setActive(HOTDEAL_KEY)}
+        />
         {sections.map((s) => (
           <TabIcon
             key={s.key}
@@ -87,14 +108,35 @@ export function StoreFeedTabs({
       {/* 헤더 — 추천이면 맞춤 인트로, 개별 섹션이면 그 섹션 제목 */}
       <div className="mb-4 mt-6">
         {isRecommend ? (
-          <>
-            <p className="text-[11px] font-bold tracking-wide text-brand">
-              ✨ {userLabel}님 맞춤
-            </p>
-            <h2 className="mt-1 text-[19px] font-extrabold leading-tight text-zinc-900">
-              {regionLabel} 이웃과 함께 사면 좋은 것들
-            </h2>
-          </>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold tracking-wide text-brand">
+                ✨ {userLabel}님 맞춤
+              </p>
+              <h2 className="mt-1 text-[19px] font-extrabold leading-tight text-zinc-900">
+                {regionLabel} 이웃과 함께 사면 좋은 것들
+              </h2>
+            </div>
+            {isAdmin && (
+              <div className="shrink-0 pt-0.5">
+                <RefreshRecommendationsButton />
+              </div>
+            )}
+          </div>
+        ) : isHotDeal ? (
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold tracking-wide text-rose-500">🔥 지금 핫딜</p>
+              <h2 className="mt-1 text-[19px] font-extrabold leading-tight text-zinc-900">
+                {regionLabel} 이웃과 싸게 사는 공구·특가
+              </h2>
+            </div>
+            {isAdmin && (
+              <div className="shrink-0 pt-0.5">
+                <RefreshHotDealsButton />
+              </div>
+            )}
+          </div>
         ) : (
           <h2 className="flex items-center gap-2 text-[19px] font-extrabold leading-tight text-zinc-900">
             <span aria-hidden>{currentSection?.emoji}</span>
@@ -102,6 +144,31 @@ export function StoreFeedTabs({
           </h2>
         )}
       </div>
+
+      {isRecommend && aiCards && aiCards.length > 0 && (
+        // ✨ AI 추천 — 배치 생성(성향 기반 재정렬 + 이유). 추천 탭 맨 위 레일.
+        <section className="mb-7">
+          <h3 className="mb-3 flex items-center gap-2">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-base" aria-hidden>
+              ✨
+            </span>
+            <span className="text-[15px] font-bold leading-snug text-zinc-900">
+              {userLabel}님을 위한 AI 추천
+            </span>
+          </h3>
+          <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+            {aiCards.map((card, i) => (
+              <div
+                key={`ai-${i}`}
+                className="w-[15rem] shrink-0 [&>div]:h-full [&>div]:w-full"
+                onClick={() => void logStoreClick(card.title, "ai")}
+              >
+                <StoreCard {...card} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {isRecommend ? (
         // 추천 탭 — 섹션별 헤더 + 가로 스크롤 레일 (맞춤 검색어 결과, 없으면 동네 피드)
@@ -126,6 +193,7 @@ export function StoreFeedTabs({
                     <div
                       key={`${s.key}-${i}`}
                       className="w-[15rem] shrink-0 [&>div]:h-full [&>div]:w-full"
+                      onClick={() => void logStoreClick(card.title, s.key, card.subtitle)}
                     >
                       <StoreCard
                         title={card.title}
@@ -144,20 +212,42 @@ export function StoreFeedTabs({
         ) : (
           <EmptyCards />
         )
+      ) : isHotDeal ? (
+        // 핫딜 탭 — 다른 탭과 동일한 2열 카드 그리드.
+        hotDealCards && hotDealCards.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2">
+            {hotDealCards.map((card, i) => (
+              <div
+                key={`hot-${i}`}
+                onClick={() => void logStoreClick(card.title, "hotdeal", card.subtitle)}
+              >
+                <StoreCard
+                  title={card.title}
+                  subtitle={card.subtitle}
+                  link={card.link}
+                  image={card.image}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <EmptyCards />
+        )
       ) : (
         // 개별 섹션 탭 — 한 줄에 2개씩 그리드
         currentCards.length > 0 ? (
           <div className="grid grid-cols-2 gap-2">
             {currentCards.map((card, i) => (
-              <StoreCard
-                key={`${active}-${i}`}
-                title={card.title}
-                subtitle={card.subtitle}
-                link={card.link}
-                image={card.image}
-                banttangHref={banttangHrefFor(card)}
-                {...favoritePropsFor(card)}
-              />
+              <div key={`${active}-${i}`} onClick={() => void logStoreClick(card.title, active, card.subtitle)}>
+                <StoreCard
+                  title={card.title}
+                  subtitle={card.subtitle}
+                  link={card.link}
+                  image={card.image}
+                  banttangHref={banttangHrefFor(card)}
+                  {...favoritePropsFor(card)}
+                />
+              </div>
             ))}
           </div>
         ) : (

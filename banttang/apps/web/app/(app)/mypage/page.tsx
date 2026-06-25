@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireCurrentUser } from "@/lib/auth";
 import { LogoutMenuItem } from "@/components/LogoutMenuItem";
+import { SettingsMenu } from "@/components/SettingsMenu";
 
 export const dynamic = "force-dynamic";
 
@@ -16,13 +17,7 @@ export default async function MyPage() {
         <h1 className="flex-1 text-center text-[16px] font-bold text-zinc-900">
           마이페이지
         </h1>
-        <button
-          type="button"
-          aria-label="설정"
-          className="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 active:bg-zinc-100"
-        >
-          <SettingsIcon />
-        </button>
+        <SettingsMenu isAdmin={me.is_admin} />
       </header>
 
       {/* 프로필 카드 */}
@@ -118,23 +113,6 @@ function MenuItem({
 }
 
 // ─── icons (인라인 SVG) ───
-function SettingsIcon() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M12 15.5a3.5 3.5 0 100-7 3.5 3.5 0 000 7z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-      <path
-        d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"
-        stroke="currentColor"
-        strokeWidth="1.6"
-      />
-    </svg>
-  );
-}
-
 function ChevronRight() {
   return (
     <svg
