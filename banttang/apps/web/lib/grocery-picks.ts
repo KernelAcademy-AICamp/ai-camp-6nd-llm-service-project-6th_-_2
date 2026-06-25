@@ -13,6 +13,8 @@ export type PickRoom = {
   occupied: number; // 현재 참여 인원
   image: string; // 썸네일 (external_image_url)
   dealAt: string; // 거래 예정 일시 (ISO)
+  /** 관리자 큐레이션 상품 — true면 "핫딜" 뱃지가 붙고 정렬 시 위로 올라간다. */
+  featured?: boolean;
 };
 
 // 소분류 칩 (전체 + 아래 3개)

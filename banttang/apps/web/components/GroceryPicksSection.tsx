@@ -2,8 +2,8 @@
 
 // 홈 "바로 반띵하기"(AI BETA) 섹션 — 시스템 호스트가 미리 만든 반띵 방 추천.
 // 칩(전체/건강식품/과일·계란/1인 홈케어 공구)으로 필터. 카드 탭 시 펼쳐지며
-//  - 호스트하기 → host/new로 상품·장소 프리필(내가 호스트로 새 방 생성)
-//  - 매칭받기   → 해당 방에 참여(자동 승인) 후 상세로 이동
+//  - 파티장으로 참여하기 → host/new로 상품·장소 프리필(내가 호스트로 새 방 생성)
+//  - 파티원으로 참여하기 → 해당 방에 참여(자동 승인) 후 상세로 이동
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -45,8 +45,6 @@ function hostNewHref(r: PickRoom): string {
 
 export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
   const [group, setGroup] = useState<PickGroup | "all">("all");
-  // 펼쳐진 카드 id (아코디언). 기본: 접힘 — 사용자가 명시적으로 탭해야 호스팅/매칭 선택지를 본다.
-  const [openId, setOpenId] = useState<string | null>(null);
   // "전체" 탭에서만 사용하는 페이지 (4건 단위)
   const [page, setPage] = useState(0);
 
@@ -54,10 +52,15 @@ export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
 
   const byGroup = (key: PickGroup) =>
     rooms.filter((r) => r.group === key).slice(0, PER_GROUP);
-  const all =
+  const rawAll =
     group === "all"
       ? PICK_GROUPS.flatMap((g) => byGroup(g.key))
       : byGroup(group);
+  // 관리자 큐레이션(featured)을 항상 위로 — "전체" 탭에서 핫딜 카드가 먼저 보이도록.
+  // 단일 카테고리 탭에서도 동일 정렬을 유지해 일관성 확보.
+  const all = [...rawAll].sort(
+    (a, b) => Number(!!b.featured) - Number(!!a.featured),
+  );
 
   if (all.length === 0) return null;
 
@@ -74,7 +77,7 @@ export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
       {/* 헤더 */}
       <div className="flex items-center gap-2">
         <h2 className="text-[19px] font-extrabold tracking-tight text-zinc-900">
-          바로 반띵하기
+          지금 반띵하기 좋은 추천상품
         </h2>
         <span className="rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 px-2 py-0.5 text-[10px] font-bold text-white">
           AI BETA
@@ -119,9 +122,7 @@ export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
             key={r.id}
             room={r}
             reason={REASONS[r.group][i % REASONS[r.group].length]}
-            hot={group === "all" && safePage === 0 && i === 0}
-            open={openId === r.id}
-            onToggle={() => setOpenId((cur) => (cur === r.id ? null : r.id))}
+            hot={!!r.featured}
           />
         ))}
       </div>
@@ -193,48 +194,18 @@ function RoomCard({
   room,
   reason,
   hot,
-  open,
-  onToggle,
 }: {
   room: PickRoom;
   reason: string;
   hot: boolean;
-  open: boolean;
-  onToggle: () => void;
 }) {
   const router = useRouter();
-  const [joining, setJoining] = useState(false);
-
-  const isDemo = room.id.startsWith("demo-");
-
-  async function matchMe(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (joining) return;
-    if (isDemo) {
-      alert("(데모) 실제 시드 후에 매칭이 가능해요.");
-      return;
-    }
-    setJoining(true);
-    try {
-      await fetch(`/api/parties/${room.id}/join`, { method: "POST" });
-      // 이미 참여했거나 성공이면 상세로 이동
-      router.push(`/feed/${room.id}` as any);
-    } catch {
-      setJoining(false);
-    }
-  }
-
-  function host(e: React.MouseEvent) {
-    e.stopPropagation();
-    // 데모 카드도 호스팅 신규 작성 진입은 허용 — store/image/price 프리필이 유효함.
-    router.push(hostNewHref(room) as any);
-  }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
       <button
         type="button"
-        onClick={onToggle}
+        onClick={() => router.push(`/picks/${room.id}` as any)}
         className="flex w-full items-start gap-3 p-4 text-left active:bg-zinc-50"
       >
         {/* 썸네일 */}
@@ -271,34 +242,7 @@ function RoomCard({
         </div>
       </button>
 
-      {/* 펼침: 두 역할 버튼 — 프로토타입과 동일한 카피로 동기화 */}
-      {open && (
-        <div className="grid grid-cols-2 gap-2 border-t border-zinc-100 p-3">
-          <button
-            type="button"
-            onClick={host}
-            className="rounded-xl bg-brand px-3 py-2.5 text-center active:scale-[0.98]"
-          >
-            <span className="block text-[13px] font-bold text-white">호스팅하기</span>
-            <span className="mt-1 block text-[10.5px] leading-snug text-white/85">
-              호스트로서 상품을 주문하고, 내가 원하는 장소를 설정해 반띵해요.
-            </span>
-          </button>
-          <button
-            type="button"
-            onClick={matchMe}
-            disabled={joining}
-            className="rounded-xl border border-brand bg-white px-3 py-2.5 text-center active:scale-[0.98] disabled:opacity-60"
-          >
-            <span className="block text-[13px] font-bold text-brand-dark">
-              {joining ? "참여 중…" : "매칭받기"}
-            </span>
-            <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500">
-              주문은 호스트에게 맡기고, 반띵 장소에서 물건만 나눠요.
-            </span>
-          </button>
-        </div>
-      )}
+      {/* 펼침 패널 제거 — 호스팅/매칭 선택은 /picks/[id] 상세 페이지로 분리. */}
     </div>
   );
 }

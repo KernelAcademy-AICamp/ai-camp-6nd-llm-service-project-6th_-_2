@@ -76,20 +76,20 @@ function perPersonPrice(lowPrice: number): number {
 // 시드 함수가 그룹별로 부족분만큼 폴백에서 보충한다.
 const FALLBACK_PRODUCTS: SeedProduct[] = [
   // 건강식품
-  { group: "health", title: "허닭 닭가슴살 60팩 묶음", pricePerPerson: 12000, image: "https://placehold.co/240x240/7fb069/ffffff?text=%F0%9F%8D%97" },
-  { group: "health", title: "샐러디 정기 패키지 5팩", pricePerPerson: 14500, image: "https://placehold.co/240x240/7fb069/ffffff?text=%F0%9F%A5%97" },
-  { group: "health", title: "오뚜기맘마 다이어트 도시락 10식", pricePerPerson: 18000, image: "https://placehold.co/240x240/7fb069/ffffff?text=%F0%9F%8D%B1" },
-  { group: "health", title: "단백질 쉐이크 18입 박스", pricePerPerson: 16500, image: "https://placehold.co/240x240/7fb069/ffffff?text=%F0%9F%92%AA" },
+  { group: "health", title: "[잇메이트] 소스 닭가슴살 스테이크 10팩", pricePerPerson: 9500, image: "https://file.rankingdak.com/image/RANK/PRODUCT/PRD004/20260309/IMG1773eiY046628014_600_600.jpg" },
+  { group: "health", title: "샐러디 정기 패키지 5팩", pricePerPerson: 14500, image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=240&h=240&fit=crop" },
+  { group: "health", title: "오뚜기맘마 다이어트 도시락 10식", pricePerPerson: 18000, image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=240&h=240&fit=crop" },
+  { group: "health", title: "단백질 쉐이크 18입 박스", pricePerPerson: 16500, image: "https://images.unsplash.com/photo-1607301406259-dfb186e15de8?w=240&h=240&fit=crop" },
   // 과일·계란
-  { group: "fruitegg", title: "동물복지 계란 30구 1판", pricePerPerson: 6500, image: "https://placehold.co/240x240/f6c244/ffffff?text=%F0%9F%A5%9A" },
-  { group: "fruitegg", title: "농가직송 사과 5kg 박스", pricePerPerson: 7000, image: "https://placehold.co/240x240/f6c244/ffffff?text=%F0%9F%8D%8E" },
-  { group: "fruitegg", title: "설향 딸기 4팩", pricePerPerson: 8500, image: "https://placehold.co/240x240/f6c244/ffffff?text=%F0%9F%8D%93" },
-  { group: "fruitegg", title: "샤인머스캣 2kg", pricePerPerson: 11000, image: "https://placehold.co/240x240/f6c244/ffffff?text=%F0%9F%8D%87" },
+  { group: "fruitegg", title: "[디렉터즈] 물가파괴 복숭아 4kg (백도/황도 랜덤)", pricePerPerson: 4950, image: "https://spdy-flexg-ha.flexgate.co.kr/data/goods/rktjdqlakzpt123/small/thum2/1_20260618105209456_1.jpg" },
+  { group: "fruitegg", title: "농가직송 사과 5kg 박스", pricePerPerson: 7000, image: "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=240&h=240&fit=crop" },
+  { group: "fruitegg", title: "설향 딸기 4팩", pricePerPerson: 8500, image: "https://images.unsplash.com/photo-1543528176-61b239494933?w=240&h=240&fit=crop" },
+  { group: "fruitegg", title: "샤인머스캣 2kg", pricePerPerson: 11000, image: "https://images.unsplash.com/photo-1537182534312-f945134cce34?w=240&h=240&fit=crop" },
   // 1인 홈케어 공구
-  { group: "homecare", title: "코코 화장지 30롤", pricePerPerson: 9500, image: "https://placehold.co/240x240/64748b/ffffff?text=%F0%9F%A7%BB" },
-  { group: "homecare", title: "테크 세탁세제 4L", pricePerPerson: 10500, image: "https://placehold.co/240x240/64748b/ffffff?text=%F0%9F%A7%BA" },
-  { group: "homecare", title: "백산수 2L x 12병", pricePerPerson: 7500, image: "https://placehold.co/240x240/64748b/ffffff?text=%F0%9F%92%A7" },
-  { group: "homecare", title: "퐁퐁 주방세제 1.5L 리필", pricePerPerson: 6800, image: "https://placehold.co/240x240/64748b/ffffff?text=%F0%9F%A7%BC" },
+  { group: "homecare", title: "[Clean&J] 동네 묶음 방문 청소 신청", pricePerPerson: 12500, image: "https://www.cleannj.co.kr/img/sub/74_0.jpg" },
+  { group: "homecare", title: "테크 세탁세제 4L", pricePerPerson: 10500, image: "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=240&h=240&fit=crop" },
+  { group: "homecare", title: "백산수 2L x 12병", pricePerPerson: 7500, image: "https://images.unsplash.com/photo-1564540586988-aa4e53c3d799?w=240&h=240&fit=crop" },
+  { group: "homecare", title: "퐁퐁 주방세제 1.5L 리필", pricePerPerson: 6800, image: "https://images.unsplash.com/photo-1583743089695-4b816a340f82?w=240&h=240&fit=crop" },
 ];
 
 // 시드용 — 스토어(네이버 쇼핑)에서 카테고리 상품을 실제로 가져온다.

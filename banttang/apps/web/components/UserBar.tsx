@@ -125,6 +125,9 @@ export function UserBar({
   } else if (seg[0] === "groupbuy") {
     // 공동구매 상세 — 자체 헤더 사용
     mode = "hidden";
+  } else if (seg[0] === "picks" && seg[1]) {
+    // AI 추천 상품 상세 — 자체 헤더 사용
+    mode = "hidden";
   } else if (seg[0] === "guide") {
     // 거래 방법/띵동 안내 — 자체 헤더(← + 타이틀) 사용
     mode = "hidden";
