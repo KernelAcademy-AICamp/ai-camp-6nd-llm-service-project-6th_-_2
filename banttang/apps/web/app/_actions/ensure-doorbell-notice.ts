@@ -42,7 +42,7 @@ export async function ensureDoorbellNoticeMessage(
       sender_id: null,
       type: "system",
       content:
-        "거래 1시간 전이에요! 약속 장소에 도착하면 우측 하단 ‘띵동’ 버튼으로 도착을 알릴 수 있어요. (거래 15분 전부터 누를 수 있어요)",
+        "거래 1시간 전이에요! 약속 장소에 도착하면 우측 하단 ‘띵동’ 버튼으로 도착을 알릴 수 있어요.",
       metadata: { kind: "avocado_doorbell", bot: "avocado" },
     });
     if (error) return { ok: false, error: error.message };

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  @page { size: A4; margin: 16mm 14mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    color: #1f2328; line-height: 1.55; font-size: 11px;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #15803d; }
+  .sub { color: #6b7280; font-size: 11px; margin-bottom: 10px; }
+  .legend {
+    font-size: 10.5px; color: #374151; margin-bottom: 4px;
+  }
+  .legend .b { padding: 1px 6px; border-radius: 10px; font-weight: 600; font-size: 9.5px; }
+  .all { background: #dcfce7; color: #15803d; }
+  .host { background: #fef3c7; color: #b45309; }
+  .member { background: #e0e7ff; color: #4338ca; }
+  .note { font-size: 10px; color: #6b7280; margin-bottom: 16px; }
+  h2 {
+    font-size: 14px; margin: 20px 0 8px; padding-bottom: 5px;
+    border-bottom: 2px solid #15803d; color: #15803d;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 4px; table-layout: fixed; }
+  th, td { border: 1px solid #d0d7de; padding: 6px 7px; text-align: left; vertical-align: top; word-break: break-word; }
+  th { background: #f0fdf4; font-weight: 600; font-size: 10px; color: #166534; }
+  td { font-size: 10px; }
+  .c-num { width: 4%; text-align: center; color: #6b7280; }
+  .c-case { width: 14%; font-weight: 600; }
+  .c-msg { width: 36%; }
+  .c-when { width: 20%; color: #4b5563; }
+  .c-who { width: 8%; text-align: center; }
+  .c-type { width: 18%; }
+  .var { color: #2563eb; }
+  .msg2 { color: #374151; display: block; margin-top: 3px; padding-left: 8px; border-left: 2px solid #e5e7eb; }
+  .b { display: inline-block; padding: 1px 6px; border-radius: 10px; font-weight: 600; font-size: 9px; }
+  code, .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 9px; color: #4338ca;
+  }
+  .path { color: #6b7280; font-size: 8.5px; display: block; margin-top: 3px; }
+  section { page-break-inside: avoid; }
+  .foot { font-size: 9.5px; color: #6b7280; margin-top: 6px; line-height: 1.5; }
+  .foot b { color: #374151; }
+  .pre { white-space: pre-wrap; }
+</style>
+</head>
+<body>
+
+<h1>반띵 · 채팅방 시스템 메시지 정리</h1>
+<div class="sub">현재 채팅방에서 실제로 생성되는 시스템·봇 메시지 전체 구조 · 기준일 2026-06-24 · 브랜치 feat/rin</div>
+<div class="legend">
+  노출 대상:
+  <span class="b all">전원</span> 방 전체에 보임 ·
+  <span class="b host">호스트</span> 호스트(+발신자 본인)에게만 ·
+  <span class="b member">멤버</span> 참여자에게만(호스트 숨김)
+</div>
+<div class="note"><span class="var">{변수}</span>는 실제 값으로 치환됩니다 (닉네임·장소·금액 등). type은 <code>chat_messages.type</code>, kind는 <code>metadata.kind</code>, event는 <code>system_event</code>.</div>
+
+<!-- ========== 1 ========== -->
+<section>
+<h2>1. 모집 / 거래 진행 단계</h2>
+<table>
+  <colgroup><col class="c-num"><col class="c-case"><col class="c-msg"><col class="c-when"><col class="c-who"><col class="c-type"></colgroup>
+  <tr><th>#</th><th>케이스</th><th>표시 문구</th><th>발생 시점</th><th>대상</th><th>type / kind / event</th></tr>
+  <tr>
+    <td class="c-num">1</td>
+    <td class="c-case">모집 완료·거래방 오픈</td>
+    <td class="c-msg">모집이 완료되어 거래방이 열렸어요. 이제 주문과 나눔 일정을 확인해 주세요.</td>
+    <td class="c-when">정원이 다 차서 모집이 마감될 때 (참여 승인으로 정원 충족)</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">system<br>event=<code>chat_opened</code><span class="path">_actions/party-lifecycle.ts · DB 트리거</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">2</td>
+    <td class="c-case">거래 완료</td>
+    <td class="c-msg">거래가 완료되었어요. 서로 평가를 남겨주세요!</td>
+    <td class="c-when">approved 멤버(호스트 포함)가 영수증 인증 후 "거래 완료" 처리할 때</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">system<br>event=<code>party_completed</code><span class="path">api/parties/[id]/complete</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">3</td>
+    <td class="c-case">주문 취소</td>
+    <td class="c-msg">호스트가 이 반띵을 취소했어요. 다른 반띵을 찾아볼까요?</td>
+    <td class="c-when">호스트가 반띵(주문)을 취소할 때 (status → cancelled)</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">system<br>kind=<code>party_cancelled</code><span class="path">api/parties/[id]/cancel</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">4</td>
+    <td class="c-case">파티원 퇴장</td>
+    <td class="c-msg"><span class="var">{닉네임}</span> 님이 채팅방을 나갔어요.</td>
+    <td class="c-when">참여자가 본인 의사로 "나가기" 할 때</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">system · event=<code>member_left</code><br>kind=<code>member_left</code><span class="path">api/parties/[id]/leave</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">5</td>
+    <td class="c-case">파티원 내보내기 (강퇴)</td>
+    <td class="c-msg"><span class="var">{닉네임}</span> 님이 내보내졌어요.</td>
+    <td class="c-when">호스트가 멤버를 "내보내기" 할 때</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">system · event=<code>member_left</code><br>kind=<code>member_kicked</code><span class="path">api/parties/[id]/leave</span></td>
+  </tr>
+</table>
+</section>
+
+<!-- ========== 2 ========== -->
+<section>
+<h2>2. 장소 / 픽업</h2>
+<table>
+  <colgroup><col class="c-num"><col class="c-case"><col class="c-msg"><col class="c-when"><col class="c-who"><col class="c-type"></colgroup>
+  <tr><th>#</th><th>케이스</th><th>표시 문구</th><th>발생 시점</th><th>대상</th><th>type / kind / event</th></tr>
+  <tr>
+    <td class="c-num">6</td>
+    <td class="c-case">반띵 장소 변경</td>
+    <td class="c-msg">반띵 장소가 '<span class="var">{장소명}</span>'(으)로 변경되었어요</td>
+    <td class="c-when">호스트가 반띵(픽업) 장소를 변경할 때</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">system · event=<code>pickup_location_set</code><br>kind=<code>pickup_changed</code><span class="path">_actions/update-party-pickup.ts</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">7</td>
+    <td class="c-case">중간지점 추천</td>
+    <td class="c-msg">다 같이 모이기 좋은 중간 지점은 '<span class="var">{장소}</span>'이에요. 이곳으로 반띵 장소를 변경하시겠어요?</td>
+    <td class="c-when">멤버가 "중간지점 추천"을 실행할 때 (참여자 집 좌표 기반). 호스트가 "그대로 둘게요"로 닫기 가능</td>
+    <td class="c-who"><span class="b host">호스트</span></td>
+    <td class="c-type">system<br>kind=<code>midpoint_recommendation</code><span class="path">_actions/recommend-midpoint.ts · dismiss-midpoint.ts</span></td>
+  </tr>
+</table>
+</section>
+
+<!-- ========== 3 ========== -->
+<section>
+<h2>3. 영수증 / 정산</h2>
+<table>
+  <colgroup><col class="c-num"><col class="c-case"><col class="c-msg"><col class="c-when"><col class="c-who"><col class="c-type"></colgroup>
+  <tr><th>#</th><th>케이스</th><th>표시 문구</th><th>발생 시점</th><th>대상</th><th>type / kind / event</th></tr>
+  <tr>
+    <td class="c-num">8</td>
+    <td class="c-case">영수증 등록 (영수증 카드)</td>
+    <td class="c-msg"><span class="var">{가게}</span> · <span class="var">{금액}</span>원 영수증이 등록되었어요.</td>
+    <td class="c-when">호스트가 영수증 업로드 → Claude 검증 완료 시 (status closed → in_progress)</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">receipt_card<br>event=<code>receipt_uploaded</code><span class="path">_actions/verify-receipt-claude.ts</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">9</td>
+    <td class="c-case">영수증 확인 요청</td>
+    <td class="c-msg">📋 주문 내역 및 금액이 일치하는지 확인해 주세요.</td>
+    <td class="c-when">영수증 등록 직후 자동 삽입 (영수증 카드 바로 다음)</td>
+    <td class="c-who"><span class="b member">멤버</span></td>
+    <td class="c-type">system<br>kind=<code>receipt_confirm_prompt</code><span class="path">_actions/verify-receipt-claude.ts</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">10</td>
+    <td class="c-case">영수증 인증 요청 (게스트→호스트)</td>
+    <td class="c-msg"><span class="var">{닉네임}</span>님이 영수증 인증을 요청했어요. 주문 후 영수증을 등록해 주세요.</td>
+    <td class="c-when">멤버가 채팅방에서 "영수증 요청"을 누를 때</td>
+    <td class="c-who"><span class="b host">호스트</span></td>
+    <td class="c-type">system<br>kind=<code>receipt_request</code><span class="path">_actions/request-receipt.ts</span></td>
+  </tr>
+</table>
+</section>
+
+<!-- ========== 4 ========== -->
+<section>
+<h2>4. 봇 안내 / 띵동 (상호작용)</h2>
+<table>
+  <colgroup><col class="c-num"><col class="c-case"><col class="c-msg"><col class="c-when"><col class="c-who"><col class="c-type"></colgroup>
+  <tr><th>#</th><th>케이스</th><th>표시 문구</th><th>발생 시점</th><th>대상</th><th>type / kind / event</th></tr>
+  <tr>
+    <td class="c-num">11</td>
+    <td class="c-case">아보카도 봇 입장 안내 (+거래 유형)</td>
+    <td class="c-msg"><span class="pre">안녕하세요! 저는 띵동 거래를 도와주는 아보카도예요.
+이 방에서는 주문 확인, 영수증 확인, 정산 안내, 나눔 완료까지 함께 도와드릴게요.
+
+거래 전에는 상품과 금액을 확인하고, 나눔할 때는 약속 시간과 장소를 꼭 확인해 주세요.</span>
+      <span class="msg2">+ 거래 유형 안내 1줄이 카드 본문에 함께 붙음 (아래 ▼ 4종 중 1개)</span>
+    </td>
+    <td class="c-when">채팅방 첫 입장(SSR) 시 1회 (room+버전당 1건, 멱등). version 변경 시 재노출</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">system<br>kind=<code>avocado_notice</code><span class="path">_actions/ensure-avocado-notice.ts · lib/types/avocado-notice.ts</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">12</td>
+    <td class="c-case">띵동 안내 (거래 1시간 전)</td>
+    <td class="c-msg">거래 1시간 전이에요! 약속 장소에 도착하면 우측 하단 '띵동' 버튼으로 도착을 알릴 수 있어요.</td>
+    <td class="c-when">채팅방 입장(SSR) 시, 거래시각 1시간 전부터만 삽입 (방당 1회)</td>
+    <td class="c-who"><span class="b all">전원</span></td>
+    <td class="c-type">system<br>kind=<code>avocado_doorbell</code><span class="path">_actions/ensure-doorbell-notice.ts</span></td>
+  </tr>
+  <tr>
+    <td class="c-num">13</td>
+    <td class="c-case">띵동 (도착 신호)</td>
+    <td class="c-msg"><span class="var">{닉네임}</span>님이 "띵동" 했어요!
+      <span class="msg2">호스트가 누르면: 호스트 <span class="var">{닉네임}</span>님이 "띵동" 했어요!</span>
+      <span class="msg2">보낸 사람 화면: <span class="var">{호스트닉네임}</span>님에게 "띵동" 했어요 / 모두에게 "띵동" 했어요</span>
+    </td>
+    <td class="c-when">채팅방에서 "띵동" 버튼을 누를 때 (거래 −15분~+60분, 5초 쿨다운)</td>
+    <td class="c-who"><span class="b host">호스트</span> <span class="b all">전원</span></td>
+    <td class="c-type">system<br>kind=<code>doorbell_ring</code><span class="path">참여자→호스트만(recipient=host) · 호스트→전원 · _actions/ring-doorbell.ts</span></td>
+  </tr>
+</table>
+</section>
+
+<!-- ========== 거래 유형 4종 ========== -->
+<section>
+<h2>4-1. 거래 유형 안내 4종 (#11 본문에 1줄 추가)</h2>
+<table>
+  <colgroup><col style="width:14%"><col><col style="width:14%"></colgroup>
+  <tr><th>거래 유형</th><th>추가 문구</th><th>kind</th></tr>
+  <tr><td>배달 · 각자 메뉴</td><td>이번 거래는 각자 메뉴를 담아 함께 주문하는 배달이에요. 정산은 영수증 기준으로 진행돼요.</td><td rowspan="4"><code>avocado_notice</code></td></tr>
+  <tr><td>배달 · 같은 음식</td><td>이번 거래는 같은 음식을 함께 나누는 배달이에요. 정확한 정산을 위해 주문 후 영수증 인증이 필요해요.</td></tr>
+  <tr><td>공동구매 · 각자 상품</td><td>이번 거래는 각자 상품을 담아 함께 주문하는 공동구매예요. 본인이 담은 상품과 금액(배송비 분담)을 확인해 주세요.</td></tr>
+  <tr><td>공동구매 · 같은 상품</td><td>이번 거래는 같은 상품을 함께 나누는 공동구매예요. 1인당 받을 수량과 금액을 확인해 주세요.</td></tr>
+</table>
+</section>
+
+<!-- ========== 참고 ========== -->
+<section>
+<h2>참고 — 정의됐지만 현재 미발생</h2>
+<table>
+  <colgroup><col class="c-num"><col class="c-case"><col class="c-msg"><col style="width:28%"><col style="width:16%"></colgroup>
+  <tr><th>#</th><th>케이스</th><th>예정 문구</th><th>상태</th><th>event</th></tr>
+  <tr>
+    <td class="c-num">–</td><td class="c-case">거래 30분 전</td><td class="c-msg">거래 30분 전입니다</td>
+    <td>enum/타입에만 정의 · 삽입 코드 없음 (스케줄러 미연동)</td><td><code>before_30min</code></td>
+  </tr>
+  <tr>
+    <td class="c-num">–</td><td class="c-case">거래 10분 전</td><td class="c-msg">거래 10분 전입니다</td>
+    <td>enum/타입에만 정의 · 삽입 코드 없음 (스케줄러 미연동)</td><td><code>before_10min</code></td>
+  </tr>
+</table>
+<div class="foot">
+※ <b>before_30min / before_10min</b>은 거래 임박 알림 용도로 enum에만 존재하며, 현재 채팅 메시지로 삽입하는 코드가 없어 방에는 나타나지 않습니다 (pg_cron/스케줄러 연동 시 활성화 가능).<br>
+※ <b>system_event vs metadata.kind</b> — event는 DB enum(진행상태 추적·legacy <code>party_closed</code> 포함), kind는 chat-timeline.tsx의 렌더링 분기용입니다. 모집 오픈/완료처럼 event만 쓰는 케이스와, 취소/띵동처럼 kind만 쓰는 케이스가 섞여 있습니다.<br>
+※ <b>노출 대상</b>은 <code>metadata.recipient</code>로 제어합니다 — 미지정=전원, <code>"host"</code>=호스트+발신자 본인, <code>"member"</code>=멤버만(호스트 숨김).<br>
+※ 이 문서의 모든 문구는 2026-06-24 기준 소스 코드에서 직접 확인한 원문입니다.
+</div>
+</section>
+
+</body>
+</html>

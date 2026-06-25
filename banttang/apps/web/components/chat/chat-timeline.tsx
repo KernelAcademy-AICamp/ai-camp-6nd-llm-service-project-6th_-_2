@@ -7,6 +7,60 @@ import { Avatar } from "@/components/ui/avatar";
 import { ReceiptCardMessage } from "./receipt-card-message";
 import { KakaoMiniMap } from "./kakao-mini-map";
 import { AvocadoBotCard } from "./avocado-bot-card";
+import { LinkPreview } from "./link-preview";
+
+// 메시지 텍스트 내 URL 탐지/링크화.
+// http(s):// 스킴이 있는 URL + www. 시작 + 흔한 TLD 도메인(스킴 없이 입력해도 인식).
+const URL_CORE =
+  "(?:https?:\\/\\/|www\\.)[^\\s<]+|[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9-]+)*\\.(?:com|net|org|io|co|kr|gg|me|tv|app|shop|store|news|dev|ai|xyz)(?:\\/[^\\s<]*)?";
+const URL_RE = new RegExp(`(${URL_CORE})`, "gi");
+const SINGLE_URL = new RegExp(`^(?:${URL_CORE})$`, "i");
+
+// 뒤따라온 문장부호 제거 + 스킴 없는 주소에 https:// 보정
+function normalizeUrl(u: string): string {
+  const cleaned = u.replace(/[.,!?)\]}'"]+$/, "");
+  return /^https?:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`;
+}
+
+function firstUrl(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const m = text.match(URL_RE);
+  return m?.[0] ? normalizeUrl(m[0]) : null;
+}
+
+// 긴 URL은 그대로 두면 버블이 지저분해짐 → 도메인+경로 위주로 축약 표시(href는 원본 유지)
+function prettyUrl(u: string): string {
+  try {
+    const x = new URL(normalizeUrl(u));
+    const path = x.pathname === "/" ? "" : x.pathname;
+    const base = x.hostname.replace(/^www\./, "") + path + x.search;
+    return base.length > 42 ? base.slice(0, 42) + "…" : base;
+  } catch {
+    return u.length > 38 ? u.slice(0, 38) + "…" : u;
+  }
+}
+
+function linkify(text: string, mine?: boolean) {
+  return text.split(URL_RE).map((part, i) =>
+    SINGLE_URL.test(part) ? (
+      <a
+        key={i}
+        href={normalizeUrl(part)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          "break-all underline underline-offset-2",
+          mine ? "text-white" : "text-brand-dark",
+        )}
+      >
+        {prettyUrl(part)}
+      </a>
+    ) : (
+      <Fragment key={i}>{part}</Fragment>
+    ),
+  );
+}
 
 interface Props {
   items: ChatItem[];
@@ -15,6 +69,8 @@ interface Props {
   participantCount: number;
   // 현재 채팅방 모든 멤버 user_id (안읽은 수 계산용)
   memberUserIds: string[];
+  // user_id → 닉네임 (1:1 띵동 문구에 상대 닉네임 표시용)
+  memberNames?: Record<string, string>;
   // user_id → 마지막으로 읽은 메시지 ISO 시각 (Presence로 동기화).
   reads: Record<string, string>;
   scrollAnchorRef: RefObject<HTMLDivElement>;
@@ -53,6 +109,7 @@ export function ChatTimeline({
   isHost,
   participantCount,
   memberUserIds,
+  memberNames,
   reads,
   scrollAnchorRef,
   onChangePickup,
@@ -165,10 +222,17 @@ export function ChatTimeline({
                 let displayText: string;
                 if (mineDoorbell) {
                   if (meta.sender_role === "host") {
-                    displayText = `모두에게 "띵동" 했어요`;
+                    // 1:1(호스트+1명)에선 "모두에게"가 어색 → 상대 닉네임
+                    if (participantCount <= 2) {
+                      const otherId = memberUserIds.find((id) => id !== currentUserId);
+                      const otherNick = (otherId && memberNames?.[otherId]) || "상대";
+                      displayText = `${otherNick}님에게 "띵동" 했어요`;
+                    } else {
+                      displayText = `모두에게 "띵동" 했어요`;
+                    }
                   } else {
                     const hostNick = meta.host_nickname ?? "호스트";
-                    displayText = `호스트 ${hostNick}에게 "띵동" 했어요`;
+                    displayText = `${hostNick}님에게 "띵동" 했어요`;
                   }
                 } else {
                   const nick = meta.sender_nickname ?? "참여자";
@@ -239,11 +303,16 @@ export function ChatTimeline({
                 return (
                   <Fragment key={`m-${m.id}`}>
                     {dateNode}
-                    <li className={cn("my-2 flex px-1", mineReq ? "justify-end" : "justify-start")}>
+                    <li
+                      className={cn(
+                        "my-2 flex",
+                        mineReq ? "justify-end px-1" : "justify-start pl-11 pr-3",
+                      )}
+                    >
                       <div
                         className={cn(
-                          "max-w-[82%] border border-amber-200 bg-amber-50 p-3.5",
-                          mineReq ? "rounded-2xl rounded-tr-md" : "rounded-2xl rounded-tl-md",
+                          "border border-amber-200 bg-amber-50 p-3.5",
+                          mineReq ? "max-w-[82%] rounded-2xl rounded-tr-md" : "w-full rounded-2xl rounded-tl-md",
                         )}
                       >
                         <p className="text-[13px] leading-relaxed text-amber-900">
@@ -378,24 +447,34 @@ export function ChatTimeline({
                     ) : (
                       <div
                         className={cn(
-                          "whitespace-pre-wrap break-words px-3.5 py-2 text-[14px] leading-relaxed",
-                          mine
-                            ? "bg-brand text-brand-foreground"
-                            : "bg-white text-gray-900 ring-1 ring-black/[0.04]",
-                          mine
-                            ? cn(
-                                "rounded-2xl",
-                                !prevIsSameSender && "rounded-tr-md",
-                                !nextIsSameSender && "rounded-br-md",
-                              )
-                            : cn(
-                                "rounded-2xl",
-                                !prevIsSameSender && "rounded-tl-md",
-                                !nextIsSameSender && "rounded-bl-md",
-                              ),
+                          "flex min-w-0 flex-col gap-1",
+                          mine ? "items-end" : "items-start",
                         )}
                       >
-                        {m.content}
+                        <div
+                          className={cn(
+                            "whitespace-pre-wrap break-words px-3.5 py-2 text-[14px] leading-relaxed",
+                            mine
+                              ? "bg-brand text-brand-foreground"
+                              : "bg-white text-gray-900 ring-1 ring-black/[0.04]",
+                            mine
+                              ? cn(
+                                  "rounded-2xl",
+                                  !prevIsSameSender && "rounded-tr-md",
+                                  !nextIsSameSender && "rounded-br-md",
+                                )
+                              : cn(
+                                  "rounded-2xl",
+                                  !prevIsSameSender && "rounded-tl-md",
+                                  !nextIsSameSender && "rounded-bl-md",
+                                ),
+                          )}
+                        >
+                          {linkify(m.content ?? "", mine)}
+                        </div>
+                        {firstUrl(m.content) && (
+                          <LinkPreview url={firstUrl(m.content)!} mine={mine} />
+                        )}
                       </div>
                     )}
 
@@ -470,8 +549,8 @@ function MidpointCard({
   onDismiss?: () => Promise<void> | void;
 }) {
   return (
-    <div className="my-3 flex w-full justify-center">
-      <article className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.05]">
+    <div className="my-2 flex justify-start pl-11 pr-3">
+      <article className="w-full overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.05]">
         <header className="flex items-center gap-1.5 bg-brand/[0.08] px-4 py-2.5">
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -752,32 +831,37 @@ function DoorbellCard({
   onOpenCard?: () => void;
 }) {
   return (
-    <div className={cn("my-3 flex w-full", mine ? "justify-end" : "justify-start")}>
-      <article
+    <div className={cn("my-2 flex px-1", mine ? "justify-end" : "justify-start")}>
+      <div
         className={cn(
-          "inline-flex max-w-sm items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-50 to-brand/[0.08] px-4 py-3 ring-1 ring-amber-200",
-          mine && "flex-row-reverse",
+          "max-w-[82%] border border-amber-200 bg-amber-50 p-3.5",
+          mine ? "rounded-2xl rounded-tr-md" : "rounded-2xl rounded-tl-md",
         )}
       >
-        <span
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400 text-white shadow-sm"
-          aria-hidden
-        >
-          <span className="text-[18px]">🔔</span>
-        </span>
-        <div className={cn("min-w-0", mine && "text-right")}>
-          <p className="text-[13px] font-semibold text-gray-900">{content}</p>
-          {onOpenCard && (
-            <button
-              type="button"
-              onClick={onOpenCard}
-              className="mt-1 text-[12px] font-semibold text-brand underline-offset-2 hover:underline active:underline"
-            >
-              내 거래 카드보기 →
-            </button>
-          )}
+        <div className="flex items-center gap-1.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0 text-amber-500">
+            <path
+              d="M12 3a5 5 0 0 0-5 5v3.5L5.5 15h13L17 11.5V8a5 5 0 0 0-5-5Z"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinejoin="round"
+            />
+            <path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          </svg>
+          <p className="text-[13px] font-semibold leading-relaxed text-amber-900">
+            {content}
+          </p>
         </div>
-      </article>
+        {onOpenCard && (
+          <button
+            type="button"
+            onClick={onOpenCard}
+            className="mt-3 w-full rounded-lg bg-amber-600 py-2 text-[13px] font-bold text-white active:opacity-80"
+          >
+            내 거래 카드보기
+          </button>
+        )}
+      </div>
     </div>
   );
 }

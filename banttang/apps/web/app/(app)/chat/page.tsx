@@ -8,6 +8,7 @@ import { listParties } from "@/lib/queries";
 import { displayStatusLabel, displayStatusColor, formatKstShort } from "@/lib/party-status";
 import { cn } from "@/lib/utils";
 import { ChatListRealtime } from "@/components/ChatListRealtime";
+import { ResidenceChatEntry } from "@/components/ResidenceChatEntry";
 
 export const dynamic = "force-dynamic";
 
@@ -32,26 +33,14 @@ export default async function ChatListPage() {
     ),
   );
 
-  if (parties.length === 0) {
-    return (
-      <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
-        <span className="mb-3 text-4xl" aria-hidden>
-          💬
-        </span>
-        <h1 className="text-lg font-bold text-zinc-900">아직 참여 중인 반띵이 없어요</h1>
-        <p className="mt-2 text-sm text-zinc-500">
-          홈에서 마음에 드는 반띵에 참여하거나
-          <br />
-          직접 등록해보세요.
-        </p>
-        <ChatListRealtime />
-      </main>
-    );
-  }
-
   return (
-    <main className="flex flex-col gap-2 p-4">
+    <main className="flex flex-1 flex-col gap-2 p-4">
       <h1 className="px-1 pb-1 text-base font-bold text-zinc-900">채팅</h1>
+
+      {/* 입장한 '우리 건물 채팅방'(목업)을 맨 위에. 미입장이면 self-hide,
+          파티도 없고 미입장이면 빈 상태 안내를 대신 렌더한다. */}
+      <ResidenceChatEntry residence={me.residence} noParties={parties.length === 0} />
+
       <ul className="flex flex-col gap-2">
         {parties.map((p) => {
           const unread = unreadMap.get(p.id) ?? 0;
