@@ -27,6 +27,7 @@ import { ActionBanner } from "./action-banner";
 import { DoorbellCta } from "./doorbell-cta";
 import { ChatQuickChips } from "./chat-quick-chips";
 import { ReceiptViewSheet } from "./receipt-view-sheet";
+import { MemberProfileSheet } from "./member-profile-sheet";
 import { requestReceipt } from "@/app/_actions/request-receipt";
 import { buildTimeline, type ReceiptCardItem } from "@/lib/types/chat";
 import { derivePhase } from "@/lib/types/phase";
@@ -80,6 +81,8 @@ export function PartyChatContainer({
   const [completeOpen, setCompleteOpen] = useState(false);
   // 게스트 영수증 확인 시트.
   const [receiptViewOpen, setReceiptViewOpen] = useState(false);
+  // 채팅에서 탭한 상대 회원(공개 프로필 시트). null이면 닫힘.
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const senderCacheRef = useRef<Map<string, ChatMessageWithSender["sender"]>>(
@@ -761,6 +764,7 @@ export function PartyChatContainer({
         onShowGuide={() => router.push("/guide" as any)}
         onShowDoorbell={() => router.push("/guide/doorbell" as any)}
         onUploadReceipt={() => setReceiptOpen(true)}
+        onTapMember={(uid) => setProfileUserId(uid)}
         onChangePickup={
           isHost
             ? async (input) => {
@@ -845,6 +849,15 @@ export function PartyChatContainer({
         onSubmit={handleSubmitComplete}
       />
 
+      {/* 채팅에서 회원 아바타/이름 탭 → 공개 프로필 시트 */}
+      <MemberProfileSheet
+        userId={profileUserId}
+        currentUserId={currentUserId}
+        partyName={party.store_name}
+        partyId={party.id}
+        isHost={members.some((m) => m.user_id === profileUserId && m.is_host)}
+        onClose={() => setProfileUserId(null)}
+      />
     </div>
   );
 }

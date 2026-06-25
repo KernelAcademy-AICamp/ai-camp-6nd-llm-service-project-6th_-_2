@@ -90,6 +90,8 @@ interface Props {
   onShowDoorbell?: () => void;
   // 영수증 인증 요청 카드의 '영수증 등록'(호스트) 버튼.
   onUploadReceipt?: () => void;
+  // 채팅에서 상대 아바타/이름 탭 → 공개 프로필 시트 열기.
+  onTapMember?: (userId: string, nickname: string) => void;
 }
 
 // 같은 날짜인지 비교 (KST 기준 YYYY-MM-DD)
@@ -118,6 +120,7 @@ export function ChatTimeline({
   onShowGuide,
   onShowDoorbell,
   onUploadReceipt,
+  onTapMember,
 }: Props) {
   // 메시지 하나의 안읽은 수 — 보낸이 외 멤버 중 last_read_at < 메시지 created_at 인 사람 수
   function unreadCountFor(message: { sender_id: string | null; created_at: string }): number {
@@ -415,88 +418,108 @@ export function ChatTimeline({
                     showHeader ? "mt-3" : "mt-0.5",
                   )}
                 >
-                  {showHeader && (
-                    <div className="mb-1 ml-9 flex items-center gap-1.5">
-                      <span className="text-[12px] font-medium text-gray-700">
-                        {m.sender?.nickname ?? "알 수 없음"}
-                      </span>
-                    </div>
-                  )}
                   <div
                     className={cn(
-                      "flex max-w-[80%] items-end gap-1.5",
-                      mine ? "flex-row-reverse" : "flex-row",
+                      "flex max-w-[85%] gap-2",
+                      mine ? "flex-row-reverse items-end" : "flex-row items-start",
                     )}
                   >
-                    {/* 상대 메시지 아바타: 그룹의 첫 메시지에만 노출, 나머지는 자리 비움 */}
+                    {/* 상대 메시지 아바타: 그룹 첫 메시지에만, 위쪽 정렬. 나머지는 자리 비움 */}
                     {!mine && (
-                      <span className="w-7 shrink-0">
+                      <span className="w-8 shrink-0">
                         {!prevIsSameSender && (
-                          <Avatar nickname={m.sender?.nickname ?? "?"} size={28} />
+                          <button
+                            type="button"
+                            onClick={
+                              m.sender_id && onTapMember
+                                ? () => onTapMember(m.sender_id!, m.sender?.nickname ?? "회원")
+                                : undefined
+                            }
+                            aria-label={`${m.sender?.nickname ?? "회원"} 프로필 보기`}
+                            className="rounded-full transition active:opacity-70"
+                          >
+                            <Avatar nickname={m.sender?.nickname ?? "?"} size={32} />
+                          </button>
                         )}
                       </span>
                     )}
 
-                    {isImageMessage(m.metadata) ? (
-                      <ImageBubble
-                        meta={m.metadata as unknown as ImageMeta}
-                        mine={mine}
-                        prevIsSameSender={!!prevIsSameSender}
-                        nextIsSameSender={!!nextIsSameSender}
-                      />
-                    ) : (
-                      <div
-                        className={cn(
-                          "flex min-w-0 flex-col gap-1",
-                          mine ? "items-end" : "items-start",
-                        )}
-                      >
-                        <div
-                          className={cn(
-                            "whitespace-pre-wrap break-words px-3.5 py-2 text-[14px] leading-relaxed",
-                            mine
-                              ? "bg-brand text-brand-foreground"
-                              : "bg-white text-gray-900 ring-1 ring-black/[0.04]",
-                            mine
-                              ? cn(
-                                  "rounded-2xl",
-                                  !prevIsSameSender && "rounded-tr-md",
-                                  !nextIsSameSender && "rounded-br-md",
-                                )
-                              : cn(
-                                  "rounded-2xl",
-                                  !prevIsSameSender && "rounded-tl-md",
-                                  !nextIsSameSender && "rounded-bl-md",
-                                ),
-                          )}
-                        >
-                          {linkify(m.content ?? "", mine)}
-                        </div>
-                        {firstUrl(m.content) && (
-                          <LinkPreview url={firstUrl(m.content)!} mine={mine} />
-                        )}
-                      </div>
-                    )}
-
+                    {/* 이름(상대) + 말풍선 묶음 — 카카오톡 구조 */}
                     <div
                       className={cn(
-                        "mb-0.5 flex shrink-0 flex-col text-[10px] leading-none",
+                        "flex min-w-0 flex-col gap-1",
                         mine ? "items-end" : "items-start",
                       )}
                     >
-                      {(() => {
-                        const unread = unreadCountFor(m);
-                        return unread > 0 ? (
-                          <span className="font-bold text-amber-500 tabular-nums">
-                            {unread}
-                          </span>
-                        ) : null;
-                      })()}
-                      {showTime && (
-                        <time className="mt-0.5 text-gray-400">
-                          {formatKstTime(m.created_at)}
-                        </time>
+                      {showHeader && (
+                        <button
+                          type="button"
+                          onClick={
+                            m.sender_id && onTapMember
+                              ? () => onTapMember(m.sender_id!, m.sender?.nickname ?? "회원")
+                              : undefined
+                          }
+                          className="px-1 text-[12px] font-medium text-gray-700 active:opacity-70"
+                        >
+                          {m.sender?.nickname ?? "알 수 없음"}
+                        </button>
                       )}
+                      <div
+                        className={cn(
+                          "flex items-end gap-1.5",
+                          mine ? "flex-row-reverse" : "flex-row",
+                        )}
+                      >
+                        {isImageMessage(m.metadata) ? (
+                          <ImageBubble
+                            meta={m.metadata as unknown as ImageMeta}
+                            mine={mine}
+                            prevIsSameSender={!!prevIsSameSender}
+                            nextIsSameSender={!!nextIsSameSender}
+                          />
+                        ) : (
+                          <div
+                            className={cn(
+                              "flex min-w-0 flex-col gap-1",
+                              mine ? "items-end" : "items-start",
+                            )}
+                          >
+                            <div
+                              className={cn(
+                                "whitespace-pre-wrap break-words px-3.5 py-2 text-[14px] leading-relaxed",
+                                mine
+                                  ? "bg-brand text-brand-foreground"
+                                  : "bg-white text-gray-900 ring-1 ring-black/[0.04]",
+                                // 꼬리(노치)는 항상 바깥-위 모서리에. 아래 노치 없음.
+                                mine
+                                  ? "rounded-2xl rounded-tr-md"
+                                  : "rounded-2xl rounded-tl-md",
+                              )}
+                            >
+                              {linkify(m.content ?? "", mine)}
+                            </div>
+                            {firstUrl(m.content) && (
+                              <LinkPreview url={firstUrl(m.content)!} mine={mine} />
+                            )}
+                          </div>
+                        )}
+
+                        <div className="mb-0.5 flex shrink-0 items-end gap-1 text-[10px] leading-none">
+                          {(() => {
+                            const unread = unreadCountFor(m);
+                            return unread > 0 ? (
+                              <span className="font-bold text-amber-500 tabular-nums">
+                                {unread}
+                              </span>
+                            ) : null;
+                          })()}
+                          {showTime && (
+                            <time className="text-gray-400">
+                              {formatKstTime(m.created_at)}
+                            </time>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </li>
