@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { requireCurrentUser, ADDRESS_COORDS_COOKIE } from "@/lib/auth";
+import {
+  requireCurrentUser,
+  ADDRESS_COORDS_COOKIE,
+  shouldSkipOnboarding,
+} from "@/lib/auth";
 import { listParties, parseEwkbPoint } from "@/lib/queries";
 import { getServiceClient } from "@/lib/supabase/admin";
 import { getAiPickRooms } from "@/lib/grocery-picks.server";
@@ -16,7 +20,9 @@ export default async function FeedPage({
 }) {
   const me = await requireCurrentUser();
   // 위치 설정 여부는 영속값(neighborhood_id)으로 판단 — 쿠키는 로그아웃 등으로 사라질 수 있다.
-  if (!me.neighborhood_id) redirect("/onboarding/address");
+  // SKIP_ONBOARDING=true 면 우회 (멀티 계정 테스트용).
+  if (!me.neighborhood_id && !shouldSkipOnboarding())
+    redirect("/onboarding/address");
 
   const sort = searchParams?.sort === "latest" ? "latest" : "deadline";
   // 기본값을 "지도"로 — 사용자가 명시적으로 ?view=list 줘야 주문별 보기.
