@@ -273,34 +273,110 @@ export function buildDemoFeedParties(
 
 // AI 추천 섹션 폴백 — 카테고리별 4건씩 (1인 가격 기준 6k~18k).
 // id는 "demo-pick-" 접두사. RoomCard 클릭 시 실제 join API에 가지 않도록 호출부에서 가드.
+// 데모 추천 상품 — 각 상품별 Unsplash 스톡 이미지. 외부 도메인 hotlink, next/image 미사용
+// (GroceryPicksSection이 CSS background-image로 렌더하므로 remotePatterns 화이트리스트 불필요).
 const PICK_BLUEPRINTS: Array<{
   id: string;
   group: PickGroup;
   title: string;
   price: number;
+  image: string;
+  /** 관리자가 직접 큐레이션해 넣은 상품 — true면 "핫딜" 뱃지 + 우선 노출 */
+  featured?: boolean;
 }> = [
   // 건강식품
-  { id: "demo-pick-h1", group: "health", title: "허닭 닭가슴살 60팩 묶음", price: 12000 },
-  { id: "demo-pick-h2", group: "health", title: "샐러디 정기 패키지 5팩", price: 14500 },
-  { id: "demo-pick-h3", group: "health", title: "오뚜기맘마 다이어트 도시락 10식", price: 18000 },
-  { id: "demo-pick-h4", group: "health", title: "단백질 쉐이크 18입 박스", price: 16500 },
+  {
+    id: "demo-pick-h1",
+    group: "health",
+    title: "[잇메이트] 소스 닭가슴살 스테이크 10팩",
+    price: 9500,
+    image:
+      "https://file.rankingdak.com/image/RANK/PRODUCT/PRD004/20260309/IMG1773eiY046628014_600_600.jpg",
+    featured: true,
+  },
+  {
+    id: "demo-pick-h2",
+    group: "health",
+    title: "샐러디 정기 패키지 5팩",
+    price: 14500,
+    image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=240&h=240&fit=crop",
+  },
+  {
+    id: "demo-pick-h3",
+    group: "health",
+    title: "오뚜기맘마 다이어트 도시락 10식",
+    price: 18000,
+    image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=240&h=240&fit=crop",
+  },
+  {
+    id: "demo-pick-h4",
+    group: "health",
+    title: "단백질 쉐이크 18입 박스",
+    price: 16500,
+    image: "https://images.unsplash.com/photo-1607301406259-dfb186e15de8?w=240&h=240&fit=crop",
+  },
   // 과일·계란
-  { id: "demo-pick-f1", group: "fruitegg", title: "동물복지 계란 30구 1판", price: 6500 },
-  { id: "demo-pick-f2", group: "fruitegg", title: "농가직송 사과 5kg 박스", price: 7000 },
-  { id: "demo-pick-f3", group: "fruitegg", title: "설향 딸기 4팩", price: 8500 },
-  { id: "demo-pick-f4", group: "fruitegg", title: "샤인머스캣 2kg", price: 11000 },
+  {
+    id: "demo-pick-f1",
+    group: "fruitegg",
+    title: "[디렉터즈] 물가파괴 복숭아 4kg (백도/황도 랜덤)",
+    price: 4950,
+    image:
+      "https://spdy-flexg-ha.flexgate.co.kr/data/goods/rktjdqlakzpt123/small/thum2/1_20260618105209456_1.jpg",
+    featured: true,
+  },
+  {
+    id: "demo-pick-f2",
+    group: "fruitegg",
+    title: "농가직송 사과 5kg 박스",
+    price: 7000,
+    image: "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=240&h=240&fit=crop",
+  },
+  {
+    id: "demo-pick-f3",
+    group: "fruitegg",
+    title: "설향 딸기 4팩",
+    price: 8500,
+    image: "https://images.unsplash.com/photo-1543528176-61b239494933?w=240&h=240&fit=crop",
+  },
+  {
+    id: "demo-pick-f4",
+    group: "fruitegg",
+    title: "샤인머스캣 2kg",
+    price: 11000,
+    image: "https://images.unsplash.com/photo-1537182534312-f945134cce34?w=240&h=240&fit=crop",
+  },
   // 1인 홈케어 공구
-  { id: "demo-pick-c1", group: "homecare", title: "코코 화장지 30롤", price: 9500 },
-  { id: "demo-pick-c2", group: "homecare", title: "테크 세탁세제 4L", price: 10500 },
-  { id: "demo-pick-c3", group: "homecare", title: "백산수 2L x 12병", price: 7500 },
-  { id: "demo-pick-c4", group: "homecare", title: "퐁퐁 주방세제 1.5L 리필", price: 6800 },
+  {
+    id: "demo-pick-c1",
+    group: "homecare",
+    title: "[Clean&J] 동네 묶음 방문 청소 신청",
+    price: 12500,
+    image: "https://www.cleannj.co.kr/img/sub/74_0.jpg",
+    featured: true,
+  },
+  {
+    id: "demo-pick-c2",
+    group: "homecare",
+    title: "테크 세탁세제 4L",
+    price: 10500,
+    image: "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=240&h=240&fit=crop",
+  },
+  {
+    id: "demo-pick-c3",
+    group: "homecare",
+    title: "백산수 2L x 12병",
+    price: 7500,
+    image: "https://images.unsplash.com/photo-1564540586988-aa4e53c3d799?w=240&h=240&fit=crop",
+  },
+  {
+    id: "demo-pick-c4",
+    group: "homecare",
+    title: "퐁퐁 주방세제 1.5L 리필",
+    price: 6800,
+    image: "https://images.unsplash.com/photo-1583743089695-4b816a340f82?w=240&h=240&fit=crop",
+  },
 ];
-
-const PICK_IMAGE_BY_GROUP: Record<PickGroup, string> = {
-  health: "https://placehold.co/240x240/7fb069/ffffff?text=%F0%9F%8D%97",
-  fruitegg: "https://placehold.co/240x240/f6c244/ffffff?text=%F0%9F%8D%8E",
-  homecare: "https://placehold.co/240x240/64748b/ffffff?text=%F0%9F%A7%BC",
-};
 
 // 실제 picks를 기반으로, 그룹별 최대 N개가 되도록 데모 카드로 패딩한다.
 // 실제 데이터가 그룹에 N개 있으면 데모 안 끼움.
@@ -324,8 +400,9 @@ export function padPickRooms(real: PickRoom[], perGroup: number): PickRoom[] {
       pricePerPerson: b.price,
       maxMembers: 2,
       occupied: 0,
-      image: PICK_IMAGE_BY_GROUP[b.group],
+      image: b.image,
       dealAt: new Date(now + 24 * HOUR).toISOString(),
+      featured: b.featured ?? false,
     });
     countByGroup[b.group] += 1;
   }
@@ -334,4 +411,59 @@ export function padPickRooms(real: PickRoom[], perGroup: number): PickRoom[] {
 
 export function isDemoId(id: string): boolean {
   return id.startsWith("demo-");
+}
+
+// 데모 추천 상품 단건 조회 — 상세 페이지(/picks/[id])에서 사용.
+export type DemoPickDetail = {
+  id: string;
+  group: PickGroup;
+  title: string;
+  pricePerPerson: number;
+  maxMembers: number;
+  image: string;
+  reason: string;
+  /** 외부 원본 페이지(있을 때만). 잇메이트처럼 실제 상품 URL이 있는 경우 표시. */
+  sourceUrl?: string;
+  sourceLabel?: string;
+};
+
+const DEMO_PICK_DETAIL_OVERRIDES: Record<string, Partial<DemoPickDetail>> = {
+  "demo-pick-h1": {
+    reason: "단백질 식단 선호 패턴 · 이번 주 12명 검색",
+    sourceUrl: "https://www.rankingdak.com/product/view?productCd=F000016341",
+    sourceLabel: "랭킹닭컴에서 보기",
+  },
+  "demo-pick-f1": {
+    reason: "제철 한정 특가 · 이번 주 동네 검색 ↑",
+    sourceUrl: "https://www.gasungbi.kr/Goods/Detail/SRK38230221",
+    sourceLabel: "가성비에서 보기",
+  },
+  "demo-pick-c1": {
+    reason: "1인 가구 출장비 부담 분담 · 동네 4인 묶음 신청 시 1인 ₩12,500",
+    sourceUrl: "https://www.cleannj.co.kr/sp.php?p=74",
+    sourceLabel: "Clean&J에서 보기",
+  },
+};
+
+const DEFAULT_REASONS: Record<PickGroup, string> = {
+  health: "1인 가구 단백질 보충 · 동네 인기 상승 ↑",
+  fruitegg: "제철 신선식품 · 이번 주 검색 ↑",
+  homecare: "정기 소모품 · 묶음 구매 효율 ↑",
+};
+
+export function getDemoPick(id: string): DemoPickDetail | null {
+  const blueprint = PICK_BLUEPRINTS.find((b) => b.id === id);
+  if (!blueprint) return null;
+  const overrides = DEMO_PICK_DETAIL_OVERRIDES[id] ?? {};
+  return {
+    id: blueprint.id,
+    group: blueprint.group,
+    title: blueprint.title,
+    pricePerPerson: blueprint.price,
+    maxMembers: 2,
+    image: blueprint.image,
+    reason: overrides.reason ?? DEFAULT_REASONS[blueprint.group],
+    sourceUrl: overrides.sourceUrl,
+    sourceLabel: overrides.sourceLabel,
+  };
 }
