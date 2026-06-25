@@ -18,6 +18,8 @@ export async function POST(req: Request) {
       custom_pickup_lng?: number;
       deal_at: string;
       gender_option: "all" | "same_gender";
+      // 추천 상품(/picks/...) 에서 진입했을 때만 채워짐. 지도 핀의 카테고리 칩이 유지되도록.
+      pick_group?: "health" | "fruitegg" | "homecare";
     };
 
     const dealAt = new Date(body.deal_at);
@@ -42,6 +44,9 @@ export async function POST(req: Request) {
       approval_type: "manual",
       gender_option: body.gender_option,
     };
+    if (body.pick_group) {
+      insertRow.pick_group = body.pick_group;
+    }
 
     if (body.pickup_location_id) {
       insertRow.pickup_location_id = body.pickup_location_id;

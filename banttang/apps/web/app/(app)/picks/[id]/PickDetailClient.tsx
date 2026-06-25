@@ -114,7 +114,7 @@ export function PickDetailClient({ detail }: { detail: PickDetail }) {
   const isFull = detail.occupied >= detail.maxMembers;
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col bg-zinc-50 pb-24">
+    <main className="flex min-h-[100dvh] w-full flex-col bg-zinc-50 pb-24">
       {/* 자체 헤더 — UserBar는 hidden 처리됨 */}
       <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-zinc-200 bg-white px-4 py-3">
         <button
@@ -215,18 +215,8 @@ export function PickDetailClient({ detail }: { detail: PickDetail }) {
         <h3 className="text-[14px] font-bold text-zinc-900">
           어떻게 참여하나요?
         </h3>
-        <div className="mt-2 space-y-2 text-[12px] leading-relaxed text-zinc-600">
-          <p>
-            <b className="text-zinc-900">파티장으로 참여하기</b> — 호스트로서 상품을 주문하고,
-            내가 원하는 장소를 설정해 반띵해요.
-          </p>
-          <p>
-            <b className="text-zinc-900">파티원으로 참여하기</b> — 주문은 호스트에게 맡기고,
-            반띵 장소에서 물건만 나눠요.
-          </p>
-        </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="mt-3 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={hostNew}

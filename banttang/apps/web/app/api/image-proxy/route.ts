@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 
-// 이미지 프록시 — 외부(네이버) 이미지를 서버에서 받아 같은 출처로 돌려준다.
+// 이미지 프록시 — 외부 이미지를 서버에서 받아 같은 출처로 돌려준다.
 // 용도: 반띵 진입 시 카드 이미지를 상품 사진(File)으로 넣을 때 클라이언트의 CORS 차단 회피.
-// SSRF 방지: 네이버 이미지 CDN 호스트만 허용.
+// SSRF 방지: 큐레이션·시드에서 실제 사용하는 호스트만 허용.
 
-const ALLOWED_HOST = [/\.pstatic\.net$/, /\.naver\.net$/];
+const ALLOWED_HOST = [
+  /\.pstatic\.net$/,
+  /\.naver\.net$/,
+  // 큐레이션 추천 상품 썸네일 — PickDetailClient에서 호스팅 진입 시 프리필.
+  /^file\.rankingdak\.com$/, // 랭킹닭컴 (잇메이트 등)
+  /\.flexgate\.co\.kr$/, // 가성비/플렉스게이트 (디렉터즈 등)
+  /^www\.cleannj\.co\.kr$/, // Clean&J
+  // Unsplash — 데모 폴백 이미지(샐러디·계란 등)
+  /^images\.unsplash\.com$/,
+];
 
 export async function GET(req: Request) {
   const raw = new URL(req.url).searchParams.get("url");

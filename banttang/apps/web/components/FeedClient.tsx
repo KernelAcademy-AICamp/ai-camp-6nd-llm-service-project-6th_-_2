@@ -181,9 +181,6 @@ export function FeedClient({
           <h2 className="text-[19px] font-extrabold tracking-tight text-zinc-900">
             우리동네 반띵 보기
           </h2>
-          <span className="shrink-0 text-[12px] font-medium text-zinc-400">
-            {visibleParties.length}건
-          </span>
         </div>
         <p className="mt-1 text-[13px] text-zinc-500">
           내 근처 반띵 주문이에요. 지도에 표시된 위치에서 만나서 거래해요.

@@ -59,6 +59,7 @@ export function HostNewClient({
   initialLink,
   initialImageUrl,
   initialPrice,
+  initialPickGroup,
 }: {
   userAddress: string | null;
   userCoords: Coords;
@@ -68,6 +69,7 @@ export function HostNewClient({
   initialLink?: string; // 쇼핑 카드 → 장보기 "링크" 필드(=menu)
   initialImageUrl?: string; // 카드 이미지 → 상품 사진으로 프리필(프록시 경유)
   initialPrice?: number; // 추천 방 카드 → 1인 가격 프리필
+  initialPickGroup?: "health" | "fruitegg" | "homecare"; // 추천 상품 카테고리 → parties.pick_group 저장용
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -91,6 +93,9 @@ export function HostNewClient({
   const [storeName, setStoreName] = useState(initialStoreName ?? "");
   // single_order: 배달=대표 메뉴 / 장보기=링크. 쇼핑 카드 반띵이면 링크 프리필.
   const [menu, setMenu] = useState(initialLink ?? "");
+  // 특이사항(자유 기재, 최대 100자) — 호스트가 참여자에게 알리고 싶은 요구사항.
+  const [note, setNote] = useState("");
+  const NOTE_MAX = 100;
   const [price, setPrice] = useState(initialPrice ?? 8000);
   // individual_items 전용: 최소주문금액·배송비 분담 항목
   const [hasMinOrder, setHasMinOrder] = useState(false);
@@ -244,11 +249,22 @@ export function HostNewClient({
     setBusy(true);
     const localIso = new Date(dealAt).toISOString();
     const reco = recommendations[selectedReco];
+    // representative_menu에 특이사항을 함께 실어 보낸다(전용 컬럼이 없어 폴백).
+    const baseMenu =
+      splitMode === "individual_items" ? individualMenu : menu.trim();
+    const trimmedNote = note.trim();
+    const mergedMenu = [
+      baseMenu,
+      trimmedNote ? `[특이사항] ${trimmedNote}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const payload = {
       category,
+      // 추천 상품에서 호스팅 진입했을 때만 pick_group 박힘. 일반 등록은 undefined → 지도에서 "기타"로 분류.
+      pick_group: initialPickGroup,
       store_name: storeName.trim(),
-      representative_menu:
-        splitMode === "individual_items" ? individualMenu : menu.trim() || undefined,
+      representative_menu: mergedMenu || undefined,
       max_participants: additionalNeeded + 1,
       price_per_person: splitMode === "single_order" ? price : 0,
       custom_pickup_name: reco.name,
@@ -284,8 +300,21 @@ export function HostNewClient({
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 pb-32">
-      <h1 className="text-lg font-bold">띵동 만들기</h1>
+    <div className="flex flex-1 flex-col">
+      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-zinc-200 bg-white px-4 py-3">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="뒤로"
+          className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 active:bg-zinc-100"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <h1 className="text-[17px] font-bold text-zinc-900">띵동 만들기</h1>
+      </header>
+      <div className="flex flex-col gap-4 p-4 pb-32">
 
       {/* 1단계: 주문 유형 + 방식 */}
       {step === 1 && (
@@ -391,12 +420,6 @@ export function HostNewClient({
       {/* 2단계: 상품 정보 */}
       {step === 2 && splitMode && (
         <>
-          <StepBack
-            onClick={() => setStep(1)}
-            label={`${tab === "delivery" ? "배달 음식" : "공동구매"} · ${
-              splitMode === "single_order" ? "같은 상품 나누기" : "각자 담아 주문하기"
-            }`}
-          />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>상품 사진 (선택, 최대 {MAX_PHOTOS}장)</Label>
             <p className="mt-1 text-[11px] text-zinc-500">
@@ -483,13 +506,34 @@ export function HostNewClient({
               userCoords={userCoords}
             />
           )}
+
+          {/* 특이사항 — 호스트 자유 기재(최대 100자). 참여자에게 요구사항 전달용. */}
+          <section className="rounded-2xl bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <Label>특이사항 (선택)</Label>
+              <span className="text-[11px] font-medium text-zinc-400">
+                {note.length}/{NOTE_MAX}
+              </span>
+            </div>
+            <p className="mt-1 text-[11px] text-zinc-500">
+              참여자에게 전달할 요구사항을 자유롭게 적어주세요. 예) 매운맛 X, 특정
+              사이즈만, 픽업 시간 변동 가능.
+            </p>
+            <textarea
+              value={note}
+              onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
+              maxLength={NOTE_MAX}
+              rows={3}
+              placeholder="100자 이내로 적어주세요"
+              className="mt-3 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-[14px] placeholder:text-zinc-400 focus:border-brand focus:outline-none"
+            />
+          </section>
         </>
       )}
 
       {/* 3단계: 모집 조건 */}
       {step === 3 && splitMode && (
         <>
-          <StepBack onClick={() => setStep(2)} label="상품 정보" />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>반띵 인원</Label>
             <div className="mt-2 flex items-center justify-center gap-6">
@@ -704,6 +748,7 @@ export function HostNewClient({
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }
