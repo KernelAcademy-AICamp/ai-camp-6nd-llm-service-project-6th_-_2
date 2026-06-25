@@ -8,10 +8,11 @@ import { FeedPromoBanner } from "./FeedPromoBanner";
 import { HotDealChips } from "./HotDealChips";
 import { GroceryPicksSection } from "./GroceryPicksSection";
 import { PICK_GROUPS, type PickGroup, type PickRoom } from "@/lib/grocery-picks";
+import { GROUP_BUYS, minGroupPrice } from "@/lib/groupbuy";
 import { KakaoMapView, type MapPin } from "./KakaoMapView";
 import type { DisplayStatus, PartyRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { buildDemoFeedParties, padPickRooms } from "@/lib/demo-data";
+import { padPickRooms } from "@/lib/demo-data";
 
 type Party = PartyRow & {
   occupied_count: number;
@@ -51,33 +52,18 @@ export function FeedClient({
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
 
-  // 데모 좌표 기준점만 보존 — 거리 필터는 짭 정렬 따라 제거됨.
-  const baseLoc =
-    userLat !== null && userLng !== null
-      ? { lat: userLat, lng: userLng }
-      : null;
-
   // 가게명/대표 메뉴 검색 — 클라이언트 필터.
   // 탭 구분 없이 장보기·배달을 통합 노출. 검색어가 있으면 가게명/메뉴로 필터링.
   const [query, setQuery] = useState(initialQuery);
   // 우리동네 반띵 보기 섹션 전용 검색어 — 짭과 동일 컨벤션. 상단 검색과 별개.
   const [sectionQuery, setSectionQuery] = useState("");
-
-  // 실제 모집중 주문이 없을 때 보이는 데모 카드. 위치 기준 ±1km 안에 흩어둠.
-  // 실제 데이터가 1건이라도 들어오면 데모는 사라진다.
-  const demoParties = useMemo(
-    () =>
-      parties.length === 0
-        ? buildDemoFeedParties(baseLoc?.lat ?? userLat, baseLoc?.lng ?? userLng)
-        : [],
-    [parties.length, baseLoc?.lat, baseLoc?.lng, userLat, userLng],
-  );
-  const baseParties = parties.length > 0 ? parties : demoParties;
+  // 카테고리 칩 — 지도/리스트 어느 view에서도 보이도록 FeedClient 레벨에서 보관.
+  const [catFilter, setCatFilter] = useState<MapCatFilter>("all");
 
   const visibleParties = useMemo(() => {
     const q = query.trim().toLowerCase();
     const sq = sectionQuery.trim().toLowerCase();
-    let list = baseParties;
+    let list = parties;
     if (q) {
       list = list.filter((p) => {
         const name = p.store_name?.toLowerCase() ?? "";
@@ -94,8 +80,15 @@ export function FeedClient({
         return name.includes(sq) || menu.includes(sq) || pickup.includes(sq);
       });
     }
+    // 카테고리 칩 필터 — 지도/리스트 양쪽 동일 적용. "hotdeal"은 별도 처리(파티 X, GROUP_BUYS만).
+    if (catFilter === "hotdeal") return [];
+    if (catFilter === "etc") {
+      list = list.filter((p) => !p.pick_group);
+    } else if (catFilter !== "all") {
+      list = list.filter((p) => p.pick_group === catFilter);
+    }
     return list;
-  }, [baseParties, query, sectionQuery]);
+  }, [parties, query, sectionQuery, catFilter]);
 
   // AI 추천 — 그룹당 최대 4건이 되도록 데모로 패딩 (실제가 0건이면 12건 다 데모).
   const displayPickRooms = useMemo(() => padPickRooms(pickRooms, 4), [pickRooms]);
@@ -178,9 +171,6 @@ export function FeedClient({
         )}
       </div>
 
-      {/* 동네 핫딜 칩 — 사장님 공구·핫딜. 검색 중엔 숨김. */}
-      {!query && <HotDealChips />}
-
       {/* 바로 반띵하기 (AI 추천) — 짭과 동일하게 지도/리스트 위에 노출.
           검색 중에는 컨텍스트가 다르므로 숨김. 두 보기 모두에서 보임. */}
       {!query && <GroceryPicksSection rooms={displayPickRooms} />}
@@ -246,8 +236,55 @@ export function FeedClient({
         )}
       </div>
 
+      {/* 카테고리 칩 — 지도/리스트 어느 view에서도 항상 노출. 핫딜은 빨간 톤 */}
+      <CategoryChipRow
+        active={catFilter}
+        onChange={(next) => setCatFilter(next)}
+      />
+
       {view === "map" ? (
-        <MapView parties={visibleParties} />
+        <MapView
+          parties={visibleParties}
+          catFilter={catFilter}
+          onPickCategory={setCatFilter}
+        />
+      ) : catFilter === "hotdeal" ? (
+        // 리스트 모드 + 핫딜 칩 → GROUP_BUYS를 카드 형태로 노출
+        <div className="flex flex-col gap-2">
+          {GROUP_BUYS.map((gb) => (
+            <Link
+              key={gb.slug}
+              href={`/groupbuy/${gb.slug}` as any}
+              className="flex items-center gap-3 rounded-xl border border-rose-200 bg-white p-3 text-left active:bg-rose-50"
+            >
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-[28px]">
+                {gb.emoji}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="rounded bg-rose-500 px-1.5 py-px text-[10px] font-bold text-white">
+                    {gb.dealType}
+                  </span>
+                  <span className="line-clamp-1 text-[13px] font-bold text-zinc-900">
+                    {gb.title}
+                  </span>
+                </div>
+                <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">
+                  📍 {gb.pickupName}
+                </p>
+                <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                  <span className="font-bold text-rose-500">
+                    최저 {minGroupPrice(gb).toLocaleString()}원~
+                  </span>
+                  <span className="text-zinc-400">·</span>
+                  <span className="font-semibold text-zinc-600">
+                    {gb.currentCount}/{gb.targetCount}명
+                  </span>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
       ) : visibleParties.length > 0 ? (
         <div className="flex flex-col gap-2">
           {visibleParties.map((p) => (
@@ -267,6 +304,9 @@ export function FeedClient({
           <p>&ldquo;{query}&rdquo; 검색 결과가 없어요.</p>
         </div>
       ) : null}
+
+      {/* 동네 핫딜 칩 — 사장님 공구·핫딜. 우리동네 반띵 보기 섹션 아래. 검색 중엔 숨김. */}
+      {!query && <HotDealChips />}
 
       {/* 직접 만들기 CTA (맨 아래) — 문구 + 작은 버튼 */}
       {view === "list" && (
@@ -338,20 +378,44 @@ function timeWindowText(party: {
   return `${dayClass} ${timeClass} ${h12}시`;
 }
 
-// 지도 섹션 카테고리 필터 — 상단 AI 칩과 동일 분류(PICK_GROUPS) + "기타".
-// 데모 카드에는 pick_group이 박혀 있고, 실제 파티는 분류 없음 → "기타"로 들어감.
-type MapCatFilter = "all" | PickGroup | "etc";
+// 지도 섹션 카테고리 필터 — 상단 AI 칩과 동일 분류(PICK_GROUPS) + "기타" + "핫딜"(동네 핫딜).
+type MapCatFilter = "all" | PickGroup | "etc" | "hotdeal";
 
-function MapView({ parties }: { parties: Party[] }) {
+// 동네 핫딜(GROUP_BUYS) → 핫딜 variant 핀으로 변환. id는 "hotdeal-{slug}".
+function buildHotdealPins(): MapPin[] {
+  return GROUP_BUYS.map((gb) => ({
+    id: `hotdeal-${gb.slug}`,
+    lat: gb.lat,
+    lng: gb.lng,
+    emoji: gb.emoji,
+    categoryLabel: gb.dealType, // "공구" | "핫딜"
+    productName: gb.title,
+    timeText: `${gb.currentCount}/${gb.targetCount}명 · 최저 ${minGroupPrice(gb).toLocaleString()}원`,
+    variant: "hotdeal",
+  }));
+}
+
+function MapView({
+  parties,
+  catFilter,
+  onPickCategory,
+}: {
+  parties: Party[];
+  catFilter: MapCatFilter;
+  onPickCategory: (next: MapCatFilter) => void;
+}) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [catFilter, setCatFilter] = useState<MapCatFilter>("all");
   // 내 위치 — 파란 점 표시 및 panTo 트리거. ts는 같은 좌표도 다시 panTo되도록 매번 새로.
   const [myLoc, setMyLoc] = useState<{ lat: number; lng: number } | null>(null);
   const [recenter, setRecenter] = useState<
     { lat: number; lng: number; ts: number } | null
   >(null);
   const [locating, setLocating] = useState(false);
+  // 카테고리 칩 바뀌면 선택 핀 초기화 — 핀이 사라져서 카드가 떠있는 상태 방지.
+  useEffect(() => {
+    setSelectedId(null);
+  }, [catFilter]);
 
   function locateMe() {
     if (locating) return;
@@ -378,18 +442,12 @@ function MapView({ parties }: { parties: Party[] }) {
     );
   }
 
-  const byCategory =
-    catFilter === "all"
-      ? parties
-      : catFilter === "etc"
-        ? parties.filter((p) => !p.pick_group)
-        : parties.filter((p) => p.pick_group === catFilter);
-
-  const withCoords = byCategory.filter(
+  // 파티 핀 — parties는 이미 FeedClient에서 catFilter로 필터됨.
+  const withCoords = parties.filter(
     (p) => typeof p.lat === "number" && typeof p.lng === "number",
   );
 
-  const pins: MapPin[] = withCoords.map((p) => {
+  const partyPins: MapPin[] = withCoords.map((p) => {
     const cat = pickGroupBadge(p.pick_group);
     return {
       id: p.id,
@@ -401,59 +459,40 @@ function MapView({ parties }: { parties: Party[] }) {
       timeText: timeWindowText(p),
     };
   });
-  const missing = byCategory.length - pins.length;
+  const missing = parties.length - partyPins.length;
+
+  // 동네 핫딜 핀 — "all"이나 "hotdeal" 칩에서만 노출. (특정 카테고리 필터엔 숨김)
+  const hotdealPins: MapPin[] =
+    catFilter === "all" || catFilter === "hotdeal" ? buildHotdealPins() : [];
+
+  const pins: MapPin[] = [...partyPins, ...hotdealPins];
 
   // 데이터 바뀌어서 선택된 핀이 사라지면 선택 해제
   const selectedParty =
     selectedId ? withCoords.find((p) => p.id === selectedId) ?? null : null;
 
-  // 카테고리 바뀌면 핀 선택 초기화
-  function handleCat(next: MapCatFilter) {
-    setCatFilter(next);
-    setSelectedId(null);
+  // 핀 클릭 라우팅 — 핫딜 핀은 /groupbuy/[slug]로 바로 이동, 일반 핀은 카드 선택만.
+  function handlePinClick(id: string) {
+    if (id.startsWith("hotdeal-")) {
+      const slug = id.replace(/^hotdeal-/, "");
+      router.push(`/groupbuy/${slug}` as any);
+      return;
+    }
+    setSelectedId(id);
   }
+
+  // onPickCategory prop은 MapView 내부에서 직접 칩 렌더를 안 하므로 사용하지 않음.
+  // FeedClient 레벨에서 chip을 그리고 catFilter만 props로 받는 패턴으로 단일화.
+  void onPickCategory;
 
   return (
     <div className="space-y-3">
-      {/* 지도 섹션 카테고리 칩 — 상단 AI 칩(PICK_GROUPS)과 동일 분류 + 기타 */}
-      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 [&::-webkit-scrollbar]:hidden">
-        {(
-          [
-            { id: "all" as MapCatFilter, label: "전체" },
-            ...PICK_GROUPS.map((g) => ({
-              id: g.key as MapCatFilter,
-              label: g.label,
-              emoji: g.emoji,
-            })),
-            { id: "etc" as MapCatFilter, label: "기타", emoji: "🧺" },
-          ] as Array<{ id: MapCatFilter; label: string; emoji?: string }>
-        ).map((c) => {
-          const on = catFilter === c.id;
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => handleCat(c.id)}
-              className={cn(
-                "shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition active:scale-95",
-                on
-                  ? "border-brand bg-brand text-white"
-                  : "border-zinc-200 bg-white text-zinc-700",
-              )}
-            >
-              {c.emoji ? `${c.emoji} ` : ""}
-              {c.label}
-            </button>
-          );
-        })}
-      </div>
-
       {/* 지도 + 우상단 "내 주문 등록하기" + 우하단 "내 위치" 버튼 */}
       <div className="relative">
         <KakaoMapView
           pins={pins}
           selectedId={selectedId}
-          onPinClick={setSelectedId}
+          onPinClick={handlePinClick}
           recenterTo={recenter}
           userLocation={myLoc}
         />
@@ -618,6 +657,57 @@ function FeedOrderRow({
           함께하기
         </button>
       </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────
+// CategoryChipRow — 우리동네 반띵 보기 카테고리 칩. 지도/리스트 모두에서 노출.
+// 분류: 전체 / 건강식품 / 과일·계란 / 1인 홈케어 / 기타 / 핫딜(빨강).
+// ─────────────────────────────────────────────────────
+function CategoryChipRow({
+  active,
+  onChange,
+}: {
+  active: MapCatFilter;
+  onChange: (next: MapCatFilter) => void;
+}) {
+  const chips = [
+    { id: "all" as MapCatFilter, label: "전체" },
+    ...PICK_GROUPS.map((g) => ({
+      id: g.key as MapCatFilter,
+      label: g.label,
+      emoji: g.emoji,
+    })),
+    { id: "etc" as MapCatFilter, label: "기타", emoji: "🧺" },
+    { id: "hotdeal" as MapCatFilter, label: "핫딜", emoji: "🔥" },
+  ] as Array<{ id: MapCatFilter; label: string; emoji?: string }>;
+  return (
+    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 [&::-webkit-scrollbar]:hidden">
+      {chips.map((c) => {
+        const on = active === c.id;
+        const isHotdeal = c.id === "hotdeal";
+        return (
+          <button
+            key={c.id}
+            type="button"
+            onClick={() => onChange(c.id)}
+            className={cn(
+              "shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition active:scale-95",
+              isHotdeal
+                ? on
+                  ? "border-rose-500 bg-rose-500 text-white"
+                  : "border-rose-500 bg-white text-rose-600"
+                : on
+                  ? "border-brand bg-brand text-white"
+                  : "border-brand bg-white text-brand",
+            )}
+          >
+            {c.emoji ? `${c.emoji} ` : ""}
+            {c.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
