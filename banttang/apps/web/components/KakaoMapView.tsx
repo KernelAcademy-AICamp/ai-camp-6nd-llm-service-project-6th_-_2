@@ -10,9 +10,11 @@ export type MapPin = {
   lat: number;
   lng: number;
   emoji: string; // 카테고리 이모지
-  categoryLabel: string; // 카테고리 라벨 (배달/장보기/온라인)
+  categoryLabel: string; // 카테고리 라벨 (배달/장보기/온라인 등)
   productName: string; // 상품(가게)명 — store_name
   timeText: string; // "1h" / "30분" / "마감" / "방금 전" 등
+  /** 핀 색상 variant — 기본(브랜드 그린) 또는 핫딜(빨강). */
+  variant?: "default" | "hotdeal";
 };
 
 type Props = {
@@ -74,8 +76,9 @@ export function KakaoMapView({
     for (const p of pins) {
       if (typeof p.lat !== "number" || typeof p.lng !== "number") continue;
       const isSelected = p.id === selectedId;
+      const variantClass = p.variant === "hotdeal" ? "feed-pin--hotdeal" : "";
       const html = `
-        <div class="feed-pin ${isSelected ? "feed-pin--on" : ""}" data-pid="${p.id}">
+        <div class="feed-pin ${variantClass} ${isSelected ? "feed-pin--on" : ""}" data-pid="${p.id}">
           <div class="feed-pin__bubble">
             <span class="feed-pin__chip">${escapeHtml(p.emoji)} ${escapeHtml(p.categoryLabel)}</span>
             <span class="feed-pin__product">${escapeHtml(p.productName)}</span>
@@ -245,6 +248,34 @@ export function KakaoMapView({
         }
         .feed-pin--on .feed-pin__tail {
           border-top-color: #6a9659;
+        }
+
+        /* 핫딜 핀 — 빨간 톤 (HotDealChips와 통일된 강조색) */
+        .feed-pin--hotdeal .feed-pin__bubble {
+          border-color: #ef4444;
+        }
+        .feed-pin--hotdeal .feed-pin__chip {
+          background: rgba(239, 68, 68, 0.14);
+          color: #b91c1c;
+        }
+        .feed-pin--hotdeal .feed-pin__tail {
+          border-top-color: #ef4444;
+        }
+        .feed-pin--hotdeal.feed-pin--on .feed-pin__bubble {
+          background: #ef4444;
+          border-color: #dc2626;
+          color: white;
+        }
+        .feed-pin--hotdeal.feed-pin--on .feed-pin__chip {
+          background: rgba(255, 255, 255, 0.22);
+          color: white;
+        }
+        .feed-pin--hotdeal.feed-pin--on .feed-pin__product,
+        .feed-pin--hotdeal.feed-pin--on .feed-pin__time {
+          color: white;
+        }
+        .feed-pin--hotdeal.feed-pin--on .feed-pin__tail {
+          border-top-color: #dc2626;
         }
 
         /* 사용자 현재 위치 — 파란 점 + 펄스 외곽 */
