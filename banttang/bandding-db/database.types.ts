@@ -77,8 +77,18 @@ export type NotificationType =
   | 'receipt_uploaded'
   | 'review_requested'
   | 'payment_received'
-  | 'phase2_available';
+  | 'phase2_available'
+  | 'pick_host_registered';
 export type ShoppingType = 'offline' | 'online';
+
+// pick_waitlist — 큐레이션 추천 상품에 대해 파티장 등록 알림 신청한 사용자 대기열.
+export type PickWaitlistRow = {
+  id: string;
+  user_id: string;
+  product_key: string;
+  created_at: string;
+  notified_at: string | null;
+};
 
 // ============================================================================
 // TABLE ROW TYPES
@@ -434,6 +444,7 @@ export interface Database {
       community_comments: { Row: CommunityComment; Insert: Omit<CommunityComment, 'id' | 'like_count' | 'created_at' | 'updated_at'>; Update: Partial<CommunityComment> };
       community_post_likes: { Row: CommunityPostLike; Insert: Omit<CommunityPostLike, 'created_at'>; Update: never };
       community_comment_likes: { Row: CommunityCommentLike; Insert: Omit<CommunityCommentLike, 'created_at'>; Update: never };
+      pick_waitlist: { Row: PickWaitlistRow; Insert: Partial<PickWaitlistRow>; Update: Partial<PickWaitlistRow> };
     };
     Views: {
       v_parties_with_stats: { Row: PartyWithStats };
