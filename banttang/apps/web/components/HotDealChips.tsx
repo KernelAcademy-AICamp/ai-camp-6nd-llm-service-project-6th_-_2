@@ -7,8 +7,8 @@ export function HotDealChips() {
   if (GROUP_BUYS.length === 0) return null;
 
   return (
-    <section className="-mx-4">
-      <div className="mb-2 flex items-center gap-1.5 px-4">
+    <section className="-mx-4 border-t-8 border-zinc-100 px-4 pb-2 pt-5">
+      <div className="mb-2 flex items-center gap-1.5">
         <span aria-hidden>🔥</span>
         <h2 className="text-[15px] font-bold text-zinc-900">동네 핫딜</h2>
         <span className="text-[12px] font-medium text-zinc-400">
@@ -38,8 +38,14 @@ export function HotDealChips() {
                   {gb.title}
                 </span>
               </span>
-              <span className="text-[12px] font-bold text-rose-500">
-                {minGroupPrice(gb).toLocaleString()}원~
+              <span className="flex items-center gap-1.5 text-[12px]">
+                <span className="font-bold text-rose-500">
+                  {minGroupPrice(gb).toLocaleString()}원~
+                </span>
+                <span className="text-zinc-400">·</span>
+                <span className="font-semibold text-zinc-600">
+                  {gb.currentCount}/{gb.targetCount}명
+                </span>
               </span>
             </span>
           </Link>
