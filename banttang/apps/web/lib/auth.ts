@@ -67,3 +67,11 @@ export async function requireAdmin(): Promise<CurrentUser> {
   if (!u || !u.is_admin) throw new Error("FORBIDDEN");
   return u;
 }
+
+// 온보딩(주소 설정) 우회 플래그.
+// `.env.local`에 SKIP_ONBOARDING=true 를 박으면 onboarding/address 리다이렉트를 건너뜀.
+// 멀티 계정 테스트할 때 빠르게 가입 → 피드 진입을 위해 일시 사용.
+// 운영/배포에선 절대 켜지 말 것.
+export function shouldSkipOnboarding(): boolean {
+  return process.env.SKIP_ONBOARDING === "true";
+}
