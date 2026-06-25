@@ -2,7 +2,10 @@ import { redirect, notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PartyChatContainer } from "@/components/chat/party-chat-container";
 import { closePartyIfFull } from "@/app/_actions/party-lifecycle";
+import { ensureAvocadoNoticeMessage } from "@/app/_actions/ensure-avocado-notice";
+import { ensureDoorbellNoticeMessage } from "@/app/_actions/ensure-doorbell-notice";
 import { parseEwkbPoint } from "@/lib/queries";
+import { DEFAULT_ENTRY_NOTICE } from "@/lib/types/avocado-notice";
 import type {
   ChatMessageWithSender,
   PartyParticipantWithProfile,
@@ -34,6 +37,28 @@ export default async function ChatPage({ params }: { params: { partyId: string }
     .maybeSingle<PartyWithStats>();
   if (!partyRes.data) notFound();
   const party = partyRes.data;
+
+  // 아보카도 봇 입장 안내(방당 1건) — 거래 유형 안내를 카드 한 장에 함께 담는다(B안).
+  await ensureAvocadoNoticeMessage(
+    partyId,
+    {
+      version: DEFAULT_ENTRY_NOTICE.version,
+      title: DEFAULT_ENTRY_NOTICE.title,
+      body: DEFAULT_ENTRY_NOTICE.body,
+    },
+    {
+      category: party.category as "delivery" | "offline_shopping" | "online_shopping",
+      pricePerPerson: party.price_per_person,
+    },
+  );
+
+  // 거래 1시간 전 — 아보카도가 띵동 안내를 별도 메시지로 전송(방당 1회).
+  await ensureDoorbellNoticeMessage(partyId, party.deal_at);
+
+  // 1.5) 읽음 처리(last_read_at 갱신)는 여기(렌더 도중)에서 하지 않는다.
+  //   렌더 중 UPDATE → Realtime party_participants UPDATE → BottomNav/ChatListRealtime의
+  //   router.refresh() → 재렌더 → 또 UPDATE → ... 무한 루프(클릭 이동 시 먹통)가 됐었음.
+  //   → PartyChatContainer의 마운트 1회 effect에서 markChatRead()로 처리하도록 옮김.
 
   // 픽업 장소 이름 + 좌표 (지도 표시용)
   const partyExt = party as PartyWithStats & {
@@ -102,7 +127,9 @@ export default async function ChatPage({ params }: { params: { partyId: string }
   }
 
   return (
-    <main className="mx-auto flex h-[100dvh] max-w-2xl flex-col">
+    // 부모(app)/main이 flex flex-col pb-20이라 flex-1로 가용 공간 그대로 사용.
+    // input bar(컨테이너의 마지막 자식)는 자연스럽게 pb-20 영역 위쪽 = BottomNav 바로 위에 정렬됨.
+    <main className="mx-auto flex w-full flex-1 max-w-md flex-col">
       <PartyChatContainer
         party={party}
         currentUserId={user.id}

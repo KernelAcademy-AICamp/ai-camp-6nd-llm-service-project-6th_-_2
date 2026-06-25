@@ -1,5 +1,11 @@
 import Link from "next/link";
-import { displayStatusLabel, formatKRW, formatKstShort } from "@/lib/party-status";
+import {
+  displayStatusColor,
+  displayStatusLabel,
+  formatKRW,
+  formatKstFriendly,
+  formatKstShort,
+} from "@/lib/party-status";
 import { partyPhotoUrl } from "@/lib/storage";
 import type { DisplayStatus, PartyRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -12,11 +18,13 @@ type Props = {
     pickup_name: string | null;
   };
   href: string;
-  /** true면 우측 하단에 상태 라벨 노출 (마이페이지용). 홈 피드는 기본 false. */
+  /** true면 마이페이지 주문 목록 카드 레이아웃. 홈 피드는 기본 false. */
   showStatus?: boolean;
+  /** 카드 우상단 메뉴(미트볼 등). 마이페이지에서 PartyCardMenu 주입. */
+  menu?: React.ReactNode;
 };
 
-// price_per_person이 0이면 ‘각자 주문’ 케이스로 표시 (DB에 split_mode 컬럼 없으므로 proxy)
+// price_per_person이 0이면 ‘각자 담기’ 케이스로 표시 (split_mode proxy)
 function isIndividualOrder(party: { price_per_person: number }) {
   return party.price_per_person === 0;
 }
@@ -26,25 +34,115 @@ const SPLIT_PILL = {
   individual: "bg-sky-100 text-sky-700",
 };
 
-const STATUS_PILL: Record<DisplayStatus, { cls: string; icon: string }> = {
-  recruiting: { cls: "text-brand", icon: "⏰" },
-  waiting: { cls: "text-amber-600", icon: "⏳" },
-  in_progress: { cls: "text-sky-600", icon: "💬" },
-  completed: { cls: "text-zinc-400", icon: "✓" },
-  cancelled: { cls: "text-rose-400", icon: "✕" },
-};
+function Thumb({
+  thumbPath,
+  storeName,
+  menu,
+  size,
+}: {
+  thumbPath: string | null;
+  storeName: string;
+  menu: string | null;
+  size: string;
+}) {
+  return (
+    <div className={cn("shrink-0 overflow-hidden rounded-2xl bg-zinc-100", size)}>
+      {thumbPath ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={partyPhotoUrl(thumbPath)}
+          alt={storeName}
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <StoreThumb storeName={storeName} menu={menu} />
+      )}
+    </div>
+  );
+}
 
-export function PartyCard({ party, href, showStatus = false }: Props) {
+function CalendarIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3.5" y="5" width="17" height="16" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.5 9.5h17M8 3.5v3M16 3.5v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function PartyCard({ party, href, showStatus = false, menu }: Props) {
   const individual = isIndividualOrder(party);
   const thumbPath = party.photo_paths?.[0] ?? null;
 
+  // ── 마이페이지 주문 목록 카드 (레퍼런스 레이아웃) ──
+  if (showStatus) {
+    const full = party.occupied_count >= party.max_participants;
+    return (
+      <Link
+        href={href as any}
+        className="relative block rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition active:bg-zinc-50"
+      >
+        {menu && <div className="absolute right-1.5 top-2.5 z-10">{menu}</div>}
+
+        {/* 상단: 상태 + 나눔 방식 */}
+        <div className={cn("mb-3 flex items-center gap-2", menu && "pr-8")}>
+          <span
+            className={cn(
+              "rounded-lg px-2.5 py-1 text-[12px] font-bold",
+              displayStatusColor[party.display_status],
+            )}
+          >
+            {displayStatusLabel[party.display_status]}
+          </span>
+          <span className="text-[13px] font-semibold text-zinc-500">
+            {individual ? "각자 담기" : "1주문 나누기"}
+          </span>
+        </div>
+
+        {/* 본문: 썸네일(세로로 꽉 차게) + 정보 */}
+        <div className="flex items-stretch gap-3.5">
+          <Thumb
+            thumbPath={thumbPath}
+            storeName={party.store_name}
+            menu={party.representative_menu}
+            size="w-[84px] self-stretch"
+          />
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-[17px] font-bold leading-snug text-zinc-900">
+              {party.store_name}
+            </h3>
+            <p className="mt-1 text-[14px] text-zinc-500">
+              {individual ? (
+                <span className="font-semibold text-zinc-700">각자 결제</span>
+              ) : (
+                <>1인 {formatKRW(party.price_per_person)}</>
+              )}
+              <span className="px-1 text-zinc-300">·</span>
+              <span className={cn("font-bold", full ? "text-emerald-600" : "text-zinc-600")}>
+                {party.occupied_count}/{party.max_participants}명
+              </span>
+            </p>
+            <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 px-2.5 py-1.5 text-[13px] font-medium leading-none text-zinc-600">
+              <span className="relative top-[-1px] flex shrink-0">
+                <CalendarIcon />
+              </span>
+              <span className="leading-none">{formatKstFriendly(party.deal_at)}</span>
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+  }
+
+  // ── 홈 피드 카드 (기존 레이아웃) ──
   return (
     <Link
       href={href as any}
-      className="block rounded-2xl border border-zinc-200 bg-white p-4 transition hover:border-brand/40 hover:shadow-sm"
+      className="relative block rounded-2xl border border-zinc-200 bg-white p-4 transition hover:border-brand/40 hover:shadow-sm"
     >
-      {/* 본문 — 사용자 등록 사진(or 이모지 폴백) + 텍스트 */}
-      <div className="flex gap-3">
+      {menu && <div className="absolute right-1 top-1 z-10">{menu}</div>}
+
+      <div className={cn("flex gap-3", menu && "pr-8")}>
         <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-brand-50">
           {thumbPath ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -61,7 +159,6 @@ export function PartyCard({ party, href, showStatus = false }: Props) {
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-1 items-baseline gap-2">
               <h3 className="truncate font-semibold leading-snug">{party.store_name}</h3>
-              {/* 각자 주문은 비용 정보를 하단으로, 장보기 1주문은 링크라서 둘 다 부제에서 숨김 */}
               {!individual && party.category === "delivery" && party.representative_menu && (
                 <span className="truncate text-xs text-zinc-500">{party.representative_menu}</span>
               )}
@@ -100,12 +197,6 @@ export function PartyCard({ party, href, showStatus = false }: Props) {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-zinc-500">{party.max_participants - 1}명</span>
-          {showStatus && (
-            <span className={cn("font-medium", STATUS_PILL[party.display_status].cls)}>
-              {STATUS_PILL[party.display_status].icon}{" "}
-              {displayStatusLabel[party.display_status]}
-            </span>
-          )}
         </div>
       </div>
     </Link>

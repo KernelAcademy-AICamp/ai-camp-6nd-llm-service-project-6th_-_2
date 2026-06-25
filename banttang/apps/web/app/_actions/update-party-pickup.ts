@@ -8,8 +8,8 @@
 // chat_messages 시스템 INSERT는 system_or_sender 제약 + RLS 결합이 까다로워
 // admin 클라이언트로 묶어 처리.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 export interface UpdatePartyPickupInput {
   partyId: string;
@@ -25,22 +25,21 @@ export async function updatePartyPickup(
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     // 1) 호스트 권한 검증
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
-    const { data: party, error: partyErr } = await supabase
+    const admin = createAdminClient();
+    const { data: party, error: partyErr } = await admin
       .from("parties")
       .select("id, host_id")
       .eq("id", input.partyId)
       .maybeSingle();
     if (partyErr || !party) return { ok: false, error: "파티를 찾을 수 없어요." };
-    if (party.host_id !== auth.user.id) {
+    if (party.host_id !== userId) {
       return { ok: false, error: "호스트만 변경할 수 있어요." };
     }
 
     // 2) parties UPDATE (admin: trigger/제약 우회 안전, RLS도 OK)
-    const admin = createAdminClient();
     const updatePayload: Record<string, unknown> = {
       custom_pickup_name: input.name,
       // PostGIS POINT는 (lng, lat) 순서

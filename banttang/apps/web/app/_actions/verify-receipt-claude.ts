@@ -16,8 +16,8 @@
 
 import { createHash, randomUUID } from "node:crypto";
 import Anthropic from "@anthropic-ai/sdk";
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPTED = new Set([
@@ -107,9 +107,8 @@ export async function verifyReceiptWithClaude(
     }
 
     // 2) 호스트 권한 검증
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
     const admin = createAdminClient();
     const { data: party, error: partyErr } = await admin
@@ -118,7 +117,7 @@ export async function verifyReceiptWithClaude(
       .eq("id", partyIdRaw)
       .maybeSingle();
     if (partyErr || !party) return { ok: false, error: "파티를 찾을 수 없어요." };
-    if (party.host_id !== auth.user.id) {
+    if (party.host_id !== userId) {
       return { ok: false, error: "호스트만 영수증을 등록할 수 있어요." };
     }
 
@@ -255,7 +254,7 @@ export async function verifyReceiptWithClaude(
       .insert({
         id: receiptId,
         party_id: partyIdRaw,
-        uploader_id: auth.user.id,
+        uploader_id: userId,
         storage_path: storagePath,
         image_sha256: imageSha256,
         ocr_store_name: verdict.merchant,
@@ -308,15 +307,17 @@ export async function verifyReceiptWithClaude(
           metadata: { receipt_id: inserted.id, amount: detectedTotal },
         },
         // 멤버에게만 보이는 확인 요청 — recipient='member' 메타로 호스트 화면에선 숨김.
+        // 정책: "📋 주문 내역 및 금액이 일치하는지 확인해 주세요." (한 줄)
         {
           room_id: room.id,
           sender_id: null,
           type: "system",
-          content: "주문 항목과 결제 금액이 맞는지 확인해주세요. 이상이 없으면 1인당 금액을 호스트에게 송금해주세요.",
+          content: "📋 주문 내역 및 금액이 일치하는지 확인해 주세요.",
           metadata: {
             kind: "receipt_confirm_prompt",
             recipient: "member",
             receipt_id: inserted.id,
+            title: "주문 내역 및 금액이 일치하는지 확인해 주세요.",
           },
         },
       ]);

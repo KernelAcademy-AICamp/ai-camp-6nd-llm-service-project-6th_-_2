@@ -6,6 +6,7 @@ import { cn, formatKstDateLabel, formatKstTime } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { ReceiptCardMessage } from "./receipt-card-message";
 import { KakaoMiniMap } from "./kakao-mini-map";
+import { AvocadoBotCard } from "./avocado-bot-card";
 
 interface Props {
   items: ChatItem[];
@@ -27,6 +28,12 @@ interface Props {
   onDismissMidpoint?: (messageId: string) => Promise<void> | void;
   // 띵동 시스템 메시지의 "내 거래 카드보기" 버튼을 누를 때.
   onOpenTransactionCard?: () => void;
+  // 아보카도 봇 "거래 방법 보기" — 거래 방법 안내 페이지로 이동.
+  onShowGuide?: () => void;
+  // 아보카도 봇 "띵동이란?" — 띵동 안내 페이지로 이동.
+  onShowDoorbell?: () => void;
+  // 영수증 인증 요청 카드의 '영수증 등록'(호스트) 버튼.
+  onUploadReceipt?: () => void;
 }
 
 // 같은 날짜인지 비교 (KST 기준 YYYY-MM-DD)
@@ -51,6 +58,9 @@ export function ChatTimeline({
   onChangePickup,
   onDismissMidpoint,
   onOpenTransactionCard,
+  onShowGuide,
+  onShowDoorbell,
+  onUploadReceipt,
 }: Props) {
   // 메시지 하나의 안읽은 수 — 보낸이 외 멤버 중 last_read_at < 메시지 created_at 인 사람 수
   function unreadCountFor(message: { sender_id: string | null; created_at: string }): number {
@@ -190,10 +200,107 @@ export function ChatTimeline({
                 );
               }
 
-              // party_closed (DB trigger가 INSERT) — 새 spec copy로 override
+              // 아보카도 봇 메시지 — 왼쪽 봇 말풍선/카드 (회색 시스템 메시지 아님).
+              const metaKind = (m.metadata as { kind?: string } | null)?.kind;
+              // 입장 안내 카드 — "거래 방법 보기" 버튼 포함
+              if (metaKind === "avocado_intro" || metaKind === "avocado_notice") {
+                // legacy 행은 "🥑 방장봇 아보카도: " 접두어가 붙어 있어 제거.
+                const text = (m.content ?? "").replace(
+                  /^🥑\s*방장봇 아보카도:\s*/,
+                  "",
+                );
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard content={text} onShowGuide={onShowGuide} />
+                    </li>
+                  </Fragment>
+                );
+              }
+              // 거래 1시간 전 띵동 안내 — 봇 카드 + '띵동이란?' 버튼
+              if (metaKind === "avocado_doorbell") {
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard
+                        content={m.content ?? ""}
+                        onShowDoorbell={onShowDoorbell}
+                      />
+                    </li>
+                  </Fragment>
+                );
+              }
+              // 영수증 인증 요청 — 요청자(나)는 오른쪽 정렬, 프로필 없음 + (호스트) 영수증 등록 버튼
+              if (metaKind === "receipt_request") {
+                const meta = m.metadata as { sender_id?: string } | null;
+                const mineReq = meta?.sender_id === currentUserId;
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li className={cn("my-2 flex px-1", mineReq ? "justify-end" : "justify-start")}>
+                      <div
+                        className={cn(
+                          "max-w-[82%] border border-amber-200 bg-amber-50 p-3.5",
+                          mineReq ? "rounded-2xl rounded-tr-md" : "rounded-2xl rounded-tl-md",
+                        )}
+                      >
+                        <p className="text-[13px] leading-relaxed text-amber-900">
+                          {m.content}
+                        </p>
+                        {isHost && onUploadReceipt && (
+                          <button
+                            type="button"
+                            onClick={onUploadReceipt}
+                            className="mt-3 w-full rounded-lg bg-amber-600 py-2 text-[13px] font-bold text-white active:opacity-80"
+                          >
+                            영수증 등록
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  </Fragment>
+                );
+              }
+
+              // 거래 방법 안내 — 버튼 없는 봇 말풍선
+              if (metaKind === "avocado_guide") {
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard content={m.content ?? ""} />
+                    </li>
+                  </Fragment>
+                );
+              }
+
+              // 영수증 확인 요청 — 강조 카드(amber).
+              const meta = m.metadata as { kind?: string; title?: string } | null;
+              if (meta?.kind === "receipt_confirm_prompt") {
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li className="my-2 flex justify-center px-4">
+                      <div className="w-full max-w-[85%] rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                        <p className="text-[13px] font-bold text-amber-900">
+                          📋 {meta.title ?? "주문 내역 및 금액이 일치하는지 확인해 주세요."}
+                        </p>
+                      </div>
+                    </li>
+                  </Fragment>
+                );
+              }
+
+              // 시스템 메시지는 DB content를 그대로 노출.
+              // (이벤트 분리 전 legacy 'party_closed'는 거래방 오픈/퇴장이 섞여 있었으나,
+              //  거래방 오픈 행만 옛 문구라 신규 카피로 보정. 퇴장 행은 content에 닉네임이
+              //  들어가므로 그대로 노출. 신규는 chat_opened/member_left로 구분됨)
               const displayContent =
-                m.system_event === "party_closed"
-                  ? "반띵 채팅방이 열렸어요. 서로 인사를 나눠보세요 👋"
+                m.system_event === "party_closed" &&
+                m.content === "모집 완료! 거래방이 열렸어요"
+                  ? "모집이 완료되어 거래방이 열렸어요. 이제 주문과 나눔 일정을 확인해 주세요."
                   : m.content;
               return (
                 <Fragment key={`m-${m.id}`}>

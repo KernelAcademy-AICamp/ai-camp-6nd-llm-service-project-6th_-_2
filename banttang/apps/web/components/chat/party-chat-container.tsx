@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { askConfirm } from "@/lib/confirm";
 import { uploadChatPhoto } from "@/app/_actions/upload-chat-photo";
+import { markChatRead } from "@/app/_actions/mark-chat-read";
 import { ringDoorbell } from "@/app/_actions/ring-doorbell";
 import { recommendMidpoint } from "@/app/_actions/recommend-midpoint";
 import { updatePartyPickup } from "@/app/_actions/update-party-pickup";
@@ -23,6 +24,10 @@ import { ReceiptSheet } from "./receipt-sheet";
 import { CompleteSheet, type CompleteSubmitInput } from "./complete-sheet";
 import { PartyInfoCard } from "./party-info-card";
 import { ActionBanner } from "./action-banner";
+import { DoorbellCta } from "./doorbell-cta";
+import { ChatQuickChips } from "./chat-quick-chips";
+import { ReceiptViewSheet } from "./receipt-view-sheet";
+import { requestReceipt } from "@/app/_actions/request-receipt";
 import { TransactionCardSheet } from "./transaction-card-sheet";
 import { buildTimeline, type ReceiptCardItem } from "@/lib/types/chat";
 import { derivePhase } from "@/lib/types/phase";
@@ -75,8 +80,12 @@ export function PartyChatContainer({
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
   const [cardOpen, setCardOpen] = useState(false);
-  // 띵동 쿨다운 — 남은 초. 0이면 가능, 5→0으로 카운트다운.
+  // 띵동 쿨다운 — 남은 초. 0이면 가능, 60→0으로 카운트다운.
   const [doorbellCooldown, setDoorbellCooldown] = useState(0);
+  // 띵동을 한 번이라도 보냈는지 — '전송 완료/다시 보내기' 상태 구분.
+  const [doorbellSent, setDoorbellSent] = useState(false);
+  // 게스트 영수증 확인 시트.
+  const [receiptViewOpen, setReceiptViewOpen] = useState(false);
   const [managing, setManaging] = useState(false);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const senderCacheRef = useRef<Map<string, ChatMessageWithSender["sender"]>>(
@@ -109,6 +118,31 @@ export function PartyChatContainer({
     return () => clearInterval(id);
   }, []);
 
+  // 방이 열려 있는 동안은 "계속 읽음" 상태로 유지한다.
+  //   - 진입 시 + 새 메시지가 올 때마다 읽음 처리(last_read_at = now)
+  //   → 보고 있는 동안 도착한 메시지도 읽음으로 잡혀, 방을 나가도 안 읽음 숫자가 안 살아남.
+  // 무한 루프 없음: 트리거는 messages(클라이언트 상태)·party.id 뿐이다. markChatRead가
+  //   부르는 router.refresh()(BottomNav 실시간 구독 경유)는 서버 컴포넌트만 다시 그릴 뿐
+  //   messages state를 바꾸지 않으므로 이 effect를 재실행시키지 않는다.
+  // 배지 합계 갱신은 BottomNav의 party_participants UPDATE 구독(디바운스 refresh)이 담당.
+  // 500ms 디바운스로 메시지 버스트를 한 번으로 합친다.
+  const latestMessageId =
+    messages.length > 0 ? messages[messages.length - 1].id : null;
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void markChatRead(party.id);
+    }, 500);
+    return () => clearTimeout(t);
+  }, [party.id, latestMessageId]);
+
+  // 방을 나갈 때(언마운트) 한 번 더 읽음 처리 — 디바운스 때문에 미처 못 보낸 직전
+  // 메시지까지 확실히 읽음으로 만든다. 나간 뒤 BottomNav 구독이 배지를 곧 갱신한다.
+  useEffect(() => {
+    return () => {
+      void markChatRead(party.id);
+    };
+  }, [party.id]);
+
   // F203 4단계 + 종결 상태. derivePhase는 영수증/반띵 시간을 함께 본다.
   const phase = derivePhase({
     status: party.status,
@@ -116,19 +150,25 @@ export function PartyChatContainer({
     dealAt: party.deal_at,
     now: new Date(nowMs),
   });
-  const isReadOnly = phase === "completed" || phase === "cancelled";
+  // 메시지 전송 잠금은 'cancelled'만. 'completed' 후에도 평가/소통은 가능.
+  // 단, 호스트 액션(영수증 등록·거래 완료 버튼 등)은 isPostTrade로 별도 잠금.
+  const isReadOnly = phase === "cancelled";
+  const isPostTrade = phase === "completed" || phase === "cancelled";
 
-  // 띵동 활성화: deal_at - 15분 ~ deal_at + 60분
-  // [TEMP-DEV] 테스트 위해 30일로 확장. 운영 전 원복:
-  //   nowMs >= dealMs - 15 * 60 * 1000 && nowMs <= dealMs + 60 * 60 * 1000
+  // 띵동 CTA 정책 — 우측 하단 플로팅 벨 아이콘:
+  //   - 노출: 거래 1시간 전 ~ 거래시간 +1시간 (그 외/완료·취소는 미노출)
+  //   - 비활성(흐린 회색): 거래 1시간 전 ~ 15분 전 → 탭 시 안내 툴팁
+  //   - 활성: 거래 15분 전 ~ +1시간 → 탭 시 띵동 전송
   const dealMs = new Date(party.deal_at).getTime();
-  const DOORBELL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-  const doorbellActive =
+  const DOORBELL_LEAD_MS = 15 * 60 * 1000; // 거래 15분 전(활성 시작)
+  const DOORBELL_WINDOW_MS = 60 * 60 * 1000; // 1시간(노출 범위)
+  const doorbellShown =
     !!chatRoom &&
-    nowMs >= dealMs - DOORBELL_WINDOW_MS &&
-    nowMs <= dealMs + DOORBELL_WINDOW_MS &&
     party.status !== "completed" &&
-    party.status !== "cancelled";
+    party.status !== "cancelled" &&
+    nowMs >= dealMs - DOORBELL_WINDOW_MS &&
+    nowMs <= dealMs + DOORBELL_WINDOW_MS;
+  const doorbellEnabled = nowMs >= dealMs - DOORBELL_LEAD_MS; // 15분 전부터 활성
 
   // 띵동 쿨다운 카운트다운 (1초마다 -1, 0이면 정지)
   useEffect(() => {
@@ -139,8 +179,9 @@ export function PartyChatContainer({
 
   async function handleRingDoorbell() {
     if (doorbellCooldown > 0) return;
-    // 쿨다운 즉시 시작 (서버 에러 와도 5초 잠금 — 도배 방지 일관성)
-    setDoorbellCooldown(5);
+    // 전송 즉시 '전송 완료' 상태 + 60초 잠금(중복 전송 방지). 이후 '다시 보내기' 노출.
+    setDoorbellSent(true);
+    setDoorbellCooldown(60);
     const res = await ringDoorbell(party.id);
     if (!res.ok) alert(res.error);
   }
@@ -584,7 +625,7 @@ export function PartyChatContainer({
           pickupLocationName={pickupLocationName}
           isHost={isHost}
           onVerifyReceipt={
-            isHost && !isReadOnly ? () => setReceiptOpen(true) : undefined
+            isHost && !isPostTrade ? () => setReceiptOpen(true) : undefined
           }
         />
 
@@ -672,7 +713,10 @@ export function PartyChatContainer({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    // relative — AvocadoNotice FAB/말풍선이 absolute로 우하단에 정렬되도록.
+    // flex-1 — h-full 대신 사용. 부모 flex-col 체인에서 가용 높이 안정적으로 채움
+    // (이전 h-full은 일부 케이스에서 컨텐츠 높이로만 줄어 input bar가 중앙 부근에 떠 있었음).
+    <div className="relative flex flex-1 flex-col">
       <ChatHeader
         party={party}
         participants={participantProfiles}
@@ -690,29 +734,41 @@ export function PartyChatContainer({
               }
             : undefined
         }
+        quickChips={
+          <ChatQuickChips
+            onGuide={() => router.push("/guide" as any)}
+            onReceipt={() => (isHost ? setReceiptOpen(true) : setReceiptViewOpen(true))}
+            onSettlement={() => setCardOpen(true)}
+          />
+        }
+        notice={
+          <>
+            {/* 영수증 인증 관련 안내는 상단 '영수증 인증' 칩/요청 흐름으로 대체 → 배너 제거 */}
+            {(phase === "verified" || phase === "review_pending") && !isHost && (
+              <ActionBanner
+                tone="info"
+                icon="check"
+                title="거래를 완료해주세요"
+                description="주문 내역과 결제 금액이 맞는지 확인하고 후기를 작성하면 거래가 완료됩니다."
+                actionLabel="거래 완료"
+                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
+              />
+            )}
+            {phase === "completed" && (
+              <ActionBanner
+                tone="info"
+                icon="check"
+                title="거래가 완료되었어요"
+                description="함께한 분들에게 후기를 남겨보세요. 이미 작성했다면 후기를 다시 볼 수 있어요."
+                actionLabel="거래 후기 작성"
+                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
+              />
+            )}
+          </>
+        }
       />
 
-      {/* 정보 카드 자리 — '반띵 카드 보기' + 호스트 전용 '주문 인증' 가로 병렬. */}
-      <section className="flex items-center gap-2 border-b border-black/[0.06] bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setCardOpen(true)}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand/10 px-4 py-3 text-[14px] font-semibold text-brand transition-colors active:bg-brand/15"
-        >
-          <span aria-hidden>🪪</span>
-          <span>반띵 카드 보기</span>
-        </button>
-        {isHost && !isReadOnly && (
-          <button
-            type="button"
-            onClick={() => setReceiptOpen(true)}
-            className="flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-3 text-[14px] font-semibold text-white transition-opacity active:opacity-80"
-          >
-            <span aria-hidden>🧾</span>
-            <span>주문 인증</span>
-          </button>
-        )}
-      </section>
+      {/* 반띵 카드 보기 / 영수증 인증은 상단 칩으로 일원화 → 하단 섹션 제거 */}
 
       <ChatTimeline
         items={items}
@@ -723,6 +779,9 @@ export function PartyChatContainer({
         reads={reads}
         scrollAnchorRef={scrollAnchorRef}
         onOpenTransactionCard={() => setCardOpen(true)}
+        onShowGuide={() => router.push("/guide" as any)}
+        onShowDoorbell={() => router.push("/guide/doorbell" as any)}
+        onUploadReceipt={() => setReceiptOpen(true)}
         onChangePickup={
           isHost
             ? async (input) => {
@@ -764,55 +823,14 @@ export function PartyChatContainer({
         }
       />
 
-      {/* 단계별 액션 안내 — 호스트가 영수증을 등록하거나 모두가 평가를 제출하도록 유도. */}
-      {phase === "verify_pending" && isHost && (
-        <ActionBanner
-          tone="warning"
-          icon="receipt"
-          title="주문 내역을 인증해주세요"
-          description="반띵 시간이 다가왔어요. 영수증 또는 결제 내역을 등록하면 거래 확인 단계로 넘어갑니다."
-          actionLabel="영수증 등록"
-          onAction={() => setReceiptOpen(true)}
-        />
-      )}
-      {phase === "verify_pending" && !isHost && (
-        <ActionBanner
-          tone="warning"
-          icon="receipt"
-          title="호스트의 주문 내역 인증을 기다리고 있어요"
-          description="반띵 시간이 다가왔어요. 호스트가 영수증을 등록하면 거래 확인 단계로 넘어갑니다."
-        />
-      )}
-      {phase === "review_pending" && (
-        <ActionBanner
-          tone="info"
-          icon="check"
-          title="반띵 시간이에요"
-          description={
-            isHost
-              ? "거래를 완료하고 함께한 분들을 평가해주세요."
-              : "거래를 확인하고 함께한 분들을 평가해주세요."
-          }
-          actionLabel={isHost ? "거래 완료" : "평가하기"}
-          onAction={() => setCompleteOpen(true)}
-        />
-      )}
-
-      {/* 띵동 — 거래 시각 ±윈도우 내에서만 활성. 호스트는 전원 broadcast, 참여자는 호스트에게만. */}
-      {doorbellActive && (
-        <ActionBanner
-          tone="info"
-          icon="check"
-          title="이제 띵동할 수 있어요"
-          description={
-            isHost
-              ? "다 모였으면 모든 멤버에게 띵동을 보내 위치를 알려주세요."
-              : "현장에 도착했으면 호스트에게 띵동을 보내세요."
-          }
-          actionLabel={
-            doorbellCooldown > 0 ? `다시 띵동까지 ${doorbellCooldown}초` : "🔔 띵동하기"
-          }
-          onAction={doorbellCooldown > 0 ? () => {} : handleRingDoorbell}
+      {/* 띵동 CTA — 우측 하단 플로팅 벨 아이콘 (비활성/활성/전송완료). 호스트는 전원, 참여자는 호스트에게. */}
+      {doorbellShown && (
+        <DoorbellCta
+          enabled={doorbellEnabled}
+          sent={doorbellSent}
+          cooldown={doorbellCooldown}
+          isHost={isHost}
+          onRing={handleRingDoorbell}
         />
       )}
 
@@ -823,10 +841,20 @@ export function PartyChatContainer({
         readOnlyHint={readOnlyHint}
       />
 
+      {/* 아보카도 안내는 플로팅 팝업 대신 타임라인 봇 카드(AvocadoBotCard)로 일원화. */}
+
       <ReceiptSheet
         open={receiptOpen}
         onClose={() => setReceiptOpen(false)}
         onSubmit={handleSubmitReceipt}
+      />
+
+      <ReceiptViewSheet
+        open={receiptViewOpen}
+        onClose={() => setReceiptViewOpen(false)}
+        receipt={receipts.length ? receipts[receipts.length - 1] : null}
+        participantCount={members.length}
+        onRequest={() => requestReceipt(party.id)}
       />
 
       <CompleteSheet

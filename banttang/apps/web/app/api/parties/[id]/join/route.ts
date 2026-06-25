@@ -9,7 +9,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
 
     const { data: party, error: pe } = await sb
       .from("parties")
-      .select("id, host_id, max_participants, status")
+      .select("id, host_id, max_participants, status, is_ai_pick")
       .eq("id", params.id)
       .maybeSingle();
     if (pe || !party) return NextResponse.json({ error: "주문 없음" }, { status: 404 });
@@ -31,17 +31,21 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
     if (occupied.some((p: any) => p.user_id === me.id))
       return NextResponse.json({ error: "이미 신청함" }, { status: 400 });
 
+    // AI 추천 방은 호스트(시스템 계정)가 승인할 수 없으므로 자동 승인한다.
+    // 정원이 차면 on_participant_approved 트리거가 마감 + 채팅방 오픈을 처리.
+    const isAiPick = Boolean((party as { is_ai_pick?: boolean }).is_ai_pick);
     const { error: ie } = await sb.from("party_participants").insert({
       party_id: params.id,
       user_id: me.id,
-      status: "pending",
+      status: isAiPick ? "approved" : "pending",
       is_host: false,
+      approved_at: isAiPick ? new Date().toISOString() : null,
     });
     if (ie) return NextResponse.json({ error: ie.message }, { status: 500 });
 
-    // 호스트에게 인앱 알림 (정원이 다 찼을 때)
+    // 일반 방: 호스트에게 인앱 알림 (정원이 다 찼을 때). AI 방은 호스트가 없어 생략.
     const newOccupied = occupied.length + 1;
-    if (newOccupied >= (party.max_participants as number)) {
+    if (!isAiPick && newOccupied >= (party.max_participants as number)) {
       await sb.from("notifications").insert({
         user_id: party.host_id,
         type: "application_received",
@@ -52,7 +56,10 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       });
     }
 
-    return NextResponse.json({ ok: true, waitingForHost: newOccupied >= party.max_participants });
+    return NextResponse.json({
+      ok: true,
+      waitingForHost: !isAiPick && newOccupied >= party.max_participants,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

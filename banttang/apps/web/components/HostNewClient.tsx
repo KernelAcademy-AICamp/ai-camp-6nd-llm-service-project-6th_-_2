@@ -54,9 +54,20 @@ function getSplitModeDesc(mode: SplitMode, tab: "delivery" | "shopping"): string
 export function HostNewClient({
   userAddress,
   userCoords,
+  initialStoreName,
+  initialTab,
+  initialLink,
+  initialImageUrl,
+  initialPrice,
 }: {
   userAddress: string | null;
   userCoords: Coords;
+  // 스토어 카드의 "반띵" 버튼에서 넘어올 때 프리필.
+  initialStoreName?: string;
+  initialTab?: "delivery" | "shopping"; // 쇼핑 카드 → 장보기 탭
+  initialLink?: string; // 쇼핑 카드 → 장보기 "링크" 필드(=menu)
+  initialImageUrl?: string; // 카드 이미지 → 상품 사진으로 프리필(프록시 경유)
+  initialPrice?: number; // 추천 방 카드 → 1인 가격 프리필
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -67,13 +78,20 @@ export function HostNewClient({
   })();
 
   // 상단 탭: 배달 / 장보기. DB의 category enum에 매핑 (장보기→offline_shopping).
-  const [tab, setTab] = useState<"delivery" | "shopping">("delivery");
+  const [tab, setTab] = useState<"delivery" | "shopping">(initialTab ?? "delivery");
   const category: "delivery" | "offline_shopping" = tab === "delivery" ? "delivery" : "offline_shopping";
 
-  const [splitMode, setSplitMode] = useState<SplitMode | null>(null);
-  const [storeName, setStoreName] = useState("");
-  const [menu, setMenu] = useState(""); // single_order: 대표 메뉴
-  const [price, setPrice] = useState(8000);
+  // 반띵 버튼 진입(가게/상품 프리필)이면 "같은 것 나눠요"(single_order)를 기본 선택.
+  const [splitMode, setSplitMode] = useState<SplitMode | null>(
+    initialStoreName ? "single_order" : null,
+  );
+  // 위저드 단계: 1=음식/장보기, 2=같은것/각자, 3=상세 작성.
+  // 상품 카드에서 프리필로 진입하면(종류·방식 이미 정해짐) 바로 작성 단계로.
+  const [step, setStep] = useState<1 | 2 | 3>(initialStoreName ? 2 : 1);
+  const [storeName, setStoreName] = useState(initialStoreName ?? "");
+  // single_order: 배달=대표 메뉴 / 장보기=링크. 쇼핑 카드 반띵이면 링크 프리필.
+  const [menu, setMenu] = useState(initialLink ?? "");
+  const [price, setPrice] = useState(initialPrice ?? 8000);
   // individual_items 전용: 최소주문금액·배송비 분담 항목
   const [hasMinOrder, setHasMinOrder] = useState(false);
   const [minOrderAmount, setMinOrderAmount] = useState(0);
@@ -90,6 +108,30 @@ export function HostNewClient({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 반띵 진입 시 카드 이미지를 상품 사진으로 1회 프리필 (프록시로 CORS 회피 → File 변환).
+  const imagePrefilledRef = useRef(false);
+  useEffect(() => {
+    if (!initialImageUrl || imagePrefilledRef.current) return;
+    imagePrefilledRef.current = true;
+    (async () => {
+      try {
+        const res = await fetch(`/api/image-proxy?url=${encodeURIComponent(initialImageUrl)}`);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        if (!PHOTO_ACCEPTED.includes(blob.type) || blob.size > PHOTO_MAX_BYTES) return;
+        const ext = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+        const file = new File([blob], `store-banner.${ext}`, { type: blob.type });
+        setPhotos((prev) => (prev.length >= MAX_PHOTOS ? prev : [...prev, file]));
+        setPhotoPreviews((prev) =>
+          prev.length >= MAX_PHOTOS ? prev : [...prev, URL.createObjectURL(file)],
+        );
+      } catch {
+        // 사진 프리필 실패는 흐름을 막지 않음
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialImageUrl]);
 
   function handlePhotoAdd(e: ChangeEvent<HTMLInputElement>) {
     setPhotoError(null);
@@ -172,6 +214,21 @@ export function HostNewClient({
     return true;
   })();
 
+  // 2단계(상품 정보)까지 필수 입력이 채워졌는지 — '다음으로' 활성화 기준.
+  const step2Valid = (() => {
+    if (!splitMode) return false;
+    if (!storeName.trim()) return false;
+    if (splitMode === "single_order") {
+      if (category === "delivery" && !menu.trim()) return false;
+      if (price <= 0) return false;
+    } else {
+      const min = hasMinOrder && minOrderAmount > 0;
+      const del = hasDelivery && deliveryAmount > 0;
+      if (!min && !del) return false;
+    }
+    return true;
+  })();
+
   async function submit() {
     if (!isValid) return;
     // individual_items: 선택된 항목으로 representative_menu 구성
@@ -221,58 +278,125 @@ export function HostNewClient({
     }
 
     setBusy(false);
-    router.push(`/feed/${j.id}`);
+    // ?created=1 → 상세 페이지에서 호스트한테만 "확인" 버튼을 한 번 노출.
+    router.push(`/feed/${j.id}?created=1` as any);
     router.refresh();
   }
 
   return (
     <div className="flex flex-col gap-4 p-4 pb-32">
-      <h1 className="text-lg font-bold">반띵 주문 만들기</h1>
+      <h1 className="text-lg font-bold">띵동 만들기</h1>
 
-      {/* 상단 탭: 배달 / 장보기 */}
-      <div className="flex rounded-xl bg-white p-1 shadow-sm">
-        {[
-          { v: "delivery", label: "🍕 배달 음식" },
-          { v: "shopping", label: "🛒 장보기" },
-        ].map((t) => (
-          <button
-            key={t.v}
-            onClick={() => setTab(t.v as "delivery" | "shopping")}
-            className={cn(
-              "flex-1 rounded-lg py-2 text-sm font-medium",
-              tab === t.v ? "bg-brand text-white" : "text-zinc-500",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* 1단계: 주문 유형 + 방식 */}
+      {step === 1 && (
+        <section className="flex flex-col gap-5">
+          <div>
+            <span className="inline-block rounded-full bg-zinc-100 px-3 py-1 text-[12px] font-semibold text-zinc-500">
+              1 / 3단계
+            </span>
+            <h2 className="mt-3 text-[22px] font-extrabold leading-snug text-zinc-900">
+              주문 방식을
+              <br />
+              선택해 주세요
+            </h2>
+            <p className="mt-2 text-[14px] text-zinc-500">
+              함께 주문할 유형과 방식을 선택해 주세요.
+            </p>
+          </div>
 
-      {/* 반띵 방식 선택 */}
-      <section className="rounded-2xl bg-white p-4 shadow-sm">
-        <Label>반띵 방식</Label>
-        <div className="mt-2 flex flex-col gap-2">
-          {getSplitModes(tab).map((m) => (
-            <button
-              key={m.v}
-              onClick={() => setSplitMode(m.v)}
-              className={cn(
-                "rounded-xl border p-3 text-left",
-                splitMode === m.v ? "border-brand bg-brand-50" : "border-zinc-200",
-              )}
-            >
-              <div className="font-medium">
-                {m.emoji} {m.title}
-              </div>
-              <div className="mt-0.5 text-xs text-zinc-500">{getSplitModeDesc(m.v, tab)}</div>
-            </button>
-          ))}
-        </div>
-      </section>
+          {/* 주문 유형 */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[15px] font-bold text-zinc-900">주문 유형</p>
+              <span className="text-[12px] font-semibold text-zinc-400">필수</span>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { v: "shopping", emoji: "🛒", title: "공동구매" },
+                { v: "delivery", emoji: "🍗", title: "배달 음식" },
+              ].map((c) => (
+                <button
+                  key={c.v}
+                  type="button"
+                  onClick={() => setTab(c.v as "delivery" | "shopping")}
+                  className={cn(
+                    "flex flex-col items-center gap-2 rounded-2xl border-2 bg-white py-6 shadow-sm transition active:scale-[0.99]",
+                    tab === c.v ? "border-brand bg-brand-50" : "border-zinc-200",
+                  )}
+                >
+                  <span className="text-3xl" aria-hidden>{c.emoji}</span>
+                  <span className="text-[16px] font-bold text-zinc-900">{c.title}</span>
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {/* 분기된 입력 단계 — splitMode 선택 후에만 노출 */}
-      {splitMode && (
+          {/* 어떤 방식으로 주문할까요? */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[15px] font-bold text-zinc-900">어떤 방식으로 주문할까요?</p>
+              <span className="text-[12px] font-semibold text-zinc-400">필수</span>
+            </div>
+            <div className="flex flex-col gap-3">
+              {[
+                {
+                  v: "single_order" as SplitMode,
+                  emoji: "📦",
+                  title: "같은 상품 나누기",
+                  desc: "같은 상품이나 메뉴를 함께 주문하고 나눠요",
+                },
+                {
+                  v: "individual_items" as SplitMode,
+                  emoji: "🧺",
+                  title: "각자 담아 주문하기",
+                  desc: "각자 원하는 걸 담고 배송비·최소주문금액을 같이 맞춰요",
+                },
+              ].map((m) => (
+                <button
+                  key={m.v}
+                  type="button"
+                  onClick={() => setSplitMode(m.v)}
+                  className={cn(
+                    "flex items-center gap-3 rounded-2xl border-2 bg-white p-4 text-left shadow-sm transition active:scale-[0.99]",
+                    splitMode === m.v ? "border-brand bg-brand-50" : "border-zinc-200",
+                  )}
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-2xl" aria-hidden>
+                    {m.emoji}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold text-zinc-900">{m.title}</span>
+                    <span className="mt-0.5 block text-[12px] leading-snug text-zinc-500">{m.desc}</span>
+                  </span>
+                  <span
+                    className={cn(
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2",
+                      splitMode === m.v ? "border-brand bg-brand text-white" : "border-zinc-300",
+                    )}
+                    aria-hidden
+                  >
+                    {splitMode === m.v && (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                        <path d="M5 12l4 4 10-10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* 2단계: 상품 정보 */}
+      {step === 2 && splitMode && (
         <>
+          <StepBack
+            onClick={() => setStep(1)}
+            label={`${tab === "delivery" ? "배달 음식" : "공동구매"} · ${
+              splitMode === "single_order" ? "같은 상품 나누기" : "각자 담아 주문하기"
+            }`}
+          />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>상품 사진 (선택, 최대 {MAX_PHOTOS}장)</Label>
             <p className="mt-1 text-[11px] text-zinc-500">
@@ -341,6 +465,7 @@ export function HostNewClient({
               price={price}
               setPrice={setPrice}
               category={category}
+              userCoords={userCoords}
             />
           ) : (
             <IndividualItemsFields
@@ -355,9 +480,16 @@ export function HostNewClient({
               setHasDelivery={setHasDelivery}
               deliveryAmount={deliveryAmount}
               setDeliveryAmount={setDeliveryAmount}
+              userCoords={userCoords}
             />
           )}
+        </>
+      )}
 
+      {/* 3단계: 모집 조건 */}
+      {step === 3 && splitMode && (
+        <>
+          <StepBack onClick={() => setStep(2)} label="상품 정보" />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>반띵 인원</Label>
             <div className="mt-2 flex items-center justify-center gap-6">
@@ -538,16 +670,105 @@ export function HostNewClient({
         </>
       )}
 
-      <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
-        <button
-          onClick={submit}
-          disabled={busy || !isValid}
-          className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
-        >
-          {busy ? "등록 중…" : "반띵 등록하기"}
-        </button>
-      </div>
+      {/* 하단 고정 액션 버튼 — 단계별 */}
+      {step === 1 && (
+        <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
+          <button
+            onClick={() => splitMode && setStep(2)}
+            disabled={!splitMode}
+            className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
+          >
+            다음으로
+          </button>
+        </div>
+      )}
+      {step === 2 && (
+        <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
+          <button
+            onClick={() => step2Valid && setStep(3)}
+            disabled={!step2Valid}
+            className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
+          >
+            다음으로
+          </button>
+        </div>
+      )}
+      {step === 3 && (
+        <div className="fixed bottom-16 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-200 bg-white p-3">
+          <button
+            onClick={submit}
+            disabled={busy || !isValid}
+            className="w-full rounded-xl bg-brand py-3 font-semibold text-white shadow-sm disabled:opacity-50"
+          >
+            {busy ? "등록 중…" : "띵동 등록하기"}
+          </button>
+        </div>
+      )}
     </div>
+  );
+}
+
+// ─── 위저드 보조 컴포넌트 ───
+function StepDots({ step }: { step: 1 | 2 | 3 }) {
+  const labels = ["유형·방식", "상품", "모집"];
+  return (
+    <div className="flex items-center gap-2 px-1">
+      {labels.map((l, i) => {
+        const n = (i + 1) as 1 | 2 | 3;
+        const active = step >= n;
+        return (
+          <div key={l} className="flex items-center gap-2">
+            <span
+              className={cn(
+                "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-bold",
+                active ? "bg-brand text-white" : "bg-zinc-200 text-zinc-400",
+              )}
+            >
+              {n}
+            </span>
+            <span
+              className={cn(
+                "text-[12px] font-semibold",
+                step === n ? "text-zinc-900" : "text-zinc-400",
+              )}
+            >
+              {l}
+            </span>
+            {i < labels.length - 1 && <span className="h-px w-4 bg-zinc-200" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StepBack({ onClick, label }: { onClick: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-fit items-center gap-1 rounded-full bg-zinc-100 py-1.5 pl-2 pr-3 text-[13px] font-semibold text-zinc-600 active:bg-zinc-200"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {label}
+    </button>
+  );
+}
+
+function StepChevron() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      className="shrink-0 text-zinc-300"
+      aria-hidden
+    >
+      <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -559,8 +780,9 @@ function SingleOrderFields(props: {
   price: number;
   setPrice: (v: number) => void;
   category: string;
+  userCoords: Coords;
 }) {
-  const { storeName, setStoreName, menu, setMenu, price, setPrice, category } = props;
+  const { storeName, setStoreName, menu, setMenu, price, setPrice, category, userCoords } = props;
   const isDelivery = category === "delivery";
   return (
     <>
@@ -571,6 +793,8 @@ function SingleOrderFields(props: {
             value={storeName}
             onChange={setStoreName}
             onSelectPlace={setStoreName}
+            centerLat={userCoords.lat}
+            centerLng={userCoords.lng}
           />
         ) : (
           <input
@@ -620,6 +844,7 @@ function IndividualItemsFields(props: {
   setHasDelivery: (v: boolean) => void;
   deliveryAmount: number;
   setDeliveryAmount: (v: number) => void;
+  userCoords: Coords;
 }) {
   const {
     storeName,
@@ -633,6 +858,7 @@ function IndividualItemsFields(props: {
     setHasDelivery,
     deliveryAmount,
     setDeliveryAmount,
+    userCoords,
   } = props;
   const isDelivery = category === "delivery";
   return (
@@ -643,6 +869,8 @@ function IndividualItemsFields(props: {
           value={storeName}
           onChange={setStoreName}
           onSelectPlace={setStoreName}
+          centerLat={userCoords.lat}
+          centerLng={userCoords.lng}
         />
       ) : (
         <input
@@ -846,10 +1074,15 @@ function StoreNameSearchInput({
   value,
   onChange,
   onSelectPlace,
+  centerLat,
+  centerLng,
 }: {
   value: string;
   onChange: (v: string) => void;
   onSelectPlace: (placeName: string) => void;
+  /** 사용자 위치 — Kakao keywordSearch에 location+radius로 넘겨 근처 결과 우선. */
+  centerLat?: number;
+  centerLng?: number;
 }) {
   const sdk = useKakaoSdk();
   const ready = sdk.status === "ready";
@@ -871,6 +1104,20 @@ function StoreNameSearchInput({
     debounceRef.current = window.setTimeout(() => {
       setSearching(true);
       const places = new window.kakao.maps.services.Places();
+      // 사용자 위치 기반 — 반경 5km(5000m) 내로 좁힘. 거리순 정렬.
+      const opts: Record<string, unknown> = {
+        category_group_code: "FD6", // 음식점
+        size: 15,
+      };
+      if (
+        typeof centerLat === "number" &&
+        typeof centerLng === "number" &&
+        window.kakao?.maps?.LatLng
+      ) {
+        opts.location = new window.kakao.maps.LatLng(centerLat, centerLng);
+        opts.radius = 5000;
+        opts.sort = window.kakao.maps.services?.SortBy?.DISTANCE;
+      }
       places.keywordSearch(
         q,
         (data: any[], status: any) => {
@@ -887,14 +1134,13 @@ function StoreNameSearchInput({
             })),
           );
         },
-        // 음식 카테고리로 좁힘 (FD6 = 음식점)
-        { category_group_code: "FD6" },
+        opts,
       );
     }, 300);
     return () => {
       if (debounceRef.current) window.clearTimeout(debounceRef.current);
     };
-  }, [value, ready]);
+  }, [value, ready, centerLat, centerLng]);
 
   return (
     <div className="relative mt-2">
@@ -915,27 +1161,40 @@ function StoreNameSearchInput({
         </span>
       )}
       {showDropdown && results.length > 0 && (
-        <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-xl border border-zinc-200 bg-white shadow-lg">
-          {results.map((r, i) => (
-            <li key={i} className="border-b border-zinc-100 last:border-0">
-              <button
-                type="button"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onSelectPlace(r.name);
-                  setShowDropdown(false);
-                }}
-                className="block w-full px-3 py-2 text-left hover:bg-brand-50"
-              >
-                <div className="text-sm font-medium">{r.name}</div>
-                <div className="text-[11px] text-zinc-500">
-                  {r.category && <span className="mr-1">{r.category} ·</span>}
-                  {r.address}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 flex max-h-64 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+          <ul className="flex-1 overflow-y-auto">
+            {results.map((r, i) => (
+              <li key={i} className="border-b border-zinc-100 last:border-0">
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onSelectPlace(r.name);
+                    setShowDropdown(false);
+                  }}
+                  className="block w-full px-3 py-2 text-left hover:bg-brand-50"
+                >
+                  <div className="text-sm font-medium">{r.name}</div>
+                  <div className="text-[11px] text-zinc-500">
+                    {r.category && <span className="mr-1">{r.category} ·</span>}
+                    {r.address}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+          {/* 하단 sticky 닫기 — 선택하지 않고도 드롭다운을 닫고 폼으로 돌아갈 수 있게. */}
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              setShowDropdown(false);
+            }}
+            className="shrink-0 border-t border-zinc-100 bg-zinc-50 py-2.5 text-center text-[13px] font-semibold text-zinc-600 active:bg-zinc-100"
+          >
+            닫기
+          </button>
+        </div>
       )}
     </div>
   );

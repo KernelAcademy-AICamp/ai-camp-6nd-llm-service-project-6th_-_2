@@ -1,0 +1,166 @@
+import { getServiceClient } from "./supabase/admin";
+import type {
+  CommunityCategory,
+  CommunityCommentRow,
+  CommunityPostRow,
+} from "./types";
+
+// 커뮤니티 조회 모듈.
+// 권한(같은 동네만)은 RLS에도 선언돼 있지만, 다른 도메인과 마찬가지로
+// 서버에선 admin 클라이언트(RLS 우회)를 쓰므로 neighborhood_id 필터를 명시적으로 건다.
+// 호출부는 반드시 "본인 neighborhood_id"를 넘겨야 한다.
+
+const BUCKET = "community-photos";
+
+function publicUrls(paths: string[] | null): string[] {
+  if (!paths?.length) return [];
+  const sb = getServiceClient();
+  return paths.map(
+    (p) => sb.storage.from(BUCKET).getPublicUrl(p).data.publicUrl,
+  );
+}
+
+type AuthorRow = {
+  id: string;
+  nickname: string;
+  level: "dandelion" | "tree" | "king";
+};
+
+/** 같은 동네 게시글 목록. category·residence로 추가 필터 가능. */
+export async function listCommunityPosts(opts: {
+  neighborhoodId: string;
+  viewerId: string;
+  category?: CommunityCategory;
+  /** 지정 시 같은 거주지(건물) 글만. "거주지 탭"용. */
+  residence?: string;
+}): Promise<CommunityPostRow[]> {
+  const sb = getServiceClient();
+  let q = sb
+    .from("community_posts")
+    .select(
+      "id, neighborhood_id, category, title, body, image_paths, like_count, comment_count, created_at, author:profiles!community_posts_author_id_fkey(id, nickname, level)",
+    )
+    .eq("neighborhood_id", opts.neighborhoodId)
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (opts.category) q = q.eq("category", opts.category);
+  if (opts.residence) q = q.eq("residence", opts.residence);
+
+  const { data } = await q;
+  const rows = (data ?? []) as any[];
+  if (rows.length === 0) return [];
+
+  const likedSet = await fetchLikedPostIds(
+    opts.viewerId,
+    rows.map((r) => r.id),
+  );
+
+  return rows.map((r) => toPostRow(r, likedSet.has(r.id)));
+}
+
+/** 단일 게시글 (조회자가 같은 동네가 아니면 null). */
+export async function getCommunityPost(
+  postId: string,
+  viewerNeighborhoodId: string | null,
+  viewerId: string,
+): Promise<CommunityPostRow | null> {
+  const sb = getServiceClient();
+  const { data } = await sb
+    .from("community_posts")
+    .select(
+      "id, neighborhood_id, category, title, body, image_paths, like_count, comment_count, created_at, author:profiles!community_posts_author_id_fkey(id, nickname, level)",
+    )
+    .eq("id", postId)
+    .maybeSingle();
+  if (!data) return null;
+  const row = data as any;
+  // 같은 동네가 아니면 접근 불가
+  if (!viewerNeighborhoodId || row.neighborhood_id !== viewerNeighborhoodId)
+    return null;
+
+  const likedSet = await fetchLikedPostIds(viewerId, [row.id]);
+  return toPostRow(row, likedSet.has(row.id));
+}
+
+/** 게시글 댓글 목록 (오래된 순). */
+export async function listComments(
+  postId: string,
+  viewerId: string,
+): Promise<CommunityCommentRow[]> {
+  const sb = getServiceClient();
+  const { data } = await sb
+    .from("community_comments")
+    .select(
+      "id, post_id, parent_id, body, like_count, created_at, author:profiles!community_comments_author_id_fkey(id, nickname, level)",
+    )
+    .eq("post_id", postId)
+    .order("created_at", { ascending: true });
+
+  const rows = (data ?? []) as any[];
+  if (rows.length === 0) return [];
+
+  const { data: likes } = await sb
+    .from("community_comment_likes")
+    .select("comment_id")
+    .eq("user_id", viewerId)
+    .in(
+      "comment_id",
+      rows.map((r) => r.id),
+    );
+  const likedSet = new Set(
+    ((likes ?? []) as { comment_id: string }[]).map((l) => l.comment_id),
+  );
+
+  return rows.map((r) => ({
+    id: r.id,
+    post_id: r.post_id,
+    parent_id: r.parent_id ?? null,
+    author: normalizeAuthor(r.author),
+    body: r.body,
+    like_count: r.like_count,
+    liked_by_me: likedSet.has(r.id),
+    created_at: r.created_at,
+  }));
+}
+
+// ── 내부 헬퍼 ────────────────────────────────────────────────
+
+async function fetchLikedPostIds(
+  viewerId: string,
+  postIds: string[],
+): Promise<Set<string>> {
+  if (postIds.length === 0) return new Set();
+  const sb = getServiceClient();
+  const { data } = await sb
+    .from("community_post_likes")
+    .select("post_id")
+    .eq("user_id", viewerId)
+    .in("post_id", postIds);
+  return new Set(((data ?? []) as { post_id: string }[]).map((l) => l.post_id));
+}
+
+// Supabase 조인은 author를 객체 또는 배열로 줄 수 있어 정규화.
+function normalizeAuthor(a: AuthorRow | AuthorRow[] | null) {
+  const author = (Array.isArray(a) ? a[0] : a) ?? null;
+  return {
+    id: author?.id ?? "",
+    nickname: author?.nickname ?? "(탈퇴한 이웃)",
+    level: author?.level ?? "dandelion",
+  };
+}
+
+function toPostRow(r: any, likedByMe: boolean): CommunityPostRow {
+  return {
+    id: r.id,
+    neighborhood_id: r.neighborhood_id,
+    author: normalizeAuthor(r.author),
+    category: r.category,
+    title: r.title,
+    body: r.body,
+    image_urls: publicUrls(r.image_paths),
+    like_count: r.like_count,
+    comment_count: r.comment_count,
+    liked_by_me: likedByMe,
+    created_at: r.created_at,
+  };
+}

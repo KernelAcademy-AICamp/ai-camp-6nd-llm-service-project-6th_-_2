@@ -43,6 +43,23 @@ export function formatKrw(amount: number): string {
   return new Intl.NumberFormat("ko-KR").format(amount) + "원";
 }
 
+// "방금 전" / "5분 전" / "3시간 전" / "어제" / "3일 전" / "MM. DD."
+// 커뮤니티 피드/댓글의 작성 시각 표시용.
+export function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  const diff = Date.now() - then;
+  const min = Math.floor(diff / 60000);
+  if (min < 1) return "방금 전";
+  if (min < 60) return `${min}분 전`;
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour}시간 전`;
+  const day = Math.floor(hour / 24);
+  if (day === 1) return "어제";
+  if (day < 7) return `${day}일 전`;
+  const { month, day: d } = kstParts(iso);
+  return `${pad2(month)}. ${pad2(d)}.`;
+}
+
 // 채팅 날짜 구분선 라벨: "오늘" / "어제" / "2026년 5월 19일 화요일"
 export function formatKstDateLabel(iso: string): string {
   const d = new Date(iso);

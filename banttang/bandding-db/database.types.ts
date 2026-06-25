@@ -21,6 +21,11 @@ export type Json =
 // ============================================================================
 export type Gender = 'female' | 'male' | 'prefer_not_to_say';
 export type UserLevel = 'dandelion' | 'tree' | 'king';
+export type PrimaryUsage =
+  | 'delivery_bulk'
+  | 'delivery_min'
+  | 'shopping_bulk'
+  | 'shopping_min';
 export type PartyCategory = 'delivery' | 'offline_shopping' | 'online_shopping';
 export type PartyStatus =
   | 'recruiting'
@@ -42,7 +47,9 @@ export type MessageType =
   | 'receipt_card'
   | 'payment_card';
 export type SystemEventType =
-  | 'party_closed'
+  | 'party_closed' // (deprecated) 거래방 오픈/퇴장이 섞여 있던 legacy 이벤트
+  | 'chat_opened' // 모집 완료 → 거래방 오픈
+  | 'member_left' // 파티원이 채팅방을 나감
   | 'pickup_location_set'
   | 'receipt_uploaded'
   | 'before_30min'
@@ -114,10 +121,15 @@ export interface Profile {
   total_review_count: number;
   no_show_count: number;
   is_beta_user: boolean;
+  is_admin: boolean;
   joined_at: string;
   last_active_at: string;
   created_at: string;
   updated_at: string;
+  // 온보딩 맞춤 추천 선호도 (20260609000001 마이그레이션)
+  primary_usage: PrimaryUsage | null;
+  favorite_malls: string[];
+  favorite_categories: string[];
 }
 
 export interface TermsAgreement {
@@ -312,6 +324,7 @@ type DefaultedProfile =
   | 'total_review_count'
   | 'no_show_count'
   | 'is_beta_user'
+  | 'is_admin'
   | 'joined_at'
   | 'last_active_at';
 type DefaultedParty =
@@ -349,6 +362,53 @@ export type NewPayment = Optional<
 >;
 
 // ============================================================================
+// 커뮤니티 (동네 게시판)
+// ============================================================================
+
+export type CommunityCategory = 'free' | 'question' | 'share' | 'info' | 'meetup';
+
+export interface CommunityPost {
+  id: string;
+  neighborhood_id: string;
+  author_id: string;
+  category: CommunityCategory;
+  title: string;
+  body: string;
+  image_paths: string[];
+  like_count: number;
+  comment_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommunityComment {
+  id: string;
+  post_id: string;
+  author_id: string;
+  body: string;
+  like_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CommunityPostLike {
+  post_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface CommunityCommentLike {
+  comment_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export type NewCommunityPost = Optional<
+  CommunityPost,
+  'id' | 'category' | 'image_paths' | 'like_count' | 'comment_count' | 'created_at' | 'updated_at'
+>;
+
+// ============================================================================
 // Supabase Database 인터페이스 (createClient<Database>()용)
 // ============================================================================
 
@@ -370,6 +430,10 @@ export interface Database {
       reports: { Row: Report; Insert: Partial<Report>; Update: Partial<Report> };
       notifications: { Row: Notification; Insert: Partial<Notification>; Update: Partial<Notification> };
       phase2_alerts: { Row: Phase2Alert; Insert: Partial<Phase2Alert>; Update: Partial<Phase2Alert> };
+      community_posts: { Row: CommunityPost; Insert: NewCommunityPost; Update: Partial<CommunityPost> };
+      community_comments: { Row: CommunityComment; Insert: Omit<CommunityComment, 'id' | 'like_count' | 'created_at' | 'updated_at'>; Update: Partial<CommunityComment> };
+      community_post_likes: { Row: CommunityPostLike; Insert: Omit<CommunityPostLike, 'created_at'>; Update: never };
+      community_comment_likes: { Row: CommunityCommentLike; Insert: Omit<CommunityCommentLike, 'created_at'>; Update: never };
     };
     Views: {
       v_parties_with_stats: { Row: PartyWithStats };
@@ -392,6 +456,7 @@ export interface Database {
       report_status: ReportStatus;
       notification_type: NotificationType;
       shopping_type: ShoppingType;
+      community_category: CommunityCategory;
     };
   };
 }

@@ -4,8 +4,8 @@
 // RLS는 parties_insert_own + participants_insert_self로 클라이언트 INSERT도 가능하지만,
 // 서버에서 묶어 처리해야 race-free + 일관된 검증/기본값 적용이 쉽다.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 export type PartyCategory = "delivery" | "offline_shopping" | "online_shopping";
 
@@ -27,10 +27,10 @@ export async function createParty(
 ): Promise<{ ok: true; partyId: string } | { ok: false; error: string }> {
   try {
     // 1) 인증
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
-    const userId = auth.user.id;
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
+
+    const admin = createAdminClient();
 
     // 2) 입력 검증
     if (!input.store_name || input.store_name.trim().length === 0) {
@@ -57,22 +57,22 @@ export async function createParty(
     }
 
     // 3) 프로필에서 neighborhood_id 가져오기 (스키마상 nullable이지만 parties.neighborhood_id는 NOT NULL)
-    const { data: profile, error: profErr } = await supabase
+    const { data: profile, error: profErr } = await admin
       .from("profiles")
       .select("neighborhood_id")
       .eq("id", userId)
       .maybeSingle();
     if (profErr) return { ok: false, error: `프로필 조회 실패: ${profErr.message}` };
+    // 모집글은 호스트가 설정한 동네에 속한다. 신림동 폴백 금지 — 없으면 온보딩을 먼저 유도.
     const neighborhoodId =
-      (profile as { neighborhood_id?: string | null } | null)?.neighborhood_id ??
-      "00000000-0000-0000-0000-000000000001"; // 신림동 seed fallback
+      (profile as { neighborhood_id?: string | null } | null)?.neighborhood_id ?? null;
+    if (!neighborhoodId) return { ok: false, error: "동네를 먼저 설정해 주세요." };
 
     // 4) deadline = deal_at - 1h (deal과 가까우면 deal과 동일)
     const deadlineMs = Math.max(dealMs - 60 * 60 * 1000, Date.now());
     const deadlineIso = new Date(deadlineMs).toISOString();
 
     // 5) parties INSERT (admin으로 묶어서: 트리거 + 참여자 row까지 한 번에)
-    const admin = createAdminClient();
     const partyRow = {
       host_id: userId,
       neighborhood_id: neighborhoodId,

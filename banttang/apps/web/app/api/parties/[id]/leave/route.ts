@@ -45,11 +45,17 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         .select("nickname")
         .eq("id", targetUserId)
         .maybeSingle();
+      // 호스트가 내보낸 경우(강퇴)와 본인 나가기를 문구·kind로 구분.
+      const kicked = targetUserId !== me.id;
+      const nick = profile?.nickname ?? "파티원";
       await sb.from("chat_messages").insert({
         room_id: room.id,
         type: "system",
-        system_event: "party_closed",
-        content: `${profile?.nickname ?? "파티원"} 님이 채팅방을 나갔어요.`,
+        system_event: "member_left",
+        content: kicked
+          ? `${nick} 님이 내보내졌어요.`
+          : `${nick} 님이 채팅방을 나갔어요.`,
+        metadata: { kind: kicked ? "member_kicked" : "member_left" },
       });
     }
 

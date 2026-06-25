@@ -73,8 +73,10 @@ export async function createConfirmedUser(input: {
     const baseNickname = (input.nickname || input.email.split("@")[0] || "user")
       .replace(/[^가-힣a-zA-Z0-9_]/g, "")
       .slice(0, 8) || "user";
-    const NEIGHBORHOOD_SEED = "00000000-0000-0000-0000-000000000001";
 
+    // neighborhood_id는 가입 시 비워둔다(온보딩에서 설정). 신림동 시드를 박으면
+    // 매 로그인 upsert마다 이미 설정한 동네가 신림동으로 리셋되므로 키 자체를 넣지 않는다.
+    // (upsert는 누락 컬럼을 갱신하지 않으므로 기존 값은 보존된다.)
     let nickname = baseNickname;
     let attempt = 0;
     let profErr: { code?: string; message?: string } | null = null;
@@ -84,7 +86,6 @@ export async function createConfirmedUser(input: {
           id: userId,
           nickname,
           gender: input.gender ?? "prefer_not_to_say",
-          neighborhood_id: NEIGHBORHOOD_SEED,
         },
         { onConflict: "id" },
       );

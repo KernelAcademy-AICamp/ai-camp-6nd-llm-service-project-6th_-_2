@@ -4,8 +4,8 @@
 // 호스트만, recruiting 상태 파티에서만 삭제 가능.
 // party_photos row + Storage object 둘 다 정리.
 
-import { createClient as createServerClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getAuthedUserId } from "@/lib/auth";
 
 export async function deletePartyPhoto(
   partyId: string,
@@ -16,9 +16,8 @@ export async function deletePartyPhoto(
       return { ok: false, error: "필수 인자 누락" };
     }
 
-    const supabase = createServerClient();
-    const { data: auth, error: authErr } = await supabase.auth.getUser();
-    if (authErr || !auth.user) return { ok: false, error: "로그인이 필요해요." };
+    const userId = await getAuthedUserId();
+    if (!userId) return { ok: false, error: "로그인이 필요해요." };
 
     const admin = createAdminClient();
     const { data: party } = await admin
@@ -27,11 +26,15 @@ export async function deletePartyPhoto(
       .eq("id", partyId)
       .maybeSingle();
     if (!party) return { ok: false, error: "파티를 찾을 수 없어요." };
-    if (party.host_id !== auth.user.id) {
+    if (party.host_id !== userId) {
       return { ok: false, error: "호스트만 사진을 삭제할 수 있어요." };
     }
-    if (party.status !== "recruiting" && party.status !== "closed") {
-      return { ok: false, error: "거래 시작 후엔 사진을 수정할 수 없어요." };
+    if (
+      party.status !== "recruiting" &&
+      party.status !== "closed" &&
+      party.status !== "in_progress"
+    ) {
+      return { ok: false, error: "완료/취소된 주문은 사진을 수정할 수 없어요." };
     }
 
     // party_photos row 먼저 삭제 (실패 시 Storage 손대지 않음)

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { StatusBadge } from "./StatusBadge";
 import { useKakaoSdk } from "@/lib/use-kakao-sdk";
 import {
@@ -11,7 +12,8 @@ import {
   formatKstShort,
   minutesUntil,
 } from "@/lib/party-status";
-import { partyPhotoUrl } from "@/lib/storage";
+import { PartyPhotosGallery } from "./PartyPhotosGallery";
+import { pushRecentViewed } from "./SearchPageClient";
 import type { DisplayStatus, PartyRow } from "@/lib/types";
 
 type Member = {
@@ -36,9 +38,55 @@ type Props = {
 
 export function PartyDetailClient({ me, party, members }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // 호스트가 방금 글 생성하고 진입한 경우만 "확인" 노출 (?created=1).
+  const justCreated = searchParams?.get("created") === "1";
+  const supabase = useMemo(() => createClient(), []);
   const [busy, setBusy] = useState(false);
   const [showJoinConfirm, setShowJoinConfirm] = useState(false);
   const [showHostAccept, setShowHostAccept] = useState(false);
+
+  // 진입 시 localStorage에 "최근 본 목록" 저장 — /feed/search에서 노출됨.
+  useEffect(() => {
+    pushRecentViewed({
+      id: party.id,
+      store_name: party.store_name,
+      photo_path: party.photo_paths?.[0] ?? null,
+      representative_menu: party.representative_menu ?? null,
+    });
+  }, [party.id, party.store_name, party.photo_paths, party.representative_menu]);
+
+  // 실시간 인원 카운트 — 누가 신청/승인/취소되면 즉시 SSR 재계산.
+  // 호스트 화면에서 새 신청 즉시 보이고, 다른 사용자 화면에서도 정원 마감 반영.
+  // party_participants와 parties.status 두 테이블 모두 구독.
+  useEffect(() => {
+    let cancelled = false;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) {
+        supabase.realtime.setAuth(data.session.access_token);
+      }
+      if (cancelled) return;
+      channel = supabase
+        .channel(`party-detail:${party.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "party_participants", filter: `party_id=eq.${party.id}` },
+          () => router.refresh(),
+        )
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "parties", filter: `id=eq.${party.id}` },
+          () => router.refresh(),
+        )
+        .subscribe();
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [supabase, party.id, router]);
 
   const isHost = me.id === party.host_id;
   const myMembership = members.find((m) => m.user_id === me.id);
@@ -112,44 +160,22 @@ export function PartyDetailClient({ me, party, members }: Props) {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <Link href="/feed" className="text-xs text-zinc-400">← 뒤로</Link>
+      {/* "← 뒤로"는 글로벌 헤더(UserBar subpage 모드)가 처리 — 여기선 노출 X. */}
 
-      {/* 상품 사진 — 호스트가 등록한 1~3장. 가로 스크롤. */}
+      {/* 상품 사진 — 호스트가 등록한 1~10장. 썸네일 작게 + 탭하면 풀스크린 프리뷰. */}
       {party.photo_paths && party.photo_paths.length > 0 && (
-        <section className="-mx-4 overflow-x-auto">
-          <div className="flex gap-2 px-4">
-            {party.photo_paths.map((p, i) => (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                key={i}
-                src={partyPhotoUrl(p)}
-                alt={`${party.store_name} 사진 ${i + 1}`}
-                className="h-48 w-48 shrink-0 rounded-2xl bg-zinc-100 object-cover"
-              />
-            ))}
-          </div>
-        </section>
+        <PartyPhotosGallery paths={party.photo_paths} alt={party.store_name} />
       )}
 
-      {/* 헤더 카드 */}
+      {/* 헤더 카드 — 미트볼은 글로벌 헤더(UserBar subpage 모드)로 이동했음 */}
       <section className="rounded-2xl bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] text-zinc-400">{categoryLabel[party.category]}</span>
-          <div className="flex items-center gap-2">
-            <StatusBadge status={party.display_status} />
-            {isHost && (party.status === "recruiting" || party.status === "closed") && (
-              <HostMenu
-                canEdit={party.status === "recruiting" || party.status === "closed"}
-                onEdit={() => router.push(`/host/edit/${party.id}` as any)}
-                onDelete={doCancel}
-                disabled={busy}
-              />
-            )}
-          </div>
+          <StatusBadge status={party.display_status} />
         </div>
         <h1 className="mt-1 text-xl font-bold">{party.store_name}</h1>
         {party.representative_menu && (
-          <p className="text-sm text-zinc-500">{party.representative_menu}</p>
+          <MenuOrLink text={party.representative_menu} />
         )}
 
         <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
@@ -265,6 +291,15 @@ export function PartyDetailClient({ me, party, members }: Props) {
             참여 취소
           </button>
         )}
+        {/* 호스트가 방금 생성하고 들어온 직후 한 번만 — 인라인 회색 버튼. */}
+        {isHost && justCreated && (
+          <Link
+            href="/feed"
+            className="rounded-xl border border-zinc-200 py-3 text-center font-semibold text-zinc-600 active:bg-zinc-50"
+          >
+            확인
+          </Link>
+        )}
       </section>
 
       {/* 참여 확인 모달 */}
@@ -273,7 +308,11 @@ export function PartyDetailClient({ me, party, members }: Props) {
           <h3 className="text-lg font-semibold">참여 확인</h3>
           <div className="mt-3 space-y-1 text-sm text-zinc-600">
             <p>📦 {party.store_name}</p>
-            {party.representative_menu && <p>· {party.representative_menu}</p>}
+            {party.representative_menu && (
+              <div>
+                · <MenuOrLink text={party.representative_menu} />
+              </div>
+            )}
             <p>💸 예상 1인 {formatKRW(party.price_per_person)}</p>
             <p>📍 {party.pickup_name ?? "미정"}</p>
             <p>🕒 {formatKstShort(party.deal_at)}</p>
@@ -315,7 +354,36 @@ export function PartyDetailClient({ me, party, members }: Props) {
           </div>
         </Modal>
       )}
+
     </div>
+  );
+}
+
+// 대표 메뉴/링크 — URL이면 도메인 표기 + 새 탭 링크, 아니면 일반 텍스트.
+function MenuOrLink({ text }: { text: string }) {
+  const trimmed = text.trim();
+  const isUrl = /^https?:\/\//i.test(trimmed);
+  if (!isUrl) {
+    return <p className="text-sm text-zinc-500">{trimmed}</p>;
+  }
+  let host = trimmed;
+  try {
+    host = new URL(trimmed).host.replace(/^www\./, "");
+  } catch {
+    // URL 파싱 실패 시 원본 사용
+  }
+  return (
+    <a
+      href={trimmed}
+      target="_blank"
+      rel="noreferrer"
+      className="mt-1 inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-zinc-100 px-3 py-1 text-[12px] font-semibold text-zinc-700 hover:bg-zinc-200"
+      title={trimmed}
+    >
+      <span aria-hidden>🔗</span>
+      <span className="truncate">{host}</span>
+      <span aria-hidden>↗</span>
+    </a>
   );
 }
 
@@ -382,84 +450,3 @@ function PickupMap({
   return <div ref={mapEl} className="h-40 w-full overflow-hidden rounded-xl border border-zinc-200" />;
 }
 
-// 호스트용 미트볼 메뉴 — 수정 / 삭제.
-// canEdit=false이면 (예: status='closed') 수정은 비활성 표시.
-function HostMenu({
-  canEdit,
-  onEdit,
-  onDelete,
-  disabled,
-}: {
-  canEdit: boolean;
-  onEdit: () => void;
-  onDelete: () => void;
-  disabled?: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function onDown(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    }
-    function onEsc(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onEsc);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onEsc);
-    };
-  }, [open]);
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        disabled={disabled}
-        aria-label="더보기"
-        className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 active:bg-zinc-100 disabled:opacity-40"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <circle cx="12" cy="5" r="1.6" fill="currentColor" />
-          <circle cx="12" cy="12" r="1.6" fill="currentColor" />
-          <circle cx="12" cy="19" r="1.6" fill="currentColor" />
-        </svg>
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-20 mt-1 min-w-[140px] overflow-hidden rounded-xl border border-black/5 bg-white py-1 shadow-xl"
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              if (canEdit) onEdit();
-            }}
-            disabled={!canEdit || disabled}
-            className="w-full px-4 py-2.5 text-left text-sm text-zinc-800 active:bg-zinc-50 disabled:text-zinc-300"
-          >
-            주문 수정
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onDelete();
-            }}
-            disabled={disabled}
-            className="w-full px-4 py-2.5 text-left text-sm text-rose-600 active:bg-rose-50 disabled:opacity-40"
-          >
-            주문 삭제
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}

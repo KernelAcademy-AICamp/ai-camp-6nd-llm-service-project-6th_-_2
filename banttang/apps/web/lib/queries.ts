@@ -28,6 +28,8 @@ export async function listParties(opts: {
   hostId?: string;
   participantId?: string;
   excludeHostedBy?: string;
+  /** 이 사용자가 본인 목록에서 숨김 처리(hidden_at)한 파티는 제외. 마이페이지·채팅 목록용. */
+  excludeHiddenFor?: string;
   sort?: "deadline" | "latest";
 }): Promise<PartyListItem[]> {
   const sb = getServiceClient();
@@ -41,6 +43,8 @@ export async function listParties(opts: {
   }
   if (opts.statuses?.length) q = q.in("status", opts.statuses);
   if (opts.hostId) q = q.eq("host_id", opts.hostId);
+  // AI 추천 방(시스템 호스트)은 메인 목록에서 제외 — 추천 섹션에만 노출.
+  q = q.eq("is_ai_pick", false);
 
   const { data: views, error } = await q;
   if (error) throw error;
@@ -51,17 +55,21 @@ export async function listParties(opts: {
   const ids = baseList.map((v) => v.id);
   const { data: parts } = await sb
     .from("party_participants")
-    .select("party_id, user_id, status")
+    .select("party_id, user_id, status, hidden_at")
     .in("party_id", ids);
 
   const occupiedMap = new Map<string, number>();
   const userPartyIds = new Set<string>();
+  const hiddenPartyIds = new Set<string>();
   for (const p of parts ?? []) {
     if (p.status === "approved" || p.status === "pending") {
       occupiedMap.set(p.party_id, (occupiedMap.get(p.party_id) ?? 0) + 1);
     }
     if (opts.participantId && p.user_id === opts.participantId && p.status !== "cancelled") {
       userPartyIds.add(p.party_id);
+    }
+    if (opts.excludeHiddenFor && p.user_id === opts.excludeHiddenFor && p.hidden_at) {
+      hiddenPartyIds.add(p.party_id);
     }
   }
 
@@ -108,6 +116,9 @@ export async function listParties(opts: {
   }
   if (opts.excludeHostedBy) {
     list = list.filter((p) => p.host_id !== opts.excludeHostedBy);
+  }
+  if (opts.excludeHiddenFor) {
+    list = list.filter((p) => !hiddenPartyIds.has(p.id));
   }
 
   return list;

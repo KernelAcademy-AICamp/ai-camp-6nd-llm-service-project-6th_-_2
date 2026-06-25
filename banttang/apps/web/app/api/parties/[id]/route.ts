@@ -1,6 +1,10 @@
 // PATCH /api/parties/[id]
-// 호스트만, recruiting 또는 closed 상태에서 수정 가능.
-// in_progress(영수증 인증 후) / completed / cancelled 는 잠금.
+// 호스트만, recruiting / closed / in_progress 상태에서 수정 가능.
+// 영수증 인증 후(in_progress)에도 수정은 허용 — 삭제는 cancel API에서 별도로 막힘.
+// completed / cancelled 는 잠금.
+//
+// GET /api/parties/[id]
+// 헤더 미트볼 노출 분기용 미니 정보 (host_id + status).
 // 편집 가능 필드:
 //   - store_name, representative_menu, price_per_person, deal_at (텍스트/숫자/시간)
 //   - max_participants (현재 occupied 미만으로는 못 내림)
@@ -33,9 +37,13 @@ export async function PATCH(
     if (party.host_id !== me.id) {
       return NextResponse.json({ error: "호스트만 수정할 수 있어요." }, { status: 403 });
     }
-    if (party.status !== "recruiting" && party.status !== "closed") {
+    if (
+      party.status !== "recruiting" &&
+      party.status !== "closed" &&
+      party.status !== "in_progress"
+    ) {
       return NextResponse.json(
-        { error: "거래 시작 후엔 수정할 수 없어요." },
+        { error: "완료/취소된 주문은 수정할 수 없어요." },
         { status: 400 },
       );
     }
@@ -152,7 +160,7 @@ export async function PATCH(
       .update(update)
       .eq("id", params.id)
       .eq("host_id", me.id)
-      .in("status", ["recruiting", "closed"]);
+      .in("status", ["recruiting", "closed", "in_progress"]);
     if (uErr) {
       return NextResponse.json({ error: uErr.message }, { status: 500 });
     }
@@ -160,5 +168,27 @@ export async function PATCH(
     return NextResponse.json({ ok: true, id: party.id, updated: Object.keys(update).length });
   } catch (e: any) {
     return NextResponse.json({ error: e.message ?? "수정 실패" }, { status: 500 });
+  }
+}
+
+// GET /api/parties/[id] — 헤더 미트볼 분기용 미니 정보.
+// 인증된 사용자만 조회 가능 (RLS 없이 service client 사용 — 호스트 외에도 status 알 수 있음).
+export async function GET(
+  _req: Request,
+  { params }: { params: { id: string } },
+) {
+  try {
+    await requireCurrentUser();
+    const sb = getServiceClient();
+    const { data, error } = await sb
+      .from("parties")
+      .select("id, host_id, status")
+      .eq("id", params.id)
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ error: "주문 없음" }, { status: 404 });
+    return NextResponse.json(data);
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message ?? "조회 실패" }, { status: 500 });
   }
 }

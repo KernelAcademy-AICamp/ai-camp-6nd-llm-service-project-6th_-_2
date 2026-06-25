@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useKakaoSdk } from "@/lib/use-kakao-sdk";
+import { saveOnboarding } from "@/app/_actions/save-onboarding";
 import {
   STEPS,
   type ChipOption,
@@ -84,8 +86,25 @@ export function OnboardingTour() {
     setIdx((i) => i + 1);
   }
 
-  function finish(nextHref: string) {
-    // 추후: save-onboarding 서버 액션 호출. 지금은 라우팅만.
+  async function finish(nextHref: string) {
+    // 온보딩 선택(주 사용 유형·관심 몰·관심 품목)을 평탄화해 DB에 저장.
+    // 저장 실패는 라우팅을 막지 않는다(맞춤 추천만 폴백될 뿐).
+    const bySaveAs = (key: string) => {
+      const step = STEPS.find((s) => (s as { saveAs?: string }).saveAs === key);
+      return step ? responses[step.id]?.value : undefined;
+    };
+    const primary_usage = bySaveAs("primary_usage");
+    const favorite_malls = bySaveAs("favorite_malls");
+    const favorite_categories = bySaveAs("favorite_categories");
+    try {
+      await saveOnboarding({
+        primary_usage: typeof primary_usage === "string" ? primary_usage : null,
+        favorite_malls: Array.isArray(favorite_malls) ? favorite_malls : [],
+        favorite_categories: Array.isArray(favorite_categories) ? favorite_categories : [],
+      });
+    } catch {
+      // 무시 — 흐름 우선
+    }
     router.push(nextHref as any);
   }
 
@@ -617,37 +636,75 @@ function AddressPanel({
 }: {
   onSubmit: (address: string) => void;
 }) {
-  const [mode, setMode] = useState<"choose" | "manual">("choose");
-  const [text, setText] = useState("");
+  const router = useRouter();
+  const [mode, setMode] = useState<"choose" | "map">("choose");
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [mapSubmitting, setMapSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  if (mode === "manual") {
+  // 좌표 → 서버 저장(역지오코딩 + 동네 find-or-create + profiles.neighborhood_id 연결)
+  // → 서버가 돌려준 "구 동" 주소로 챗봇 답변을 채운다.
+  async function saveAndAdvance(lat: number, lng: number) {
+    let address = "현재 위치";
+    try {
+      const res = await fetch("/api/onboarding/address", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: "current_location", lat, lng }),
+      });
+      const json = (await res.json()) as { ok?: boolean; address?: string; error?: string };
+      // 동네 확정 실패(역지오코딩 실패 등) — 진행하면 매칭이 깨지므로 멈추고 재시도 유도.
+      if (!res.ok) {
+        setError(json.error ?? "위치 저장에 실패했어요. 다시 시도해 주세요.");
+        return;
+      }
+      if (json.address) address = json.address;
+      // 저장된 쿠키/동네를 (app) 공유 레이아웃(UserBar 주소 등)이 다시 읽도록 갱신.
+      // 레이아웃은 화면 이동만으론 재렌더되지 않아 명시적 refresh가 필요.
+      router.refresh();
+    } catch {
+      setError("네트워크 오류로 위치를 저장하지 못했어요. 다시 시도해 주세요.");
+      return;
+    }
+    onSubmit(address);
+  }
+
+  // "현재 위치로 설정" — 실제 GPS를 가져와 저장.
+  function useCurrentLocation() {
+    setError(null);
+    if (!navigator.geolocation) {
+      setError("이 브라우저는 위치를 지원하지 않아요. 지도에서 선택해주세요.");
+      return;
+    }
+    setGeoLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        await saveAndAdvance(pos.coords.latitude, pos.coords.longitude);
+        setGeoLoading(false);
+      },
+      (err) => {
+        setGeoLoading(false);
+        setError(
+          err.code === err.PERMISSION_DENIED
+            ? "위치 권한이 거부됐어요. 지도에서 선택하거나 권한을 허용해주세요."
+            : "위치를 가져오지 못했어요. 지도에서 선택해주세요.",
+        );
+      },
+      { timeout: 8000, enableHighAccuracy: true },
+    );
+  }
+
+  if (mode === "map") {
     return (
-      <div className="border-t border-zinc-200 bg-white p-4">
-        <input
-          autoFocus
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="예: 서울 관악구 신림동"
-          className="w-full rounded-xl border border-zinc-200 px-3 py-3 text-[14px] outline-none focus:border-brand"
-        />
-        <div className="mt-2 flex gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("choose")}
-            className="h-12 flex-1 rounded-xl bg-zinc-100 text-[13px] font-semibold text-gray-700"
-          >
-            뒤로
-          </button>
-          <button
-            type="button"
-            onClick={() => text.trim() && onSubmit(text.trim())}
-            disabled={!text.trim()}
-            className="h-12 flex-1 rounded-xl bg-brand text-[14px] font-bold text-white disabled:opacity-50"
-          >
-            저장
-          </button>
-        </div>
-      </div>
+      <LocationMapPicker
+        submitting={mapSubmitting}
+        onCancel={() => setMode("choose")}
+        onConfirm={async (lat, lng) => {
+          setMapSubmitting(true);
+          await saveAndAdvance(lat, lng);
+          setMapSubmitting(false);
+        }}
+      />
     );
   }
 
@@ -656,18 +713,112 @@ function AddressPanel({
       <div className="flex flex-col gap-2">
         <button
           type="button"
-          // UI-only 단계 — 실제 위치 잡기는 추후 Kakao SDK 연동으로 교체.
-          onClick={() => onSubmit("관악구 신림동 (현재 위치 기준)")}
-          className="h-12 w-full rounded-xl bg-brand text-[14px] font-bold text-white transition-opacity active:opacity-80"
+          onClick={useCurrentLocation}
+          disabled={geoLoading}
+          className="h-12 w-full rounded-xl bg-brand text-[14px] font-bold text-white transition-opacity active:opacity-80 disabled:opacity-50"
         >
-          📍 현재 위치로 설정
+          {geoLoading ? "내 위치 확인 중…" : "📍 현재 위치로 설정"}
         </button>
         <button
           type="button"
-          onClick={() => setMode("manual")}
+          onClick={() => {
+            setError(null);
+            setMode("map");
+          }}
           className="h-12 w-full rounded-xl bg-zinc-100 text-[14px] font-semibold text-gray-700 transition-colors active:bg-zinc-200"
         >
-          🔍 직접 입력
+          🗺️ 지도에서 선택
+        </button>
+        {error && (
+          <p className="px-1 text-[12px] text-rose-500">{error}</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// 지도에서 위치를 찍는 피커 — 지도를 움직여 중앙 핀을 내 위치에 맞추고 "이 위치로 설정".
+// 핀은 화면 중앙에 고정되고 지도가 움직이는 방식(중앙 좌표 = 선택 좌표).
+function LocationMapPicker({
+  onConfirm,
+  onCancel,
+  submitting,
+}: {
+  onConfirm: (lat: number, lng: number) => void;
+  onCancel: () => void;
+  submitting?: boolean;
+}) {
+  const mapEl = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const sdk = useKakaoSdk();
+  const ready = sdk.status === "ready";
+
+  useEffect(() => {
+    if (!ready || !mapEl.current || mapRef.current) return;
+    const kakao = window.kakao;
+    const map = new kakao.maps.Map(mapEl.current, {
+      center: new kakao.maps.LatLng(37.4842, 126.9296), // 신림역 기본 중심
+      level: 4,
+    });
+    mapRef.current = map;
+    setTimeout(() => map.relayout(), 0);
+    // 현재 위치가 잡히면 그쪽으로 초기 이동 (권한 거부 시 기본 중심 유지)
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) =>
+          map.setCenter(
+            new kakao.maps.LatLng(pos.coords.latitude, pos.coords.longitude),
+          ),
+        () => {},
+        { timeout: 6000 },
+      );
+    }
+  }, [ready]);
+
+  function confirm() {
+    const map = mapRef.current;
+    if (!map) return;
+    const c = map.getCenter();
+    onConfirm(c.getLat(), c.getLng());
+  }
+
+  return (
+    <div className="border-t border-zinc-200 bg-white p-4">
+      <p className="mb-2 px-1 text-[12px] text-gray-500">
+        지도를 움직여 핀을 내 위치에 맞춰주세요
+      </p>
+      <div className="relative h-[55dvh] min-h-[320px] w-full overflow-hidden rounded-xl bg-gray-100">
+        <div ref={mapEl} className="isolate h-full w-full" />
+        {/* 중앙 고정 핀 (지도가 움직이고 핀은 가운데 고정 — 핀 끝이 중앙을 가리킴).
+            카카오맵 내부 요소 위에 보이도록 z-index 부여. */}
+        <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-full text-[34px] leading-none drop-shadow-[0_2px_3px_rgba(0,0,0,0.35)]">
+          📍
+        </div>
+        {/* 정확한 중심점 표시용 작은 점 */}
+        <div className="pointer-events-none absolute left-1/2 top-1/2 z-10 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand ring-2 ring-white" />
+        {!ready && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-[12px] text-gray-400">
+            {sdk.status === "error" || sdk.status === "no_key"
+              ? "지도를 불러올 수 없어요"
+              : "지도 불러오는 중…"}
+          </div>
+        )}
+      </div>
+      <div className="mt-2 flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="h-12 flex-1 rounded-xl bg-zinc-100 text-[13px] font-semibold text-gray-700"
+        >
+          뒤로
+        </button>
+        <button
+          type="button"
+          onClick={confirm}
+          disabled={!ready || submitting}
+          className="h-12 flex-1 rounded-xl bg-brand text-[14px] font-bold text-white disabled:opacity-50"
+        >
+          {submitting ? "저장 중…" : "이 위치로 설정"}
         </button>
       </div>
     </div>

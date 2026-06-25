@@ -23,16 +23,15 @@ export async function POST(req: Request) {
     const dealAt = new Date(body.deal_at);
     const applyDeadline = new Date(dealAt.getTime() - 60 * 60 * 1000);
 
-    const { data: nb } = await sb
-      .from("neighborhoods")
-      .select("id")
-      .eq("name", "신림동")
-      .maybeSingle();
-    if (!nb) return NextResponse.json({ error: "베타 동네 시드 없음" }, { status: 500 });
+    // 모집글은 호스트가 설정한 동네(profiles.neighborhood_id)에 속한다.
+    // 신림동 강제 매칭 금지 — 동네가 없으면 온보딩을 먼저 유도한다.
+    if (!me.neighborhood_id) {
+      return NextResponse.json({ error: "동네를 먼저 설정해 주세요." }, { status: 400 });
+    }
 
     const insertRow: Record<string, unknown> = {
       host_id: me.id,
-      neighborhood_id: nb.id,
+      neighborhood_id: me.neighborhood_id,
       category: body.category,
       store_name: body.store_name,
       representative_menu: body.representative_menu ?? null,
