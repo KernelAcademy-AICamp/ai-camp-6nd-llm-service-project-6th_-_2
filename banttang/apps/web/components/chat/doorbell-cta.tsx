@@ -17,8 +17,10 @@ export function DoorbellCta({
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  // 안내 팝업은 "이 채팅방에서 처음 1회"만. (띵동 보내기로 첫 전송 시 기록 / 취소하면 또 뜸)
+  // 안내 팝업은 기본적으로 벨을 누를 때마다 뜬다.
+  // "다시 보지 않기"를 체크하면 이 방에서 더는 안 뜨고 바로 전송한다.
   const [introSeen, setIntroSeen] = useState(false);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
   const seenKey = `doorbell-intro-seen:${roomId}`;
 
   useEffect(() => {
@@ -40,24 +42,36 @@ export function DoorbellCta({
     setToast(isHost ? "모두에게 띵동을 보냈어요 🔔" : "호스트에게 띵동을 보냈어요 🔔");
   }
 
-  // 벨 탭: 이 방에서 아직 안 보냈으면 안내 팝업, 이미 보냈으면 바로 전송.
-  function handleBellTap() {
-    if (introSeen) {
-      ring();
-      return;
-    }
-    setConfirmOpen(true);
-  }
-
-  function handleConfirm() {
+  // "다시 보지 않기" 체크 상태를 localStorage에 반영.
+  function persistDontShow() {
+    if (!dontShowAgain) return;
     try {
       localStorage.setItem(seenKey, "1");
     } catch {
       /* 무시 */
     }
     setIntroSeen(true);
+  }
+
+  // 벨 탭: "다시 보지 않기"를 켠 적이 없으면 안내 팝업, 켰으면 바로 전송.
+  function handleBellTap() {
+    if (introSeen) {
+      ring();
+      return;
+    }
+    setDontShowAgain(false);
+    setConfirmOpen(true);
+  }
+
+  function handleConfirm() {
+    persistDontShow();
     setConfirmOpen(false);
     ring();
+  }
+
+  function handleCancel() {
+    persistDontShow();
+    setConfirmOpen(false);
   }
 
   return (
@@ -86,7 +100,7 @@ export function DoorbellCta({
       {confirmOpen && (
         <div
           className="pointer-events-auto fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-10"
-          onClick={() => setConfirmOpen(false)}
+          onClick={handleCancel}
         >
           <div
             className="w-full max-w-[280px] rounded-2xl bg-white p-5 text-center shadow-xl"
@@ -97,16 +111,25 @@ export function DoorbellCta({
               <img src="/icons/ding-avocado.svg" alt="" width={36} height={36} />
             </span>
             <p className="mt-3 text-[16px] font-extrabold text-zinc-900">
-              띵동 기능을 사용할까요?
+              띵동 할까요?
             </p>
             <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
-              약속 장소에 도착했을 때{" "}
-              <b className="text-zinc-700">버튼 한 번으로 도착을 알리는</b> 기능이에요.
-              {isHost
-                ? " 지금 보내면 참여자 모두에게 알림이 가요."
-                : " 지금 보내면 호스트에게 알림이 가요."}
+              약속 장소에 도착했다면
+              <br />
+              {isHost ? "참여자 모두에게" : "상대방에게"} 도착 알림을 보낼 수 있어요.
             </p>
-            <div className="mt-4 flex gap-2">
+
+            <label className="mt-4 flex cursor-pointer items-center justify-center gap-1.5 text-[12px] text-zinc-400 select-none">
+              <input
+                type="checkbox"
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.target.checked)}
+                className="h-3.5 w-3.5 accent-brand"
+              />
+              다시 보지 않기
+            </label>
+
+            <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={handleConfirm}
@@ -116,7 +139,7 @@ export function DoorbellCta({
               </button>
               <button
                 type="button"
-                onClick={() => setConfirmOpen(false)}
+                onClick={handleCancel}
                 className="flex-1 rounded-xl bg-zinc-100 py-2.5 text-[14px] font-bold text-zinc-600 active:opacity-80"
               >
                 취소

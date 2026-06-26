@@ -242,7 +242,7 @@ function SingleMemberForm({
       )}
 
       {/* fixed 제출 바 */}
-      <div className="fixed bottom-14 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-100 bg-white px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+      <div className="fixed bottom-14 left-1/2 z-20 w-full max-w-md -translate-x-1/2 bg-zinc-50 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1.5rem)]">
         <button
           type="button"
           onClick={submit}
@@ -250,7 +250,7 @@ function SingleMemberForm({
           className={cn(
             "h-12 w-full rounded-xl text-[15px] font-bold transition-opacity",
             canSubmit && !busy
-              ? "bg-zinc-900 text-white active:opacity-80"
+              ? "bg-brand text-white active:opacity-80"
               : "bg-zinc-200 text-zinc-400",
           )}
         >
@@ -288,9 +288,6 @@ function CompletedSummary({
   return (
     <div className="flex flex-col gap-4 pb-32">
       <PageHeader title="후기 작성 완료" />
-      <p className="px-4 text-center text-[13px] text-zinc-500">
-        함께한 분들에게 후기를 모두 남겼어요.
-      </p>
 
       <ul className="mt-2 flex flex-col gap-2 px-4">
         {others.map((o) => {
@@ -330,11 +327,11 @@ function CompletedSummary({
         })}
       </ul>
 
-      <div className="fixed bottom-14 left-1/2 z-20 w-full max-w-md -translate-x-1/2 border-t border-zinc-100 bg-white px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)]">
+      <div className="fixed bottom-14 left-1/2 z-20 w-full max-w-md -translate-x-1/2 bg-zinc-50 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1.5rem)]">
         <button
           type="button"
           onClick={() => router.push("/mypage/reviews" as any)}
-          className="h-12 w-full rounded-xl bg-zinc-900 text-[15px] font-bold text-white active:opacity-80"
+          className="h-12 w-full rounded-xl bg-brand text-[15px] font-bold text-white active:opacity-80"
         >
           후기 목록으로
         </button>
@@ -415,7 +412,9 @@ function RatingButton({
       className={cn(
         "flex h-12 items-center justify-center gap-1.5 rounded-xl border text-[14px] font-bold transition-colors",
         active
-          ? "border-zinc-900 bg-zinc-900 text-white"
+          ? isGood
+            ? "border-brand bg-brand text-white"
+            : "border-rose-500 bg-rose-500 text-white"
           : "border-zinc-200 bg-white text-zinc-700",
       )}
     >
@@ -443,7 +442,7 @@ function CheckboxRow({
       <span
         className={cn(
           "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
-          checked ? "border-zinc-900 bg-zinc-900" : "border-zinc-300 bg-white",
+          checked ? "border-brand bg-brand" : "border-zinc-300 bg-white",
         )}
         aria-hidden
       >

@@ -15,13 +15,11 @@ import {
   rejectParticipant,
 } from "@/app/_actions/participant-decision";
 import { verifyReceiptWithClaude } from "@/app/_actions/verify-receipt-claude";
-import { completeParty } from "@/lib/api/parties";
 import { Avatar } from "@/components/ui/avatar";
 import { ChatHeader } from "./chat-header";
 import { ChatTimeline } from "./chat-timeline";
 import { ChatInputBar } from "./chat-input-bar";
 import { ReceiptSheet } from "./receipt-sheet";
-import { CompleteSheet, type CompleteSubmitInput } from "./complete-sheet";
 import { PartyInfoCard } from "./party-info-card";
 import { ActionBanner } from "./action-banner";
 import { DoorbellCta } from "./doorbell-cta";
@@ -78,7 +76,6 @@ export function PartyChatContainer({
   const [reads, setReads] = useState<Record<string, string>>({});
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [completeOpen, setCompleteOpen] = useState(false);
   // 게스트 영수증 확인 시트.
   const [receiptViewOpen, setReceiptViewOpen] = useState(false);
   // 채팅에서 탭한 상대 회원(공개 프로필 시트). null이면 닫힘.
@@ -96,7 +93,6 @@ export function PartyChatContainer({
   const isHost = members.some(
     (p) => p.user_id === currentUserId && p.is_host,
   );
-  const hostParticipant = members.find((p) => p.is_host) ?? null;
   const participantProfiles = members.map(
     (p): Pick<UserProfile, "id" | "nickname"> => ({
       id: p.user_id,
@@ -151,6 +147,12 @@ export function PartyChatContainer({
   // 단, 호스트 액션(영수증 등록·거래 완료 버튼 등)은 isPostTrade로 별도 잠금.
   const isReadOnly = phase === "cancelled";
   const isPostTrade = phase === "completed" || phase === "cancelled";
+
+  // 거래 시각(deal_at) 도달 후 "거래 확인" 칩 노출 (완료/취소 전까지).
+  // 거래를 확정하는 게 아니라 거래했는지 확인하는 시트(반띵 확인)를 여는 체크 버튼.
+  const dealReached = nowMs >= new Date(party.deal_at).getTime();
+  const showCompleteChip =
+    dealReached && phase !== "completed" && phase !== "cancelled";
 
   // 띵동 CTA 정책 — 우측 하단 플로팅 벨 아이콘:
   //   - 채팅방 입장 시점부터 항상 노출 (완료·취소된 방만 미노출)
@@ -298,15 +300,14 @@ export function PartyChatContainer({
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [items.length]);
 
-  // F401 — 반띵 시간 도달 + 인증 완료 시점에 거래 확인 모달 자동 오픈.
-  // phase가 review_pending에 도달한 첫 시점에 한 번만 오픈한다 (사용자가 닫고 다시 작업할 수 있도록).
-  const autoOpenedForPhaseRef = useRef<string | null>(null);
+  // 거래 시각이 미래면 그 시점에 맞춰 nowMs를 1회 갱신 → 새로고침 없이
+  // 거래 완료 칩/단계 전환이 정시에 반영된다.
   useEffect(() => {
-    if (phase !== "review_pending") return;
-    if (autoOpenedForPhaseRef.current === "review_pending") return;
-    autoOpenedForPhaseRef.current = "review_pending";
-    setCompleteOpen(true);
-  }, [phase]);
+    const diff = new Date(party.deal_at).getTime() - Date.now();
+    if (diff <= 0) return;
+    const t = setTimeout(() => setNowMs(Date.now()), diff + 500);
+    return () => clearTimeout(t);
+  }, [party.deal_at]);
 
   // 중간지점 추천 — 채팅방이 열린 시점(=정원이 다 모인 시점)에 1회 게시.
   // server action이 idempotent하므로 페이지 새로고침/멤버 동시 진입에도 한 번만 INSERT 된다.
@@ -527,57 +528,6 @@ export function PartyChatContainer({
     }
   }
 
-  async function handleSubmitComplete(input: CompleteSubmitInput) {
-    if (!hostParticipant) throw new Error("호스트 정보를 찾을 수 없어요.");
-
-    // 1) reviews upsert — F403/F404. 사유는 text_review에 담는다(스키마 ≤200자).
-    const reviewRows = input.reviews.map((r) => ({
-      party_id: party.id,
-      reviewer_id: currentUserId,
-      reviewee_id: r.reviewee_id,
-      rating: r.rating,
-      text_review: r.reason ?? null,
-    }));
-    if (reviewRows.length > 0) {
-      const { error: reviewErr } = await supabase
-        .from("reviews")
-        .upsert(reviewRows, { onConflict: "party_id,reviewer_id,reviewee_id" });
-      if (reviewErr) {
-        throw new Error(`평가 등록 실패: ${reviewErr.message}`);
-      }
-    }
-
-    // 2) payments upsert — F402. 멤버 시점에서만, 호스트에게 부담한 금액 기록.
-    if (input.my_paid_amount && !isHost) {
-      const { error: payErr } = await supabase.from("payments").upsert(
-        {
-          party_id: party.id,
-          payer_id: currentUserId,
-          receiver_id: hostParticipant.user_id,
-          amount: input.my_paid_amount,
-          method: "other",
-          status: "sent_by_payer",
-          sent_at: new Date().toISOString(),
-        },
-        { onConflict: "party_id,payer_id,receiver_id" },
-      );
-      if (payErr) {
-        throw new Error(`송금 기록 실패: ${payErr.message}`);
-      }
-    }
-
-    // 3) 호스트가 동시에 거래 완료 처리하는 경우 → FastAPI 호출
-    if (input.also_complete_transaction) {
-      const { data: sess } = await supabase.auth.getSession();
-      const token = sess.session?.access_token;
-      if (!token) throw new Error("세션이 만료되었어요.");
-      await completeParty({ partyId: party.id, accessToken: token });
-    }
-  }
-
-  const latestReceipt = receipts[receipts.length - 1];
-  const hostShare = latestReceipt?.price_per_person;
-
   // 모집 단계: 채팅방 아직 없음 → 안내 화면
   if (!chatRoom) {
     return (
@@ -701,7 +651,7 @@ export function PartyChatContainer({
         participants={participantProfiles}
         hostId={party.host_id}
         isHost={isHost}
-        onOpenReview={() => setCompleteOpen(true)}
+        onOpenReview={() => router.push(`/mypage/reviews/${party.id}` as any)}
         canManage={canManage}
         managing={managing}
         onLeaveParty={!isHost ? handleLeaveChat : undefined}
@@ -718,6 +668,21 @@ export function PartyChatContainer({
             onGuide={() => router.push("/guide" as any)}
             onReceipt={() => (isHost ? setReceiptOpen(true) : setReceiptViewOpen(true))}
             onSettlement={() => router.push(`/chat/${party.id}/card` as any)}
+            onComplete={
+              showCompleteChip
+                ? async () => {
+                    const ok = await askConfirm({
+                      title: "거래 완료하셨나요?",
+                      description:
+                        "거래를 완료했다면 함께한 분들에게 후기를 남겨주세요.",
+                      confirmText: "네",
+                      cancelText: "취소",
+                      confirmFirst: true,
+                    });
+                    if (ok) router.push(`/mypage/reviews/${party.id}` as any);
+                  }
+                : undefined
+            }
           />
         }
         notice={
@@ -832,21 +797,6 @@ export function PartyChatContainer({
         receipt={receipts.length ? receipts[receipts.length - 1] : null}
         participantCount={members.length}
         onRequest={() => requestReceipt(party.id)}
-      />
-
-      <CompleteSheet
-        open={completeOpen}
-        onClose={() => setCompleteOpen(false)}
-        participants={members.map((p) => ({
-          id: p.user_id,
-          nickname: p.profile?.nickname ?? "알 수 없음",
-          is_host: p.is_host,
-        }))}
-        currentUserId={currentUserId}
-        isHost={isHost}
-        suggestedAmount={hostShare}
-        verifiedTotal={latestReceipt?.final_total_amount}
-        onSubmit={handleSubmitComplete}
       />
 
       {/* 채팅에서 회원 아바타/이름 탭 → 공개 프로필 시트 */}

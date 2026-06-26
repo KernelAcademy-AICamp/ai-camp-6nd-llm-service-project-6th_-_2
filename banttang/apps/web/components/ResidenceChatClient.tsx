@@ -75,8 +75,13 @@ export function ResidenceChatClient({
         </button>
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#5B6CF0]">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path d="M4 20V6.5a1 1 0 0 1 .7-.95l6-2A1 1 0 0 1 12 4.5V20M12 9.5l6.4 1.7a1 1 0 0 1 .6.95V20" stroke="currentColor" strokeWidth="1.7" strokeLinejoin="round" />
-            <path d="M3 20h18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            <path d="M5.5 21V5.2A1.2 1.2 0 0 1 6.7 4h10.6A1.2 1.2 0 0 1 18.5 5.2V21" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M3.5 21h17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            <path d="M10 21v-3a2 2 0 0 1 4 0v3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            <rect x="7.8" y="7" width="2.6" height="2.6" rx="0.4" stroke="currentColor" strokeWidth="1.3" />
+            <rect x="13.6" y="7" width="2.6" height="2.6" rx="0.4" stroke="currentColor" strokeWidth="1.3" />
+            <rect x="7.8" y="11.6" width="2.6" height="2.6" rx="0.4" stroke="currentColor" strokeWidth="1.3" />
+            <rect x="13.6" y="11.6" width="2.6" height="2.6" rx="0.4" stroke="currentColor" strokeWidth="1.3" />
           </svg>
         </span>
         <div className="min-w-0 flex-1">
