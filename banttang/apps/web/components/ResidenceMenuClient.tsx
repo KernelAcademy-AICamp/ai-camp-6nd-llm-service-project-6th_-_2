@@ -57,8 +57,13 @@ export function ResidenceMenuClient({
       <div className="flex flex-col items-center bg-white px-6 pb-7 pt-2">
         <span className="flex h-[72px] w-[72px] items-center justify-center rounded-[22px] bg-[#EEF2FF] text-[#5B6CF0]">
           <svg width="38" height="38" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <path d="M4 20V6.5a1 1 0 0 1 .7-.95l6-2A1 1 0 0 1 12 4.5V20M12 9.5l6.4 1.7a1 1 0 0 1 .6.95V20" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
-            <path d="M3 20h18M7 9h1.5M7 12.5h1.5M7 16h1.5M15 14h1.5M15 17h1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+            <path d="M5.5 21V5.2A1.2 1.2 0 0 1 6.7 4h10.6A1.2 1.2 0 0 1 18.5 5.2V21" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+            <path d="M3.5 21h17" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            <path d="M10 21v-3a2 2 0 0 1 4 0v3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+            <rect x="7.8" y="7" width="2.6" height="2.6" rx="0.4" stroke="currentColor" strokeWidth="1.3" />
+            <rect x="13.6" y="7" width="2.6" height="2.6" rx="0.4" stroke="currentColor" strokeWidth="1.3" />
+            <rect x="7.8" y="11.6" width="2.6" height="2.6" rx="0.4" stroke="currentColor" strokeWidth="1.3" />
+            <rect x="13.6" y="11.6" width="2.6" height="2.6" rx="0.4" stroke="currentColor" strokeWidth="1.3" />
           </svg>
         </span>
         <p className="mt-3 text-[18px] font-bold text-zinc-900">{residence}</p>

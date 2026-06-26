@@ -60,7 +60,37 @@ export function ConfirmModal() {
     cancelText = "취소",
     destructive = false,
     infoOnly = false,
+    confirmFirst = false,
   } = options;
+
+  const cancelBtn = !infoOnly ? (
+    <button
+      key="cancel"
+      type="button"
+      onClick={() => respond(false)}
+      className="flex-1 h-12 rounded-xl bg-gray-100 text-[15px] font-semibold text-gray-700 transition-colors active:bg-gray-200"
+    >
+      {cancelText}
+    </button>
+  ) : null;
+
+  const confirmBtn = (
+    <button
+      key="confirm"
+      type="button"
+      autoFocus
+      onClick={() => respond(true)}
+      className={cn(
+        "h-12 rounded-xl text-[15px] font-semibold text-white transition-colors",
+        infoOnly ? "w-full" : "flex-1",
+        destructive
+          ? "bg-[#ef4444] active:bg-[#dc2626]"
+          : "bg-brand active:brightness-95",
+      )}
+    >
+      {confirmText}
+    </button>
+  );
 
   return createPortal(
     <div
@@ -107,29 +137,17 @@ export function ConfirmModal() {
         )}
 
         <div className="mt-6 flex gap-2">
-          {!infoOnly && (
-            <button
-              type="button"
-              onClick={() => respond(false)}
-              className="flex-1 h-12 rounded-xl bg-gray-100 text-[15px] font-semibold text-gray-700 transition-colors active:bg-gray-200"
-            >
-              {cancelText}
-            </button>
+          {confirmFirst ? (
+            <>
+              {confirmBtn}
+              {cancelBtn}
+            </>
+          ) : (
+            <>
+              {cancelBtn}
+              {confirmBtn}
+            </>
           )}
-          <button
-            type="button"
-            autoFocus
-            onClick={() => respond(true)}
-            className={cn(
-              "h-12 rounded-xl text-[15px] font-semibold text-white transition-colors",
-              infoOnly ? "w-full" : "flex-1",
-              destructive
-                ? "bg-[#ef4444] active:bg-[#dc2626]"
-                : "bg-brand active:brightness-95",
-            )}
-          >
-            {confirmText}
-          </button>
         </div>
       </div>
     </div>,

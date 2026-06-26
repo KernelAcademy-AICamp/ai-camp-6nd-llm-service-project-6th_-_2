@@ -11,12 +11,19 @@ export function ChatQuickChips({
   onGuide,
   onReceipt,
   onSettlement,
+  onComplete,
 }: {
   onGuide: () => void;
   onReceipt: () => void;
   onSettlement: () => void;
+  /** 거래 시각 도달 후에만 전달됨 — 있으면 "거래 완료" 칩을 맨 앞에 노출.
+   *  거래했는지 확인하는 시트(반띵 확인)를 여는 버튼. */
+  onComplete?: () => void;
 }) {
   const chips: { label: string; icon: ReactNode; onClick: () => void }[] = [
+    ...(onComplete
+      ? [{ label: "거래 완료", icon: <CheckIcon />, onClick: onComplete }]
+      : []),
     { label: "영수증 인증", icon: <ReceiptIcon />, onClick: onReceipt },
     { label: "반띵 카드 보기", icon: <CardIcon />, onClick: onSettlement },
     { label: "거래 방법 안내", icon: <GuideIcon />, onClick: onGuide },
@@ -35,6 +42,15 @@ export function ChatQuickChips({
         </button>
       ))}
     </div>
+  );
+}
+
+// 거래 완료 — 체크
+function CheckIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 

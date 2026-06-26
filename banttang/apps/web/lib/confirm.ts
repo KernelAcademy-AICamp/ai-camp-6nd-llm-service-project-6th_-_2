@@ -10,6 +10,8 @@ export type ConfirmOptions = {
   destructive?: boolean;
   // true면 취소 버튼 숨김(=안내/확인 전용 단일 버튼).
   infoOnly?: boolean;
+  // true면 확인 버튼을 왼쪽, 취소를 오른쪽에 배치(기본은 취소 왼쪽·확인 오른쪽).
+  confirmFirst?: boolean;
 };
 
 type ConfirmState = {

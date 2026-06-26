@@ -26,12 +26,18 @@ type AuthorRow = {
   level: "dandelion" | "tree" | "king";
 };
 
-/** 같은 동네 게시글 목록. category·residence로 추가 필터 가능. */
+/**
+ * 게시글 목록.
+ * - 전체글(residence 미지정): 같은 동네로 스코프.
+ * - 거주지 탭(residence 지정): 건물명이 곧 "같은 주민" 식별자이므로
+ *   동네와 무관하게 건물명으로 묶는다. ("에피소드 서초393"처럼 번호까지 붙은
+ *   건물명은 사실상 고유 식별자라, 거주자 동네가 갈려도 같은 건물로 본다.)
+ */
 export async function listCommunityPosts(opts: {
   neighborhoodId: string;
   viewerId: string;
   category?: CommunityCategory;
-  /** 지정 시 같은 거주지(건물) 글만. "거주지 탭"용. */
+  /** 지정 시 같은 거주지(건물) 글만. "거주지 탭"용. 동네는 무시한다. */
   residence?: string;
 }): Promise<CommunityPostRow[]> {
   const sb = getServiceClient();
@@ -40,11 +46,15 @@ export async function listCommunityPosts(opts: {
     .select(
       "id, neighborhood_id, category, title, body, image_paths, like_count, comment_count, created_at, author:profiles!community_posts_author_id_fkey(id, nickname, level)",
     )
-    .eq("neighborhood_id", opts.neighborhoodId)
     .order("created_at", { ascending: false })
     .limit(100);
+  // 거주지 탭이면 건물명으로 묶고(동네 무관), 아니면 같은 동네로 스코프.
+  if (opts.residence) {
+    q = q.eq("residence", opts.residence);
+  } else {
+    q = q.eq("neighborhood_id", opts.neighborhoodId);
+  }
   if (opts.category) q = q.eq("category", opts.category);
-  if (opts.residence) q = q.eq("residence", opts.residence);
 
   const { data } = await q;
   const rows = (data ?? []) as any[];

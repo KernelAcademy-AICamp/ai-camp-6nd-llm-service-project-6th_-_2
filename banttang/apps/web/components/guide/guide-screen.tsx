@@ -6,16 +6,42 @@
 //   - 에스크로/수수료/환불 문구 → 반띵 실제 모델(영수증 인증·수수료 없음·송금은 이웃끼리)로 각색
 /* eslint-disable @next/next/no-img-element */
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GuideShareButton } from "./guide-share-button";
 
-type Mode = "same" | "split";
+type Mode = "host" | "member";
+
+type ModeCopy = {
+  heading: string;
+  card1: { tag: string; title: string };
+  step1: { title: string; caption: string };
+  step2: { title: string; caption: string };
+  step3: { title: string; caption: string };
+};
+
+// 파티장/파티원 관점별 카피 (장보기 소분 기준 · 배달 문구 없음)
+const COPY: Record<Mode, ModeCopy> = {
+  host: {
+    heading: "반띵을 열어 이웃을 모아요",
+    card1: { tag: "함께 사서", title: "더 싸게 나눠요" },
+    step1: { title: "‘반띵 열기’ 버튼을 눌러주세요", caption: "사고 싶은 상품과 인원수를 정해요." },
+    step2: { title: "이웃이 모이면 대표로 주문해요", caption: "파티장이 대표로 주문하고 영수증을 올려요." },
+    step3: { title: "영수증으로 정산받아요", caption: "인증된 금액을 기준으로 파티원에게 송금받아요." },
+  },
+  member: {
+    heading: "마음에 드는 반띵에 참여해요",
+    card1: { tag: "혼자서도", title: "딱 필요한 만큼" },
+    step1: { title: "동네 반띵을 찾아 참여해요", caption: "원하는 상품의 반띵을 골라 신청해요." },
+    step2: { title: "파티장이 모이면 함께 주문해요", caption: "정원이 차면 파티장이 대표로 주문해요." },
+    step3: { title: "받고 내 몫을 정산해요", caption: "인증된 영수증 금액만큼 파티장에게 직접 송금해요." },
+  },
+};
 
 export function GuideScreen() {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("same");
+  const [mode, setMode] = useState<Mode>("host");
+  const copy = COPY[mode];
 
   return (
     <div className="flex flex-1 flex-col bg-white text-zinc-900">
@@ -73,8 +99,8 @@ export function GuideScreen() {
           <div className="mt-6 grid grid-cols-2 border-b border-zinc-200">
             {(
               [
-                { id: "same", label: "같은 상품 나누기" },
-                { id: "split", label: "각자 담아 나누기" },
+                { id: "host", label: "파티장" },
+                { id: "member", label: "파티원" },
               ] as const
             ).map((t) => {
               const active = mode === t.id;
@@ -99,14 +125,12 @@ export function GuideScreen() {
           </div>
 
           {/* 상단 2-카드 */}
-          <h3 className="mt-10 text-center text-[20px] font-extrabold">
-            {mode === "same" ? "한 상자를 나눠가져요" : "각자 원하는 메뉴를 담아요"}
-          </h3>
+          <h3 className="mt-10 text-center text-[20px] font-extrabold">{copy.heading}</h3>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
             <FeatureCard
-              tag={mode === "same" ? "함께 사서" : "혼자서도"}
-              title={mode === "same" ? "더 싸게 나눠요" : "최소주문 OK"}
+              tag={copy.card1.tag}
+              title={copy.card1.title}
               img="/guide/guide-house.png"
               alt="혜택"
               badge={
@@ -130,31 +154,15 @@ export function GuideScreen() {
 
           {/* 단계 */}
           <div className="mt-12 space-y-10">
-            <Step
-              n={1}
-              title="‘반띵 열기’ 버튼을 눌러주세요"
-              caption={
-                mode === "same"
-                  ? "사고 싶은 상품과 인원수를 정해요."
-                  : "주문할 가게와 모집 인원을 정해요."
-              }
-            >
-              <MockPartyCard mode={mode} />
+            <Step n={1} title={copy.step1.title} caption={copy.step1.caption}>
+              <MockPartyCard />
             </Step>
 
-            <Step
-              n={2}
-              title="이웃이 모이면 함께 주문해요"
-              caption="호스트가 대표로 주문하고 영수증을 올려요."
-            >
+            <Step n={2} title={copy.step2.title} caption={copy.step2.caption}>
               <MockPayCard />
             </Step>
 
-            <Step
-              n={3}
-              title="받고 영수증으로 정산해요"
-              caption="인증된 금액을 기준으로 이웃끼리 직접 송금해요."
-            >
+            <Step n={3} title={copy.step3.title} caption={copy.step3.caption}>
               <MockConfirmCard />
             </Step>
           </div>
@@ -186,16 +194,6 @@ export function GuideScreen() {
           </ul>
         </section>
       </main>
-
-      {/* 플로팅 CTA — 하단 탭(BottomNav 56px) 위에 정렬 */}
-      <div className="fixed inset-x-0 bottom-14 z-20 mx-auto max-w-md border-t border-zinc-100 bg-white/95 p-4 backdrop-blur">
-        <Link
-          href={"/" as never}
-          className="flex h-12 items-center justify-center rounded-xl bg-brand text-[15px] font-bold text-white shadow-lg shadow-emerald-500/30"
-        >
-          지금 반띵 시작하기
-        </Link>
-      </div>
     </div>
   );
 }
@@ -254,15 +252,11 @@ function Step({
   );
 }
 
-function MockPartyCard({ mode }: { mode: Mode }) {
+function MockPartyCard() {
   return (
-    <div className="relative mx-auto w-full max-w-[280px] rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.04]">
-      <p className="text-[18px] font-extrabold tracking-tight">
-        {mode === "same" ? "12,000원" : "BBQ 황금올리브 외 3건"}
-      </p>
-      <p className="mt-1 text-[12px] text-zinc-500">
-        {mode === "same" ? "코스트코 휴지 30롤 · 3분 전" : "치킨 · 방금 전"}
-      </p>
+    <div className="mx-auto w-full max-w-[280px] rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.04]">
+      <p className="text-[18px] font-extrabold tracking-tight">12,000원</p>
+      <p className="mt-1 text-[12px] text-zinc-500">코스트코 휴지 30롤 · 3분 전</p>
       <div className="mt-4 flex items-center gap-2">
         <button
           type="button"
@@ -278,7 +272,6 @@ function MockPartyCard({ mode }: { mode: Mode }) {
           반띵 참여하기
         </button>
       </div>
-      <img src="/guide/guide-hand.png" alt="" loading="lazy" className="pointer-events-none absolute -bottom-3 right-4 h-16 w-16" />
     </div>
   );
 }
@@ -307,10 +300,9 @@ function MockConfirmCard() {
       <img src="/guide/guide-box.png" alt="" loading="lazy" className="h-28 w-28" />
       <button
         type="button"
-        className="relative mt-3 inline-flex h-11 w-full items-center justify-center rounded-lg bg-brand text-[14px] font-bold text-white"
+        className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-lg bg-brand text-[14px] font-bold text-white"
       >
         수령 완료
-        <img src="/guide/guide-hand.png" alt="" loading="lazy" className="pointer-events-none absolute -bottom-3 right-2 h-14 w-14" />
       </button>
     </div>
   );
@@ -338,15 +330,15 @@ function FaqRow({ q, a }: { q: string; a: string }) {
 const FAQ = [
   {
     q: "반띵이 무엇인가요?",
-    a: "동네 이웃과 함께 상품을 공동구매하거나 배달 음식을 나눠 시키는 서비스예요. 호스트가 반띵을 열고, 이웃이 참여해 함께 주문하면 끝!",
+    a: "동네 이웃과 함께 상품을 공동구매해 나누는 서비스예요. 파티장이 반띵을 열고, 파티원이 참여해 함께 주문하면 끝!",
   },
   {
-    q: "‘같은 상품 나누기’와 ‘각자 담아 나누기’는 어떻게 다른가요?",
-    a: "같은 상품 나누기는 대용량 상품 하나를 여러 명이 똑같이 나눠 가지는 방식, 각자 담아 나누기는 한 주문서 안에 각자 원하는 메뉴를 담는 방식이에요.",
+    q: "‘파티장’과 ‘파티원’은 어떻게 다른가요?",
+    a: "파티장은 반띵을 열어 대표로 주문하고 영수증을 올리는 사람, 파티원은 열린 반띵에 참여해 내 몫만큼 정산하는 사람이에요.",
   },
   {
     q: "정산은 어떻게 하나요?",
-    a: "호스트가 영수증을 등록하면 실제 금액이 인증돼요. 인증된 금액을 기준으로 이웃끼리 직접 송금해 정산해요.",
+    a: "파티장이 영수증을 등록하면 실제 금액이 인증돼요. 인증된 금액을 기준으로 파티원이 파티장에게 직접 송금해 정산해요.",
   },
   {
     q: "이웃이 모이지 않으면 어떻게 되나요?",
