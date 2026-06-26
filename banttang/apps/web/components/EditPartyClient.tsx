@@ -25,6 +25,18 @@ const MAX_PHOTOS = 10;
 const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 const PHOTO_ACCEPTED = ["image/jpeg", "image/png", "image/webp"];
 
+// HostNewClient.submit이 representative_menu에 "{base}\n[특이사항] {note}" 로 합쳐 저장하므로
+// 수정 화면에선 두 칸으로 다시 분리. 매칭 라인이 없으면 전체를 base로 본다.
+function splitMenuAndNote(value: string | null): {
+  baseMenu: string;
+  note: string;
+} {
+  if (!value) return { baseMenu: "", note: "" };
+  const m = value.match(/^([\s\S]*?)\n\[특이사항\]\s*([\s\S]*)$/);
+  if (!m) return { baseMenu: value, note: "" };
+  return { baseMenu: m[1].trim(), note: m[2].trim() };
+}
+
 interface InitialParty {
   id: string;
   store_name: string;
@@ -62,7 +74,14 @@ export function EditPartyClient({
 
   // 본 데이터 필드
   const [storeName, setStoreName] = useState(party.store_name);
-  const [menu, setMenu] = useState(party.representative_menu ?? "");
+  // representative_menu에 [특이사항]이 합쳐져 있을 수 있어 분리해 초기화.
+  // HostNewClient.submit과 동일 컨벤션: "{base}\n[특이사항] {note}"
+  const { baseMenu: initialMenu, note: initialNote } = splitMenuAndNote(
+    party.representative_menu,
+  );
+  const [menu, setMenu] = useState(initialMenu);
+  const [note, setNote] = useState(initialNote);
+  const NOTE_MAX = 100;
   const [price, setPrice] = useState(party.price_per_person);
   const [dealAtLocal, setDealAtLocal] = useState(() => isoToLocalInput(party.deal_at));
   // 작성 화면과 동일: 호스트 제외한 추가 인원으로 표시 (additionalNeeded). 저장 시 +1.
@@ -226,10 +245,17 @@ export function EditPartyClient({
       }
     }
 
-    // 3) 본 데이터 PATCH
+    // 3) 본 데이터 PATCH — menu + 특이사항 합쳐서 representative_menu에 저장
+    const trimmedNote = note.trim();
+    const mergedMenu = [
+      menu.trim(),
+      trimmedNote ? `[특이사항] ${trimmedNote}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
     const body: Record<string, unknown> = {
       store_name: sn,
-      representative_menu: menu.trim() || null,
+      representative_menu: mergedMenu || null,
       price_per_person: price,
       deal_at: localInputToIso(dealAtLocal),
       max_participants: max,
@@ -340,6 +366,27 @@ export function EditPartyClient({
           onChange={(e) => setMenu(e.target.value)}
           placeholder="예: 페퍼로니 라지"
           className="mt-2 w-full rounded-xl border border-zinc-200 px-3 py-2 text-sm"
+        />
+      </section>
+
+      {/* 특이사항 — HostNewClient와 동일 컨벤션(최대 100자) */}
+      <section className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <Label>특이사항 (선택)</Label>
+          <span className="text-[11px] font-medium text-zinc-400">
+            {note.length}/{NOTE_MAX}
+          </span>
+        </div>
+        <p className="mt-1 text-[11px] text-zinc-500">
+          참여자에게 전달할 요구사항을 자유롭게 적어주세요.
+        </p>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
+          maxLength={NOTE_MAX}
+          rows={3}
+          placeholder="100자 이내로 적어주세요"
+          className="mt-3 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm placeholder:text-zinc-400 focus:border-brand focus:outline-none"
         />
       </section>
 

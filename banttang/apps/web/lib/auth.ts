@@ -12,6 +12,7 @@ export type CurrentUser = {
   level: "dandelion" | "tree" | "king";
   gender: "female" | "male" | "prefer_not_to_say";
   neighborhood_id: string | null;
+  residence: string | null;
   transaction_count: number;
   good_review_count: number;
   bad_review_count: number;
@@ -28,7 +29,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   const { data } = await sb
     .from("profiles")
     .select(
-      "id, nickname, level, gender, neighborhood_id, transaction_count, good_review_count, bad_review_count, is_admin",
+      "id, nickname, level, gender, neighborhood_id, residence, transaction_count, good_review_count, bad_review_count, is_admin",
     )
     .eq("id", id)
     .maybeSingle();
@@ -65,4 +66,12 @@ export async function requireAdmin(): Promise<CurrentUser> {
   const u = await getCurrentUser();
   if (!u || !u.is_admin) throw new Error("FORBIDDEN");
   return u;
+}
+
+// 온보딩(주소 설정) 우회 플래그.
+// `.env.local`에 SKIP_ONBOARDING=true 를 박으면 onboarding/address 리다이렉트를 건너뜀.
+// 멀티 계정 테스트할 때 빠르게 가입 → 피드 진입을 위해 일시 사용.
+// 운영/배포에선 절대 켜지 말 것.
+export function shouldSkipOnboarding(): boolean {
+  return process.env.SKIP_ONBOARDING === "true";
 }

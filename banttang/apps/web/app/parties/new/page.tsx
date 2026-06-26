@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { shouldSkipOnboarding } from "@/lib/auth";
 import { CreatePartyForm } from "./create-party-form";
+
+// 동네 미설정 + SKIP_ONBOARDING=true 일 때 사용할 폴백 동네(시드 신림).
+const FALLBACK_NEIGHBORHOOD_ID = "00000000-0000-0000-0000-000000000001";
 
 // 파티 생성 페이지 — 호스트가 모집글을 작성한다.
 // 로그인 필수. 픽업 장소 옵션은 사용자의 neighborhood에서 가져온다.
@@ -17,10 +21,11 @@ export default async function NewPartyPage() {
     .select("neighborhood_id")
     .eq("id", user.id)
     .maybeSingle<{ neighborhood_id: string | null }>();
-  if (!profile?.neighborhood_id) {
+  // SKIP_ONBOARDING=true 면 시드 동네로 폴백 — 멀티 계정 테스트용.
+  if (!profile?.neighborhood_id && !shouldSkipOnboarding()) {
     redirect("/onboarding/address");
   }
-  const neighborhoodId = profile.neighborhood_id;
+  const neighborhoodId = profile?.neighborhood_id ?? FALLBACK_NEIGHBORHOOD_ID;
 
   const { data: locs } = await supabase
     .from("pickup_locations")

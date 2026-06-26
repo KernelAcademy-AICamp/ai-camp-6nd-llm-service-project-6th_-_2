@@ -18,6 +18,8 @@ export type StoreCardData = {
   favoriteKind?: "store" | "product";
   // 이미 찜한 항목이면 하트 채워서 시작.
   initialFavorited?: boolean;
+  // AI 추천 이유 — 지정 시 설명 아래 강조 한 줄로 표시.
+  reason?: string;
 };
 
 export function StoreCard({
@@ -28,6 +30,7 @@ export function StoreCard({
   banttangHref,
   favoriteKind,
   initialFavorited,
+  reason,
 }: StoreCardData) {
   // 세로 카드 — 사진(위) + 설명(아래). 추천 레일·검색 결과·섹션 리스트 공용.
   const inner = (
@@ -35,11 +38,15 @@ export function StoreCard({
       {/* 사진 — 카드 폭 전체, 4:3 비율 */}
       <div className="aspect-[4/3] w-full overflow-hidden bg-brand-50">
         {image ? (
-          // 외부 이미지(쇼핑) — next/image 도메인 설정 회피 위해 background 로 표시
-          <div
-            className="h-full w-full bg-cover bg-center"
-            style={{ backgroundImage: `url(${image})` }}
-            aria-hidden
+          // 외부 이미지 — next/image 도메인 설정 회피 위해 <img> 직접 사용.
+          // referrerPolicy="no-referrer": 루리웹 등 Referer 핫링크 차단(403) 우회.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={image}
+            alt=""
+            referrerPolicy="no-referrer"
+            loading="lazy"
+            className="h-full w-full object-cover"
           />
         ) : (
           <StoreThumb storeName={title} menu={subtitle} />
@@ -49,6 +56,17 @@ export function StoreCard({
       <div className="flex min-w-0 flex-1 flex-col gap-1 p-3">
         <h3 className="line-clamp-2 text-sm font-semibold leading-snug text-zinc-900">{title}</h3>
         <p className="line-clamp-2 text-xs text-zinc-500">{subtitle}</p>
+        {reason && (
+          // AI 추천 이유 — 라벨 + 강조 박스로 "왜 추천했는지" 명확히.
+          <div className="mt-1.5 rounded-lg bg-brand-50 px-2 py-1.5">
+            <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-brand">
+              <span aria-hidden>✨</span> 추천 이유
+            </p>
+            <p className="mt-0.5 text-[11px] font-medium leading-snug text-brand-dark">
+              {reason}
+            </p>
+          </div>
+        )}
       </div>
     </>
   );

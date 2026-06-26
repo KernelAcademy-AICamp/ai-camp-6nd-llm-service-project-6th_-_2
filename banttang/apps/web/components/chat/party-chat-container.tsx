@@ -24,11 +24,13 @@ import { ReceiptSheet } from "./receipt-sheet";
 import { CompleteSheet, type CompleteSubmitInput } from "./complete-sheet";
 import { PartyInfoCard } from "./party-info-card";
 import { ActionBanner } from "./action-banner";
-import { TransactionCardSheet } from "./transaction-card-sheet";
-import { AvocadoNotice } from "./avocado-notice";
+import { DoorbellCta } from "./doorbell-cta";
+import { ChatQuickChips } from "./chat-quick-chips";
+import { ReceiptViewSheet } from "./receipt-view-sheet";
+import { MemberProfileSheet } from "./member-profile-sheet";
+import { requestReceipt } from "@/app/_actions/request-receipt";
 import { buildTimeline, type ReceiptCardItem } from "@/lib/types/chat";
 import { derivePhase } from "@/lib/types/phase";
-import { DEFAULT_ENTRY_NOTICE } from "@/lib/types/avocado-notice";
 import type {
   ChatMessage,
   ChatMessageWithSender,
@@ -77,9 +79,10 @@ export function PartyChatContainer({
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [receiptOpen, setReceiptOpen] = useState(false);
   const [completeOpen, setCompleteOpen] = useState(false);
-  const [cardOpen, setCardOpen] = useState(false);
-  // 띵동 쿨다운 — 남은 초. 0이면 가능, 5→0으로 카운트다운.
-  const [doorbellCooldown, setDoorbellCooldown] = useState(0);
+  // 게스트 영수증 확인 시트.
+  const [receiptViewOpen, setReceiptViewOpen] = useState(false);
+  // 채팅에서 탭한 상대 회원(공개 프로필 시트). null이면 닫힘.
+  const [profileUserId, setProfileUserId] = useState<string | null>(null);
   const [managing, setManaging] = useState(false);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const senderCacheRef = useRef<Map<string, ChatMessageWithSender["sender"]>>(
@@ -149,29 +152,15 @@ export function PartyChatContainer({
   const isReadOnly = phase === "cancelled";
   const isPostTrade = phase === "completed" || phase === "cancelled";
 
-  // 띵동 활성화: deal_at - 15분 ~ deal_at + 60분
-  // [TEMP-DEV] 테스트 위해 30일로 확장. 운영 전 원복:
-  //   nowMs >= dealMs - 15 * 60 * 1000 && nowMs <= dealMs + 60 * 60 * 1000
-  const dealMs = new Date(party.deal_at).getTime();
-  const DOORBELL_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
-  const doorbellActive =
+  // 띵동 CTA 정책 — 우측 하단 플로팅 벨 아이콘:
+  //   - 채팅방 입장 시점부터 항상 노출 (완료·취소된 방만 미노출)
+  //   - 시간 제한/쿨다운 없음. 탭 → "지금 사용하실 건가요?" 확인 팝업 → 전송
+  const doorbellShown =
     !!chatRoom &&
-    nowMs >= dealMs - DOORBELL_WINDOW_MS &&
-    nowMs <= dealMs + DOORBELL_WINDOW_MS &&
     party.status !== "completed" &&
     party.status !== "cancelled";
 
-  // 띵동 쿨다운 카운트다운 (1초마다 -1, 0이면 정지)
-  useEffect(() => {
-    if (doorbellCooldown <= 0) return;
-    const id = setTimeout(() => setDoorbellCooldown((s) => Math.max(0, s - 1)), 1000);
-    return () => clearTimeout(id);
-  }, [doorbellCooldown]);
-
   async function handleRingDoorbell() {
-    if (doorbellCooldown > 0) return;
-    // 쿨다운 즉시 시작 (서버 에러 와도 5초 잠금 — 도배 방지 일관성)
-    setDoorbellCooldown(5);
     const res = await ringDoorbell(party.id);
     if (!res.ok) alert(res.error);
   }
@@ -724,41 +713,41 @@ export function PartyChatContainer({
               }
             : undefined
         }
+        quickChips={
+          <ChatQuickChips
+            onGuide={() => router.push("/guide" as any)}
+            onReceipt={() => (isHost ? setReceiptOpen(true) : setReceiptViewOpen(true))}
+            onSettlement={() => router.push(`/chat/${party.id}/card` as any)}
+          />
+        }
+        notice={
+          <>
+            {/* 영수증 인증 관련 안내는 상단 '영수증 인증' 칩/요청 흐름으로 대체 → 배너 제거 */}
+            {(phase === "verified" || phase === "review_pending") && !isHost && (
+              <ActionBanner
+                tone="info"
+                icon="check"
+                title="거래를 완료해주세요"
+                description="주문 내역과 결제 금액이 맞는지 확인하고 후기를 작성하면 거래가 완료됩니다."
+                actionLabel="거래 완료"
+                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
+              />
+            )}
+            {phase === "completed" && (
+              <ActionBanner
+                tone="info"
+                icon="check"
+                title="거래가 완료되었어요"
+                description="함께한 분들에게 후기를 남겨보세요. 이미 작성했다면 후기를 다시 볼 수 있어요."
+                actionLabel="거래 후기 작성"
+                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
+              />
+            )}
+          </>
+        }
       />
 
-      {/* 정보 카드 자리 — '반띵 카드 보기' + 호스트 전용 '주문 인증' 가로 병렬. */}
-      <section className="flex items-center gap-2 border-b border-black/[0.06] bg-white px-4 py-3">
-        <button
-          type="button"
-          onClick={() => setCardOpen(true)}
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-brand/10 px-4 py-3 text-[14px] font-semibold text-brand transition-colors active:bg-brand/15"
-        >
-          <span aria-hidden>🪪</span>
-          <span>반띵 카드 보기</span>
-        </button>
-        {isHost && (() => {
-          // 영수증 등록됐거나 거래가 끝난 후엔 비활성 "인증 완료" 상태로 노출.
-          // 진행 단계에서만 클릭 가능.
-          const isVerified = receipts.length > 0;
-          const lockedAfterTrade = isPostTrade; // completed/cancelled
-          const disabled = isVerified || lockedAfterTrade;
-          return (
-            <button
-              type="button"
-              onClick={() => !disabled && setReceiptOpen(true)}
-              disabled={disabled}
-              className={
-                disabled
-                  ? "flex shrink-0 items-center gap-1.5 rounded-xl bg-zinc-200 px-4 py-3 text-[14px] font-semibold text-zinc-500 cursor-not-allowed"
-                  : "flex shrink-0 items-center gap-1.5 rounded-xl bg-brand px-4 py-3 text-[14px] font-semibold text-white transition-opacity active:opacity-80"
-              }
-            >
-              <span aria-hidden>{isVerified ? "✓" : "🧾"}</span>
-              <span>{isVerified ? "인증 완료" : "주문 인증"}</span>
-            </button>
-          );
-        })()}
-      </section>
+      {/* 반띵 카드 보기 / 영수증 인증은 상단 칩으로 일원화 → 하단 섹션 제거 */}
 
       <ChatTimeline
         items={items}
@@ -766,9 +755,16 @@ export function PartyChatContainer({
         isHost={isHost}
         participantCount={members.length}
         memberUserIds={members.map((m) => m.user_id)}
+        memberNames={Object.fromEntries(
+          members.map((m) => [m.user_id, m.profile?.nickname ?? "참여자"]),
+        )}
         reads={reads}
         scrollAnchorRef={scrollAnchorRef}
-        onOpenTransactionCard={() => setCardOpen(true)}
+        onOpenTransactionCard={() => router.push(`/chat/${party.id}/card` as any)}
+        onShowGuide={() => router.push("/guide" as any)}
+        onShowDoorbell={() => router.push("/guide/doorbell" as any)}
+        onUploadReceipt={() => setReceiptOpen(true)}
+        onTapMember={(uid) => setProfileUserId(uid)}
         onChangePickup={
           isHost
             ? async (input) => {
@@ -810,66 +806,9 @@ export function PartyChatContainer({
         }
       />
 
-      {/* 단계별 액션 안내 — 호스트가 영수증을 등록하거나 모두가 평가를 제출하도록 유도. */}
-      {phase === "verify_pending" && isHost && (
-        <ActionBanner
-          tone="warning"
-          icon="receipt"
-          title="주문 내역을 인증해주세요"
-          description="반띵 시간이 다가왔어요. 영수증 또는 결제 내역을 등록하면 거래 확인 단계로 넘어갑니다."
-          actionLabel="영수증 등록"
-          onAction={() => setReceiptOpen(true)}
-        />
-      )}
-      {phase === "verify_pending" && !isHost && (
-        <ActionBanner
-          tone="warning"
-          icon="receipt"
-          title="호스트의 주문 내역 인증을 기다리고 있어요"
-          description="반띵 시간이 다가왔어요. 호스트가 영수증을 등록하면 거래 확인 단계로 넘어갑니다."
-        />
-      )}
-      {/* 거래 완료 처리는 파티원만 — 영수증 인증 직후부터 노출 (verified/review_pending).
-          버튼 클릭 시 후기 작성 페이지로 이동만 한다. 후기 작성 완료 전까지는 'completed' 전이 X. */}
-      {(phase === "verified" || phase === "review_pending") && !isHost && (
-        <ActionBanner
-          tone="info"
-          icon="check"
-          title="거래를 완료해주세요"
-          description="주문 내역과 결제 금액이 맞는지 확인하고 후기를 작성하면 거래가 완료됩니다."
-          actionLabel="거래 완료"
-          onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
-        />
-      )}
-      {/* 완료된 반띵 — 마이페이지 후기 작성 화면으로 진입. 작성/조회 화면이 같은 라우트라
-          이미 쓴 사람도 같은 버튼으로 본인 후기 확인 가능. */}
-      {phase === "completed" && (
-        <ActionBanner
-          tone="info"
-          icon="check"
-          title="거래가 완료되었어요"
-          description="함께한 분들에게 후기를 남겨보세요. 이미 작성했다면 후기를 다시 볼 수 있어요."
-          actionLabel="거래 후기 작성"
-          onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
-        />
-      )}
-
-      {/* 띵동 — 거래 시각 ±윈도우 내에서만 활성. 호스트는 전원 broadcast, 참여자는 호스트에게만. */}
-      {doorbellActive && (
-        <ActionBanner
-          tone="info"
-          icon="check"
-          title="이제 띵동할 수 있어요"
-          description={
-            isHost
-              ? "다 모였으면 모든 멤버에게 띵동을 보내 위치를 알려주세요."
-              : "현장에 도착했으면 호스트에게 띵동을 보내세요."
-          }
-          actionLabel={
-            doorbellCooldown > 0 ? `다시 띵동까지 ${doorbellCooldown}초` : "🔔 띵동하기"
-          }
-          onAction={doorbellCooldown > 0 ? () => {} : handleRingDoorbell}
-        />
+      {/* 띵동 CTA — 우측 하단 플로팅 벨 아이콘 (비활성/활성/전송완료). 호스트는 전원, 참여자는 호스트에게. */}
+      {doorbellShown && (
+        <DoorbellCta isHost={isHost} roomId={party.id} onRing={handleRingDoorbell} />
       )}
 
       <ChatInputBar
@@ -879,16 +818,20 @@ export function PartyChatContainer({
         readOnlyHint={readOnlyHint}
       />
 
-      {/* 방장봇 아보카도 — FAB + 입장 안내. storage key는 사용자×파티 단위. */}
-      <AvocadoNotice
-        notice={DEFAULT_ENTRY_NOTICE}
-        storageKey={`avocado-notice:${party.id}:${currentUserId}`}
-      />
+      {/* 아보카도 안내는 플로팅 팝업 대신 타임라인 봇 카드(AvocadoBotCard)로 일원화. */}
 
       <ReceiptSheet
         open={receiptOpen}
         onClose={() => setReceiptOpen(false)}
         onSubmit={handleSubmitReceipt}
+      />
+
+      <ReceiptViewSheet
+        open={receiptViewOpen}
+        onClose={() => setReceiptViewOpen(false)}
+        receipt={receipts.length ? receipts[receipts.length - 1] : null}
+        participantCount={members.length}
+        onRequest={() => requestReceipt(party.id)}
       />
 
       <CompleteSheet
@@ -906,17 +849,14 @@ export function PartyChatContainer({
         onSubmit={handleSubmitComplete}
       />
 
-      <TransactionCardSheet
-        open={cardOpen}
-        onClose={() => setCardOpen(false)}
-        party={party}
-        pickupName={pickupLocationName ?? null}
-        pickupCoord={pickupCoord}
-        members={members.map((p) => ({
-          user_id: p.user_id,
-          nickname: p.profile?.nickname ?? "알 수 없음",
-          is_host: p.is_host,
-        }))}
+      {/* 채팅에서 회원 아바타/이름 탭 → 공개 프로필 시트 */}
+      <MemberProfileSheet
+        userId={profileUserId}
+        currentUserId={currentUserId}
+        partyName={party.store_name}
+        partyId={party.id}
+        isHost={members.some((m) => m.user_id === profileUserId && m.is_host)}
+        onClose={() => setProfileUserId(null)}
       />
     </div>
   );

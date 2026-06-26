@@ -26,11 +26,13 @@ type AuthorRow = {
   level: "dandelion" | "tree" | "king";
 };
 
-/** 같은 동네 게시글 목록. category가 있으면 해당 카테고리만. */
+/** 같은 동네 게시글 목록. category·residence로 추가 필터 가능. */
 export async function listCommunityPosts(opts: {
   neighborhoodId: string;
   viewerId: string;
   category?: CommunityCategory;
+  /** 지정 시 같은 거주지(건물) 글만. "거주지 탭"용. */
+  residence?: string;
 }): Promise<CommunityPostRow[]> {
   const sb = getServiceClient();
   let q = sb
@@ -42,6 +44,7 @@ export async function listCommunityPosts(opts: {
     .order("created_at", { ascending: false })
     .limit(100);
   if (opts.category) q = q.eq("category", opts.category);
+  if (opts.residence) q = q.eq("residence", opts.residence);
 
   const { data } = await q;
   const rows = (data ?? []) as any[];

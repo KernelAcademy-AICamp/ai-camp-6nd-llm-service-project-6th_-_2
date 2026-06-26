@@ -7,6 +7,8 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logUserEvent, parsePriceFromSubtitle } from "@/lib/store-events";
+import { deriveSignalFromTitle } from "@/lib/naver/personalize";
 import type { StoreFavoriteInput } from "@/lib/types";
 
 type Result<T = undefined> =
@@ -49,6 +51,16 @@ export async function toggleStoreFavorite(
     image: input.image ?? null,
   });
   if (error) return { ok: false, error: error.message };
+
+  // 통합 행동 로그: 찜 추가를 성향 태깅 입력으로도 적재(섹션은 title 역매칭).
+  void logUserEvent({
+    userId: me.id,
+    kind: "favorite",
+    keyword: input.title,
+    section: deriveSignalFromTitle(input.title)?.section ?? null,
+    price: parsePriceFromSubtitle(input.subtitle),
+  });
+
   revalidatePath("/mypage/favorites");
   return { ok: true, data: { favorited: true } };
 }

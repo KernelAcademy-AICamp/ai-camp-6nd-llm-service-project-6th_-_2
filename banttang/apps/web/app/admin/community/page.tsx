@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth";
 import { listAllCommunityPosts } from "@/lib/admin-queries";
 import { communityCategoryMeta } from "@/lib/types";
 import { formatKstShort } from "@/lib/party-status";
+import { BoardTabs } from "../_components/board-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -20,22 +21,16 @@ export default async function AdminCommunityPage() {
   const posts = await listAllCommunityPosts();
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-3 bg-zinc-50 p-4">
-      <header className="flex items-center justify-between px-1">
-        <h1 className="text-lg font-bold text-zinc-900">🛠 운영자</h1>
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-3 bg-brand-50/40 p-4">
+      <header className="flex items-end justify-between px-1 py-1">
+        <div>
+          <h1 className="text-2xl font-bold text-zinc-900">게시판 관리</h1>
+          <p className="mt-0.5 text-[12px] text-zinc-500">모집글 · 커뮤니티 모니터링</p>
+        </div>
         <span className="text-xs text-zinc-500">커뮤니티 {posts.length}건</span>
       </header>
 
-      <nav className="flex gap-1.5 px-1 text-[13px] font-semibold">
-        <Link
-          href={"/admin" as any}
-          className="rounded-full bg-white px-3 py-1 text-zinc-500 transition-colors active:bg-zinc-100"
-        >
-          모집글
-        </Link>
-        <span className="rounded-full bg-zinc-900 px-3 py-1 text-white">커뮤니티</span>
-      </nav>
-
+      <BoardTabs active="community" />
       {posts.length === 0 ? (
         <p className="px-1 py-12 text-center text-sm text-zinc-500">커뮤니티 글이 없어요.</p>
       ) : (
@@ -46,7 +41,7 @@ export default async function AdminCommunityPage() {
               <li key={p.id}>
                 <Link
                   href={`/admin/community/${p.id}` as any}
-                  className="flex items-center gap-3 rounded-2xl border border-black/[0.04] bg-white px-4 py-3 transition-colors active:bg-zinc-50"
+                  className="flex items-center gap-3 rounded-2xl border border-zinc-200/70 bg-white px-4 py-3 shadow-sm shadow-black/[0.02] transition-colors hover:border-brand/40 hover:bg-brand-50/40"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5">

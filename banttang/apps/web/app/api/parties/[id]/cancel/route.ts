@@ -26,6 +26,22 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       .eq("id", params.id);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+    // 채팅방이 열려 있었다면 취소 시스템 메시지
+    const { data: room } = await sb
+      .from("chat_rooms")
+      .select("id")
+      .eq("party_id", params.id)
+      .maybeSingle();
+    if (room) {
+      await sb.from("chat_messages").insert({
+        room_id: room.id,
+        sender_id: null,
+        type: "system",
+        content: "호스트가 이 반띵을 취소했어요. 다른 반띵을 찾아볼까요?",
+        metadata: { kind: "party_cancelled" },
+      });
+    }
+
     // 참여자에게 알림
     const { data: members } = await sb
       .from("party_participants")

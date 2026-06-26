@@ -6,6 +6,61 @@ import { cn, formatKstDateLabel, formatKstTime } from "@/lib/utils";
 import { Avatar } from "@/components/ui/avatar";
 import { ReceiptCardMessage } from "./receipt-card-message";
 import { KakaoMiniMap } from "./kakao-mini-map";
+import { AvocadoBotCard } from "./avocado-bot-card";
+import { LinkPreview } from "./link-preview";
+
+// 메시지 텍스트 내 URL 탐지/링크화.
+// http(s):// 스킴이 있는 URL + www. 시작 + 흔한 TLD 도메인(스킴 없이 입력해도 인식).
+const URL_CORE =
+  "(?:https?:\\/\\/|www\\.)[^\\s<]+|[a-z0-9][a-z0-9-]*(?:\\.[a-z0-9-]+)*\\.(?:com|net|org|io|co|kr|gg|me|tv|app|shop|store|news|dev|ai|xyz)(?:\\/[^\\s<]*)?";
+const URL_RE = new RegExp(`(${URL_CORE})`, "gi");
+const SINGLE_URL = new RegExp(`^(?:${URL_CORE})$`, "i");
+
+// 뒤따라온 문장부호 제거 + 스킴 없는 주소에 https:// 보정
+function normalizeUrl(u: string): string {
+  const cleaned = u.replace(/[.,!?)\]}'"]+$/, "");
+  return /^https?:\/\//i.test(cleaned) ? cleaned : `https://${cleaned}`;
+}
+
+function firstUrl(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const m = text.match(URL_RE);
+  return m?.[0] ? normalizeUrl(m[0]) : null;
+}
+
+// 긴 URL은 그대로 두면 버블이 지저분해짐 → 도메인+경로 위주로 축약 표시(href는 원본 유지)
+function prettyUrl(u: string): string {
+  try {
+    const x = new URL(normalizeUrl(u));
+    const path = x.pathname === "/" ? "" : x.pathname;
+    const base = x.hostname.replace(/^www\./, "") + path + x.search;
+    return base.length > 42 ? base.slice(0, 42) + "…" : base;
+  } catch {
+    return u.length > 38 ? u.slice(0, 38) + "…" : u;
+  }
+}
+
+function linkify(text: string, mine?: boolean) {
+  return text.split(URL_RE).map((part, i) =>
+    SINGLE_URL.test(part) ? (
+      <a
+        key={i}
+        href={normalizeUrl(part)}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={cn(
+          "break-all underline underline-offset-2",
+          mine ? "text-white" : "text-brand-dark",
+        )}
+      >
+        {prettyUrl(part)}
+      </a>
+    ) : (
+      <Fragment key={i}>{part}</Fragment>
+    ),
+  );
+}
 
 interface Props {
   items: ChatItem[];
@@ -14,6 +69,8 @@ interface Props {
   participantCount: number;
   // 현재 채팅방 모든 멤버 user_id (안읽은 수 계산용)
   memberUserIds: string[];
+  // user_id → 닉네임 (1:1 띵동 문구에 상대 닉네임 표시용)
+  memberNames?: Record<string, string>;
   // user_id → 마지막으로 읽은 메시지 ISO 시각 (Presence로 동기화).
   reads: Record<string, string>;
   scrollAnchorRef: RefObject<HTMLDivElement>;
@@ -27,6 +84,14 @@ interface Props {
   onDismissMidpoint?: (messageId: string) => Promise<void> | void;
   // 띵동 시스템 메시지의 "내 거래 카드보기" 버튼을 누를 때.
   onOpenTransactionCard?: () => void;
+  // 아보카도 봇 "거래 방법 보기" — 거래 방법 안내 페이지로 이동.
+  onShowGuide?: () => void;
+  // 아보카도 봇 "띵동이란?" — 띵동 안내 페이지로 이동.
+  onShowDoorbell?: () => void;
+  // 영수증 인증 요청 카드의 '영수증 등록'(호스트) 버튼.
+  onUploadReceipt?: () => void;
+  // 채팅에서 상대 아바타/이름 탭 → 공개 프로필 시트 열기.
+  onTapMember?: (userId: string, nickname: string) => void;
 }
 
 // 같은 날짜인지 비교 (KST 기준 YYYY-MM-DD)
@@ -46,11 +111,16 @@ export function ChatTimeline({
   isHost,
   participantCount,
   memberUserIds,
+  memberNames,
   reads,
   scrollAnchorRef,
   onChangePickup,
   onDismissMidpoint,
   onOpenTransactionCard,
+  onShowGuide,
+  onShowDoorbell,
+  onUploadReceipt,
+  onTapMember,
 }: Props) {
   // 메시지 하나의 안읽은 수 — 보낸이 외 멤버 중 last_read_at < 메시지 created_at 인 사람 수
   function unreadCountFor(message: { sender_id: string | null; created_at: string }): number {
@@ -155,10 +225,17 @@ export function ChatTimeline({
                 let displayText: string;
                 if (mineDoorbell) {
                   if (meta.sender_role === "host") {
-                    displayText = `모두에게 "띵동" 했어요`;
+                    // 1:1(호스트+1명)에선 "모두에게"가 어색 → 상대 닉네임
+                    if (participantCount <= 2) {
+                      const otherId = memberUserIds.find((id) => id !== currentUserId);
+                      const otherNick = (otherId && memberNames?.[otherId]) || "상대";
+                      displayText = `${otherNick}님에게 "띵동" 했어요`;
+                    } else {
+                      displayText = `모두에게 "띵동" 했어요`;
+                    }
                   } else {
                     const hostNick = meta.host_nickname ?? "호스트";
-                    displayText = `호스트 ${hostNick}에게 "띵동" 했어요`;
+                    displayText = `${hostNick}님에게 "띵동" 했어요`;
                   }
                 } else {
                   const nick = meta.sender_nickname ?? "참여자";
@@ -190,6 +267,87 @@ export function ChatTimeline({
                 );
               }
 
+              // 아보카도 봇 메시지 — 왼쪽 봇 말풍선/카드 (회색 시스템 메시지 아님).
+              const metaKind = (m.metadata as { kind?: string } | null)?.kind;
+              // 입장 안내 카드 — "거래 방법 보기" 버튼 포함
+              if (metaKind === "avocado_intro" || metaKind === "avocado_notice") {
+                // legacy 행은 "🥑 방장봇 아보카도: " 접두어가 붙어 있어 제거.
+                const text = (m.content ?? "").replace(
+                  /^🥑\s*방장봇 아보카도:\s*/,
+                  "",
+                );
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard content={text} onShowGuide={onShowGuide} />
+                    </li>
+                  </Fragment>
+                );
+              }
+              // 거래 1시간 전 띵동 안내 — 봇 카드 + '띵동이란?' 버튼
+              if (metaKind === "avocado_doorbell") {
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard
+                        content={m.content ?? ""}
+                        onShowDoorbell={onShowDoorbell}
+                      />
+                    </li>
+                  </Fragment>
+                );
+              }
+              // 영수증 인증 요청 — 요청자(나)는 오른쪽 정렬, 프로필 없음 + (호스트) 영수증 등록 버튼
+              if (metaKind === "receipt_request") {
+                const meta = m.metadata as { sender_id?: string } | null;
+                const mineReq = meta?.sender_id === currentUserId;
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li
+                      className={cn(
+                        "my-2 flex",
+                        mineReq ? "justify-end px-1" : "justify-start pl-11 pr-3",
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "border border-amber-200 bg-amber-50 p-3.5",
+                          mineReq ? "max-w-[82%] rounded-2xl rounded-tr-md" : "w-full rounded-2xl rounded-tl-md",
+                        )}
+                      >
+                        <p className="text-[13px] leading-relaxed text-amber-900">
+                          {m.content}
+                        </p>
+                        {isHost && onUploadReceipt && (
+                          <button
+                            type="button"
+                            onClick={onUploadReceipt}
+                            className="mt-3 w-full rounded-lg bg-amber-600 py-2 text-[13px] font-bold text-white active:opacity-80"
+                          >
+                            영수증 등록
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  </Fragment>
+                );
+              }
+
+              // 거래 방법 안내 — 버튼 없는 봇 말풍선
+              if (metaKind === "avocado_guide") {
+                return (
+                  <Fragment key={`m-${m.id}`}>
+                    {dateNode}
+                    <li>
+                      <AvocadoBotCard content={m.content ?? ""} />
+                    </li>
+                  </Fragment>
+                );
+              }
+
               // 영수증 확인 요청 — 강조 카드(amber).
               const meta = m.metadata as { kind?: string; title?: string } | null;
               if (meta?.kind === "receipt_confirm_prompt") {
@@ -207,10 +365,14 @@ export function ChatTimeline({
                 );
               }
 
-              // party_closed (DB trigger가 INSERT) — 새 spec copy로 override
+              // 시스템 메시지는 DB content를 그대로 노출.
+              // (이벤트 분리 전 legacy 'party_closed'는 거래방 오픈/퇴장이 섞여 있었으나,
+              //  거래방 오픈 행만 옛 문구라 신규 카피로 보정. 퇴장 행은 content에 닉네임이
+              //  들어가므로 그대로 노출. 신규는 chat_opened/member_left로 구분됨)
               const displayContent =
-                m.system_event === "party_closed"
-                  ? "반띵 채팅방이 열렸어요. 서로 인사를 나눠보세요 👋"
+                m.system_event === "party_closed" &&
+                m.content === "모집 완료! 거래방이 열렸어요"
+                  ? "모집이 완료되어 거래방이 열렸어요. 이제 주문과 나눔 일정을 확인해 주세요."
                   : m.content;
               return (
                 <Fragment key={`m-${m.id}`}>
@@ -256,78 +418,111 @@ export function ChatTimeline({
                     showHeader ? "mt-3" : "mt-0.5",
                   )}
                 >
-                  {showHeader && (
-                    <div className="mb-1 ml-9 flex items-center gap-1.5">
-                      <span className="text-[12px] font-medium text-gray-700">
-                        {m.sender?.nickname ?? "알 수 없음"}
-                      </span>
-                    </div>
-                  )}
                   <div
                     className={cn(
-                      "flex max-w-[80%] items-end gap-1.5",
-                      mine ? "flex-row-reverse" : "flex-row",
+                      "flex max-w-[85%] gap-2",
+                      mine ? "flex-row-reverse items-end" : "flex-row items-start",
                     )}
                   >
-                    {/* 상대 메시지 아바타: 그룹의 첫 메시지에만 노출, 나머지는 자리 비움 */}
+                    {/* 상대 메시지 아바타: 그룹 첫 메시지에만, 위쪽 정렬. 나머지는 자리 비움 */}
                     {!mine && (
-                      <span className="w-7 shrink-0">
+                      <span className="w-8 shrink-0">
                         {!prevIsSameSender && (
-                          <Avatar nickname={m.sender?.nickname ?? "?"} size={28} />
+                          <button
+                            type="button"
+                            onClick={
+                              m.sender_id && onTapMember
+                                ? () => onTapMember(m.sender_id!, m.sender?.nickname ?? "회원")
+                                : undefined
+                            }
+                            aria-label={`${m.sender?.nickname ?? "회원"} 프로필 보기`}
+                            className="rounded-full transition active:opacity-70"
+                          >
+                            <Avatar nickname={m.sender?.nickname ?? "?"} size={32} />
+                          </button>
                         )}
                       </span>
                     )}
 
-                    {isImageMessage(m.metadata) ? (
-                      <ImageBubble
-                        meta={m.metadata as unknown as ImageMeta}
-                        mine={mine}
-                        prevIsSameSender={!!prevIsSameSender}
-                        nextIsSameSender={!!nextIsSameSender}
-                      />
-                    ) : (
-                      <div
-                        className={cn(
-                          "whitespace-pre-wrap break-words px-3.5 py-2 text-[14px] leading-relaxed",
-                          mine
-                            ? "bg-brand text-brand-foreground"
-                            : "bg-white text-gray-900 ring-1 ring-black/[0.04]",
-                          mine
-                            ? cn(
-                                "rounded-2xl",
-                                !prevIsSameSender && "rounded-tr-md",
-                                !nextIsSameSender && "rounded-br-md",
-                              )
-                            : cn(
-                                "rounded-2xl",
-                                !prevIsSameSender && "rounded-tl-md",
-                                !nextIsSameSender && "rounded-bl-md",
-                              ),
-                        )}
-                      >
-                        {m.content}
-                      </div>
-                    )}
-
+                    {/* 이름(상대) + 말풍선 묶음 — 카카오톡 구조 */}
                     <div
                       className={cn(
-                        "mb-0.5 flex shrink-0 flex-col text-[10px] leading-none",
+                        "flex min-w-0 flex-col gap-1",
                         mine ? "items-end" : "items-start",
                       )}
                     >
-                      {(() => {
-                        const unread = unreadCountFor(m);
-                        return unread > 0 ? (
-                          <span className="font-bold text-amber-500 tabular-nums">
-                            {unread}
-                          </span>
-                        ) : null;
-                      })()}
-                      {showTime && (
-                        <time className="mt-0.5 text-gray-400">
-                          {formatKstTime(m.created_at)}
-                        </time>
+                      {showHeader && (
+                        <button
+                          type="button"
+                          onClick={
+                            m.sender_id && onTapMember
+                              ? () => onTapMember(m.sender_id!, m.sender?.nickname ?? "회원")
+                              : undefined
+                          }
+                          className="px-1 text-[12px] font-medium text-gray-700 active:opacity-70"
+                        >
+                          {m.sender?.nickname ?? "알 수 없음"}
+                        </button>
                       )}
+                      <div
+                        className={cn(
+                          "flex flex-col gap-1",
+                          mine ? "items-end" : "items-start",
+                        )}
+                      >
+                        {/* 메인 말풍선 + 시간 — 한 줄로 묶어 시간이 말풍선 옆에 붙도록 */}
+                        <div
+                          className={cn(
+                            "flex items-end gap-1.5",
+                            mine ? "flex-row-reverse" : "flex-row",
+                          )}
+                        >
+                          {isImageMessage(m.metadata) ? (
+                            <ImageBubble
+                              meta={m.metadata as unknown as ImageMeta}
+                              mine={mine}
+                              prevIsSameSender={!!prevIsSameSender}
+                              nextIsSameSender={!!nextIsSameSender}
+                            />
+                          ) : (
+                            <div
+                              className={cn(
+                                "whitespace-pre-wrap break-words px-3.5 py-2 text-[14px] leading-relaxed",
+                                mine
+                                  ? "bg-brand text-brand-foreground"
+                                  : "bg-white text-gray-900 ring-1 ring-black/[0.04]",
+                                // 꼬리(노치)는 항상 바깥-위 모서리에. 아래 노치 없음.
+                                mine
+                                  ? "rounded-2xl rounded-tr-md"
+                                  : "rounded-2xl rounded-tl-md",
+                              )}
+                            >
+                              {linkify(m.content ?? "", mine)}
+                            </div>
+                          )}
+
+                          <div className="mb-0.5 flex shrink-0 items-end gap-1 text-[10px] leading-none">
+                            {(() => {
+                              const unread = unreadCountFor(m);
+                              return unread > 0 ? (
+                                <span className="font-bold text-amber-500 tabular-nums">
+                                  {unread}
+                                </span>
+                              ) : null;
+                            })()}
+                            {showTime && (
+                              <time className="text-gray-400">
+                                {formatKstTime(m.created_at)}
+                              </time>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* 링크 미리보기 — 말풍선 아래 별도 줄(폭 넓어도 시간 정렬에 영향 X) */}
+                        {!isImageMessage(m.metadata) && firstUrl(m.content) && (
+                          <LinkPreview url={firstUrl(m.content)!} mine={mine} />
+                        )}
+                      </div>
                     </div>
                   </div>
                 </li>
@@ -380,8 +575,8 @@ function MidpointCard({
   onDismiss?: () => Promise<void> | void;
 }) {
   return (
-    <div className="my-3 flex w-full justify-center">
-      <article className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.05]">
+    <div className="my-2 flex justify-start pl-11 pr-3">
+      <article className="w-full overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-black/[0.05]">
         <header className="flex items-center gap-1.5 bg-brand/[0.08] px-4 py-2.5">
           <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand text-white">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -662,32 +857,37 @@ function DoorbellCard({
   onOpenCard?: () => void;
 }) {
   return (
-    <div className={cn("my-3 flex w-full", mine ? "justify-end" : "justify-start")}>
-      <article
+    <div className={cn("my-2 flex px-1", mine ? "justify-end" : "justify-start")}>
+      <div
         className={cn(
-          "inline-flex max-w-sm items-center gap-3 rounded-2xl bg-gradient-to-r from-amber-50 to-brand/[0.08] px-4 py-3 ring-1 ring-amber-200",
-          mine && "flex-row-reverse",
+          "max-w-[82%] border border-amber-200 bg-amber-50 p-3.5",
+          mine ? "rounded-2xl rounded-tr-md" : "rounded-2xl rounded-tl-md",
         )}
       >
-        <span
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400 text-white shadow-sm"
-          aria-hidden
-        >
-          <span className="text-[18px]">🔔</span>
-        </span>
-        <div className={cn("min-w-0", mine && "text-right")}>
-          <p className="text-[13px] font-semibold text-gray-900">{content}</p>
-          {onOpenCard && (
-            <button
-              type="button"
-              onClick={onOpenCard}
-              className="mt-1 text-[12px] font-semibold text-brand underline-offset-2 hover:underline active:underline"
-            >
-              내 거래 카드보기 →
-            </button>
-          )}
+        <div className="flex items-center gap-1.5">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0 text-amber-500">
+            <path
+              d="M12 3a5 5 0 0 0-5 5v3.5L5.5 15h13L17 11.5V8a5 5 0 0 0-5-5Z"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinejoin="round"
+            />
+            <path d="M10 18a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
+          </svg>
+          <p className="text-[13px] font-semibold leading-relaxed text-amber-900">
+            {content}
+          </p>
         </div>
-      </article>
+        {onOpenCard && (
+          <button
+            type="button"
+            onClick={onOpenCard}
+            className="mt-3 w-full rounded-lg bg-amber-600 py-2 text-[13px] font-bold text-white active:opacity-80"
+          >
+            내 거래 카드보기
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -125,11 +125,20 @@ export function UserBar({
   } else if (seg[0] === "groupbuy") {
     // 공동구매 상세 — 자체 헤더 사용
     mode = "hidden";
+  } else if (seg[0] === "picks" && seg[1]) {
+    // AI 추천 상품 상세 — 자체 헤더 사용
+    mode = "hidden";
+  } else if (seg[0] === "guide") {
+    // 거래 방법/띵동 안내 — 자체 헤더(← + 타이틀) 사용
+    mode = "hidden";
+  } else if (seg[0] === "host" && seg[1] === "new") {
+    // 띵동 만들기 — 자체 헤더(← + 제목) 사용
+    mode = "hidden";
   } else if (seg[0] === "feed" && seg[1] && UUID_RE.test(seg[1])) {
     mode = "subpage";
     partyIdFromPath = seg[1];
   } else if (
-    (seg[0] === "host" && (seg[1] === "new" || (seg[1] === "edit" && seg[2]))) ||
+    (seg[0] === "host" && seg[1] === "edit" && seg[2]) ||
     seg[0] === "onboarding" ||
     // /mypage 서브 페이지 (orders, reviews, profile 등)는 뒤로가기 노출. hub(/mypage)는 home 모드 유지.
     (seg[0] === "mypage" && seg.length > 1)

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { ADDRESS_COOKIE, ADDRESS_COORDS_COOKIE, getCurrentUser } from "@/lib/auth";
 import { getServiceClient } from "@/lib/supabase/admin";
+import { getNeighborhoodFeed } from "@/lib/naver/cache";
+import { isNaverConfigured } from "@/lib/naver/client";
 
 type Region = { city: string; district: string; dong: string };
 
@@ -71,11 +73,12 @@ async function reverseGeocodeRegion(lat: number, lng: number): Promise<Region | 
 }
 
 export async function POST(req: Request) {
-  const { method, address, lat, lng } = (await req.json()) as {
+  const { method, address, lat, lng, detail } = (await req.json()) as {
     method: "current_location" | "manual";
     address?: string;
     lat?: number;
     lng?: number;
+    detail?: string; // 건물명/상세주소 → profiles.residence
   };
 
   const hasCoords = typeof lat === "number" && typeof lng === "number";
@@ -170,6 +173,28 @@ export async function POST(req: Request) {
             .eq("id", me.id);
           if (updErr) {
             console.error("[onboarding/address] profiles.neighborhood_id 갱신 실패:", updErr);
+          } else if (isNaverConfigured()) {
+            // 새 동네 피드를 백그라운드로 미리 데워둔다(스토어 첫 진입 지연 제거).
+            // 응답을 막지 않는 fire-and-forget — 캐시 적중이면 0콜, 실패해도 스토어가 지연 로드로 폴백.
+            void getNeighborhoodFeed({
+              neighborhoodId: neighborhoodId as string,
+              name: (region as Region).dong,
+              district: (region as Region).district,
+            }).catch((e) =>
+              console.error("[onboarding/address] 동네 피드 프리워밍 실패:", e),
+            );
+          }
+        }
+
+        // 건물명/상세주소 → profiles.residence (커뮤니티 거주지 탭 기준)
+        const cleanDetail = detail?.trim();
+        if (cleanDetail) {
+          const { error: resErr } = await admin
+            .from("profiles")
+            .update({ residence: cleanDetail.slice(0, 30) })
+            .eq("id", me.id);
+          if (resErr) {
+            console.error("[onboarding/address] profiles.residence 갱신 실패:", resErr);
           }
         }
       }

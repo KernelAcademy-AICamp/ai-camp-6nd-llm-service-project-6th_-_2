@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>반띵 — 내 정보 관리 (목업)</title>
+<style>
+  :root{
+    --brand:#7FB069; --brand-50:#F1F7EA; --brand-100:#DDEBC9; --brand-dark:#6B9F5A;
+    --ink:#18181b; --muted:#71717a; --soft:#a1a1aa; --line:#f0f0ef;
+    --bg:#f4f4f5; --card:#ffffff; --danger:#ef4444;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:#e7e7e9;font-family:-apple-system,"Apple SD Gothic Neo","Pretendard",system-ui,sans-serif;
+    display:flex;justify-content:center;padding:28px 12px;color:var(--ink)}
+  .phone{width:390px;background:var(--bg);border-radius:34px;overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.22);border:1px solid #d4d4d8}
+  /* top bar */
+  .bar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px;background:var(--bg)}
+  .bar .back{font-size:22px;color:#3f3f46;width:28px}
+  .bar .title{font-size:15px;font-weight:700}
+  .bar .save{font-size:14px;font-weight:700;color:var(--brand-dark)}
+  .scroll{padding:6px 14px 26px;display:flex;flex-direction:column;gap:12px}
+
+  .card{background:var(--card);border:1px solid rgba(0,0,0,.04);border-radius:18px;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+  .sec-label{font-size:12px;font-weight:700;color:var(--soft);margin:8px 4px 2px}
+
+  /* profile header */
+  .prof{padding:18px;display:flex;flex-direction:column;gap:14px}
+  .prof-top{display:flex;align-items:center;gap:14px}
+  .avatar{width:60px;height:60px;border-radius:50%;background:var(--brand-50);color:var(--brand-dark);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex:none}
+  .name-row{display:flex;align-items:center;gap:8px}
+  .name{font-size:19px;font-weight:800}
+  .edit{font-size:13px;color:var(--soft)}
+  .badge{display:inline-flex;align-items:center;gap:4px;background:var(--brand-50);color:var(--brand-dark);
+    font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:5px}
+  .sub{font-size:12.5px;color:var(--muted);margin-top:5px}
+  .stats{display:flex;gap:0;border-top:1px solid var(--line);padding-top:13px}
+  .stat{flex:1;text-align:center}
+  .stat b{display:block;font-size:17px;font-weight:800}
+  .stat span{font-size:11px;color:var(--muted)}
+  .stat + .stat{border-left:1px solid var(--line)}
+
+  /* rows */
+  .row{display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--line)}
+  .row:first-child{border-top:0}
+  .row .k{font-size:14px;color:#3f3f46;width:64px;flex:none}
+  .row .v{flex:1;font-size:14px;font-weight:600}
+  .row .v.ph{color:var(--soft);font-weight:500}
+  .row .chev{color:#d4d4d8;font-size:18px}
+  .pin{color:var(--brand-dark);font-size:13px;margin-right:2px}
+
+  /* chips */
+  .chips{display:flex;flex-wrap:wrap;gap:8px;padding:14px 16px}
+  .chip{font-size:13px;font-weight:600;padding:7px 13px;border-radius:999px;border:1px solid #e4e4e7;color:#52525b;background:#fff}
+  .chip.on{background:var(--brand-50);border-color:var(--brand-100);color:var(--brand-dark)}
+  .seg{display:flex;gap:8px;padding:0 16px 14px}
+  .seg .opt{flex:1;text-align:center;font-size:13px;font-weight:700;padding:10px;border-radius:12px;border:1px solid #e4e4e7;color:#52525b}
+  .seg .opt.on{background:var(--brand);border-color:var(--brand);color:#fff}
+
+  /* toggle rows */
+  .trow{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-top:1px solid var(--line)}
+  .trow:first-child{border-top:0}
+  .trow .lbl{font-size:14px;font-weight:600}
+  .trow .desc{font-size:11.5px;color:var(--muted);margin-top:2px}
+  .tg{width:44px;height:26px;border-radius:999px;background:#e4e4e7;position:relative;flex:none;transition:.15s}
+  .tg::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:.15s}
+  .tg.on{background:var(--brand)}
+  .tg.on::after{left:21px}
+
+  /* account */
+  .acc .item{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-top:1px solid var(--line);font-size:14px;font-weight:600}
+  .acc .item:first-child{border-top:0}
+  .acc .item .chev{color:#d4d4d8;font-size:18px}
+  .acc .dim{color:var(--soft);font-weight:500}
+  .acc .tag{font-size:11px;color:var(--soft);border:1px solid #e4e4e7;border-radius:6px;padding:2px 7px}
+  .acc .danger{color:var(--danger)}
+  .note{font-size:11px;color:var(--soft);text-align:center;padding:10px 8px 0}
+</style>
+</head>
+<body>
+  <div class="phone">
+    <!-- top bar -->
+    <div class="bar">
+      <div class="back">‹</div>
+      <div class="title">내 정보</div>
+      <div class="save">저장</div>
+    </div>
+
+    <div class="scroll">
+
+      <!-- profile header -->
+      <div class="card prof">
+        <div class="prof-top">
+          <div class="avatar">민지</div>
+          <div style="min-width:0">
+            <div class="name-row"><span class="name">민지</span><span class="edit">✎ 닉네임 수정</span></div>
+            <span class="badge">🌳 나무 등급</span>
+            <div class="sub">관악구 신림동 · 여성 · 가입 23일</div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat"><b>12</b><span>완료 거래</span></div>
+          <div class="stat"><b style="color:var(--brand-dark)">👍 9</b><span>좋았어요</span></div>
+          <div class="stat"><b style="color:#a1a1aa">👎 1</b><span>아쉬워요</span></div>
+        </div>
+      </div>
+
+      <!-- 기본 정보 -->
+      <div class="sec-label">기본 정보</div>
+      <div class="card">
+        <div class="row"><span class="k">닉네임</span><span class="v">민지</span><span class="chev">›</span></div>
+        <div class="row"><span class="k">성별</span><span class="v">여성</span><span class="chev">›</span></div>
+        <div class="row"><span class="k">내 동네</span><span class="v"><span class="pin">📍</span>관악구 신림동</span><span class="chev">›</span></div>
+      </div>
+
+      <!-- 관심사 -->
+      <div class="sec-label">관심사 · 주 사용</div>
+      <div class="card">
+        <div class="chips">
+          <span class="chip on">식품 ✓</span>
+          <span class="chip on">리빙 ✓</span>
+          <span class="chip">건강</span>
+          <span class="chip">뷰티</span>
+          <span class="chip">패션</span>
+        </div>
+        <div class="seg">
+          <div class="opt on">🛒 장보기 같이</div>
+          <div class="opt">🍽️ 배달 같이</div>
+        </div>
+      </div>
+
+      <!-- 알림 설정 -->
+      <div class="sec-label">알림</div>
+      <div class="card">
+        <div class="trow">
+          <div><div class="lbl">카카오 알림톡</div><div class="desc">매칭·마감·정산 등 필수 알림</div></div>
+          <div class="tg on"></div>
+        </div>
+        <div class="trow">
+          <div><div class="lbl">웹푸시 알림</div><div class="desc">앱 설치 시 보조 알림</div></div>
+          <div class="tg on"></div>
+        </div>
+        <div class="trow">
+          <div><div class="lbl">마케팅 정보 수신</div><div class="desc">혜택·핫딜 소식</div></div>
+          <div class="tg"></div>
+        </div>
+      </div>
+
+      <!-- 계정 -->
+      <div class="sec-label">계정</div>
+      <div class="card acc">
+        <div class="item"><span>본인인증</span><span class="tag">준비중 · Phase 2</span></div>
+        <div class="item"><span>약관 및 개인정보 처리방침</span><span class="chev">›</span></div>
+        <div class="item"><span>로그아웃</span><span class="chev">›</span></div>
+        <div class="item danger"><span>회원 탈퇴</span><span class="chev" style="color:#fca5a5">›</span></div>
+      </div>
+
+      <div class="note">반띵 · 내 정보 관리 화면 목업</div>
+    </div>
+  </div>
+</body>
+</html>

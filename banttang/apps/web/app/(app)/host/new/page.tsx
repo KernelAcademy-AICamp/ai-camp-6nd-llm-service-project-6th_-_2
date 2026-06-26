@@ -9,7 +9,14 @@ const FALLBACK_COORDS = { lat: 37.4842, lng: 126.9296 }; // 신림역
 export default async function HostNewPage({
   searchParams,
 }: {
-  searchParams: { store?: string; tab?: string; link?: string; image?: string };
+  searchParams: {
+    store?: string;
+    tab?: string;
+    link?: string;
+    image?: string;
+    price?: string;
+    group?: string;
+  };
 }) {
   await requireCurrentUser();
   const c = cookies();
@@ -27,6 +34,15 @@ export default async function HostNewPage({
   const initialTab = searchParams.tab === "shopping" ? "shopping" : undefined;
   const initialLink = searchParams.link?.trim() || undefined;
   const initialImageUrl = searchParams.image?.trim() || undefined;
+  const priceNum = Number(searchParams.price);
+  const initialPrice =
+    Number.isFinite(priceNum) && priceNum > 0 ? Math.floor(priceNum) : undefined;
+  // 추천 상품 카테고리 — parties.pick_group 으로 그대로 전달해 지도 칩이 유지되게.
+  const rawGroup = searchParams.group?.trim();
+  const initialPickGroup =
+    rawGroup === "health" || rawGroup === "fruitegg" || rawGroup === "homecare"
+      ? rawGroup
+      : undefined;
   return (
     <HostNewClient
       userAddress={address}
@@ -35,6 +51,8 @@ export default async function HostNewPage({
       initialTab={initialTab}
       initialLink={initialLink}
       initialImageUrl={initialImageUrl}
+      initialPrice={initialPrice}
+      initialPickGroup={initialPickGroup}
     />
   );
 }

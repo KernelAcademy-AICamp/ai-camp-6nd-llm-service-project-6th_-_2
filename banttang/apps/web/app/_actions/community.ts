@@ -63,6 +63,8 @@ export async function createCommunityPost(input: {
       title,
       body,
       image_paths: imagePaths,
+      // 거주지 탭 필터용 — 작성 시점 작성자 거주지 스냅샷
+      residence: me.residence ?? null,
     })
     .select("id")
     .single();

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   COMMUNITY_CATEGORIES,
@@ -12,6 +12,12 @@ import {
   type CommunityPostRow,
 } from "@/lib/types";
 import { cn, timeAgo } from "@/lib/utils";
+import {
+  mockResidenceMemberCount,
+  residenceJoinedKey,
+  MOCK_LAST_MESSAGE,
+  MOCK_LAST_TIME,
+} from "@/lib/residence-room";
 import { CommunityAvatar, levelEmoji } from "./CommunityAvatar";
 
 // 🔥 인기글 기준 (좋아요 수)
@@ -21,13 +27,31 @@ export function CommunityClient({
   posts,
   neighborhoodName,
   category,
+  scope = "all",
+  residence = null,
 }: {
   posts: CommunityPostRow[];
   neighborhoodName: string | null;
   category: CommunityCategory | null;
+  scope?: "all" | "residence";
+  residence?: string | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+
+  // scope·category 보존하며 링크 생성
+  const buildHref = (next: {
+    scope?: "all" | "residence";
+    category?: CommunityCategory | null;
+  }): string => {
+    const s = next.scope ?? scope;
+    const c = next.category === undefined ? category : next.category;
+    const p = new URLSearchParams();
+    if (s === "residence") p.set("scope", "residence");
+    if (c) p.set("category", c);
+    const qs = p.toString();
+    return qs ? `/community?${qs}` : "/community";
+  };
 
   useEffect(() => {
     const channel = supabase
@@ -75,16 +99,39 @@ export function CommunityClient({
     <div className="flex flex-1 flex-col bg-white pb-24">
       <Header neighborhoodName={neighborhoodName} />
 
+      {/* 큰 탭: 전체글 | 거주지(건물명) */}
+      <div className="flex border-b border-zinc-200 px-2">
+        <BigTab label="전체글" active={scope === "all"} href={buildHref({ scope: "all" })} />
+        {residence ? (
+          <BigTab
+            label={residence}
+            active={scope === "residence"}
+            href={buildHref({ scope: "residence" })}
+          />
+        ) : (
+          <BigTab label="거주지 설정" active={false} href="/mypage/profile" muted />
+        )}
+      </div>
+
+      {/* 거주지 탭 상단: 우리 건물 채팅방 입장 (게시글은 그 아래) */}
+      {scope === "residence" && residence && (
+        <ResidenceRoomEntry residence={residence} />
+      )}
+
       {/* 카테고리 칩 (가로 스크롤) */}
       <div className="sticky top-0 z-20 border-b border-zinc-100 bg-white">
         <div className="flex gap-2 overflow-x-auto px-5 py-3 [&::-webkit-scrollbar]:hidden">
-          <Chip label="전체" active={category === null} href="/community" />
+          <Chip
+            label="전체"
+            active={category === null}
+            href={buildHref({ category: null })}
+          />
           {COMMUNITY_CATEGORIES.map((c) => (
             <Chip
               key={c.value}
               label={`${c.emoji} ${c.label}`}
               active={category === c.value}
-              href={`/community?category=${c.value}`}
+              href={buildHref({ category: c.value })}
             />
           ))}
         </div>
@@ -122,6 +169,135 @@ export function CommunityClient({
   );
 }
 
+// 거주지 탭 상단 — 우리 건물 채팅방.
+// 미입장: [입장] 버튼 → 확인 모달 → 입장하면 버튼이 사라지고 최근 메시지가 뜬다.
+// 입장 상태는 목업이라 localStorage 로 기억(백엔드 연동 시 멤버십으로 교체).
+function ResidenceRoomEntry({ residence }: { residence: string }) {
+  const count = mockResidenceMemberCount(residence);
+  const storageKey = residenceJoinedKey(residence);
+  const [joined, setJoined] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
+
+  useEffect(() => {
+    try {
+      setJoined(localStorage.getItem(storageKey) === "1");
+    } catch {
+      /* localStorage 불가 환경 무시 */
+    }
+  }, [storageKey]);
+
+  function confirmJoin() {
+    try {
+      localStorage.setItem(storageKey, "1");
+    } catch {
+      /* 무시 */
+    }
+    setJoined(true);
+    setAskOpen(false);
+  }
+
+  const iconAndName = (
+    <>
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#EEF2FF] text-[#5B6CF0]">
+        <BuildingIcon />
+      </span>
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-[16px] font-bold text-zinc-900">{residence}</span>
+          <span className="shrink-0 text-[13px] font-semibold text-zinc-400">{count}</span>
+        </span>
+        {joined && (
+          <span className="mt-0.5 truncate text-[13px] text-zinc-400">{MOCK_LAST_MESSAGE}</span>
+        )}
+      </span>
+    </>
+  );
+
+  return (
+    <div className="border-b border-zinc-100 px-4 pb-3 pt-3">
+      <p className="mb-2 px-1 text-[12px] font-bold text-zinc-400">우리 건물 채팅방</p>
+
+      {joined ? (
+        // 입장 완료 — 행 전체가 채팅방으로 가는 링크 + 최근 메시지/시간
+        <Link
+          href={"/chat/residence" as any}
+          className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3.5 py-3 active:bg-zinc-50"
+        >
+          {iconAndName}
+          <span className="shrink-0 self-start text-[11px] text-zinc-300">{MOCK_LAST_TIME}</span>
+        </Link>
+      ) : (
+        // 미입장 — [입장] 버튼이 확인 모달을 띄움
+        <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-3.5 py-3">
+          {iconAndName}
+          <button
+            type="button"
+            onClick={() => setAskOpen(true)}
+            className="shrink-0 rounded-lg bg-zinc-100 px-4 py-2 text-[14px] font-bold text-zinc-700 active:bg-zinc-200"
+          >
+            입장
+          </button>
+        </div>
+      )}
+
+      {/* 입장 확인 모달 */}
+      {askOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-10"
+          onClick={() => setAskOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="w-full max-w-[300px] rounded-2xl bg-white p-5 text-center shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-[#EEF2FF] text-[#5B6CF0]">
+              <BuildingIcon />
+            </span>
+            <p className="mt-3 text-[16px] font-bold text-zinc-900">{residence}</p>
+            <p className="mt-1 text-[13.5px] leading-relaxed text-zinc-500">
+              같은 건물 이웃들의 채팅방이에요.
+              <br />
+              입장하시겠어요?
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAskOpen(false)}
+                className="flex-1 rounded-xl bg-zinc-100 py-3 text-[15px] font-bold text-zinc-600 active:bg-zinc-200"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={confirmJoin}
+                className="flex-1 rounded-xl bg-brand py-3 text-[15px] font-bold text-white active:scale-[0.98]"
+              >
+                입장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BuildingIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M4 20V6.5a1 1 0 0 1 .7-.95l6-2A1 1 0 0 1 12 4.5V20M12 9.5l6.4 1.7a1 1 0 0 1 .6.95V20"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path d="M3 20h18M7 9h1.5M7 12.5h1.5M7 16h1.5M15 14h1.5M15 17h1.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function Header({ neighborhoodName }: { neighborhoodName: string | null }) {
   return (
     <header className="bg-white px-5 pb-3 pt-4">
@@ -137,6 +313,34 @@ function Header({ neighborhoodName }: { neighborhoodName: string | null }) {
         </p>
       )}
     </header>
+  );
+}
+
+function BigTab({
+  label,
+  active,
+  href,
+  muted = false,
+}: {
+  label: string;
+  active: boolean;
+  href: string;
+  muted?: boolean;
+}) {
+  return (
+    <Link
+      href={href as any}
+      className={cn(
+        "flex max-w-[55%] flex-1 items-center justify-center truncate border-b-2 px-3 py-3 text-[15px] font-bold",
+        active
+          ? "border-brand text-zinc-900"
+          : muted
+            ? "border-transparent text-zinc-300"
+            : "border-transparent text-zinc-400",
+      )}
+    >
+      {label}
+    </Link>
   );
 }
 

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- 새싹 -->
+  <path d="M24 7c0-2.2 1.6-3.8 3.6-3.8-.1 2.2-1.6 3.8-3.6 3.8Z" fill="#4E9A51"/>
+  <path d="M24 7c0-1.9-1.4-3.3-3.2-3.3.1 1.9 1.4 3.3 3.2 3.3Z" fill="#5BB45E"/>
+  <!-- 몸통 -->
+  <rect x="11.5" y="7.5" width="25" height="31" rx="12.5"
+        fill="#8CC36A" stroke="#4E9A51" stroke-width="3"/>
+  <!-- 눈 -->
+  <circle cx="20.2" cy="20.5" r="2.1" fill="#2F4A2E"/>
+  <circle cx="27.8" cy="20.5" r="2.1" fill="#2F4A2E"/>
+  <!-- 코/볼 -->
+  <circle cx="24" cy="26.5" r="3.6" fill="#EBA05A"/>
+  <!-- 발 -->
+  <rect x="21.6" y="38" width="4.8" height="5" rx="2.4" fill="#4E9A51"/>
+</svg>
