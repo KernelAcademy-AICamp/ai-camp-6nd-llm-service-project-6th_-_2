@@ -6,21 +6,22 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getNeighborhoodFeed } from "@/lib/naver/cache";
-import { getAuthedUserId } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function refreshStoreFeed(): Promise<
   { ok: true } | { ok: false; error: string }
 > {
   try {
-    const userId = await getAuthedUserId();
-    if (!userId) return { ok: false, error: "로그인이 필요해요." };
+    const me = await getCurrentUser();
+    if (!me) return { ok: false, error: "로그인이 필요해요." };
+    if (!me.is_admin) return { ok: false, error: "권한이 없어요." };
 
     // 내 동네 조회
     const admin = createAdminClient();
     const { data: profile } = await admin
       .from("profiles")
       .select("neighborhood_id, neighborhoods(id, name, district)")
-      .eq("id", userId)
+      .eq("id", me.id)
       .maybeSingle();
 
     const nbRaw = profile?.neighborhoods;

@@ -110,9 +110,6 @@ export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
             />
           ))}
         </div>
-        <span className="shrink-0 text-[12px] font-medium text-zinc-400">
-          {visible.length}건
-        </span>
       </div>
 
       {/* 방 카드 목록 */}

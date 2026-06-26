@@ -300,8 +300,21 @@ export function HostNewClient({
   }
 
   return (
-    <div className="flex flex-col gap-4 p-4 pb-32">
-      <h1 className="text-lg font-bold">띵동 만들기</h1>
+    <div className="flex flex-1 flex-col">
+      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-zinc-200 bg-white px-4 py-3">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="뒤로"
+          className="-ml-1 flex h-9 w-9 items-center justify-center rounded-full text-zinc-700 active:bg-zinc-100"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        <h1 className="text-[17px] font-bold text-zinc-900">띵동 만들기</h1>
+      </header>
+      <div className="flex flex-col gap-4 p-4 pb-32">
 
       {/* 1단계: 주문 유형 + 방식 */}
       {step === 1 && (
@@ -407,12 +420,6 @@ export function HostNewClient({
       {/* 2단계: 상품 정보 */}
       {step === 2 && splitMode && (
         <>
-          <StepBack
-            onClick={() => setStep(1)}
-            label={`${tab === "delivery" ? "배달 음식" : "공동구매"} · ${
-              splitMode === "single_order" ? "같은 상품 나누기" : "각자 담아 주문하기"
-            }`}
-          />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>상품 사진 (선택, 최대 {MAX_PHOTOS}장)</Label>
             <p className="mt-1 text-[11px] text-zinc-500">
@@ -527,7 +534,6 @@ export function HostNewClient({
       {/* 3단계: 모집 조건 */}
       {step === 3 && splitMode && (
         <>
-          <StepBack onClick={() => setStep(2)} label="상품 정보" />
           <section className="rounded-2xl bg-white p-4 shadow-sm">
             <Label>반띵 인원</Label>
             <div className="mt-2 flex items-center justify-center gap-6">
@@ -742,6 +748,7 @@ export function HostNewClient({
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    font-family: -apple-system, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", sans-serif;
+    color: #1a1a1a;
+    line-height: 1.7;
+    margin: 0;
+    padding: 48px 52px;
+    font-size: 14px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 6px;
+  }
+  .sub { color: #6b7280; font-size: 13px; margin-bottom: 28px; }
+  h2 {
+    font-size: 18px;
+    font-weight: 800;
+    margin: 32px 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #7FB069;
+    color: #2f5233;
+  }
+  h3 { font-size: 15px; font-weight: 700; margin: 20px 0 6px; }
+  p { margin: 8px 0; }
+  ul { margin: 8px 0; padding-left: 20px; }
+  li { margin: 5px 0; }
+  code {
+    background: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    color: #b91c1c;
+  }
+  .tldr {
+    background: #F2F9EC;
+    border: 1px solid #cfe3bd;
+    border-left: 5px solid #7FB069;
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0 8px;
+  }
+  .tldr b { color: #2f5233; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 13px;
+  }
+  th, td {
+    border: 1px solid #e5e7eb;
+    padding: 9px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: #f9fafb; font-weight: 700; }
+  .ok { color: #15803d; font-weight: 700; }
+  .no { color: #dc2626; font-weight: 700; }
+  .note {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 13px;
+  }
+  .footer {
+    margin-top: 40px;
+    padding-top: 14px;
+    border-top: 1px solid #e5e7eb;
+    color: #9ca3af;
+    font-size: 11px;
+  }
+  .badge {
+    display: inline-block;
+    background: #7FB069;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 999px;
+    vertical-align: middle;
+  }
+</style>
+</head>
+<body>
+
+<h1>채팅 링크 썸네일(OG 프리뷰) — 동작 범위와 한계</h1>
+<div class="sub">반띵 · 채팅 기능 기술 메모 · 2026-06-24</div>
+
+<div class="tldr">
+<b>한 줄 요약.</b> 유튜브·뉴스·SNS 등 <b>OG 태그를 정직하게 제공하고 봇을 막지 않는 사이트</b>는 무료로 썸네일 카드가 뜬다.
+<b>쿠팡·네이버 스마트스토어·G마켓·11번가 같은 대형 커머스는 불가능</b>하다.
+이유는 (1) 봇 차단, (2) OG 미제공, 그리고 (3) 우리가 <b>웹앱(브라우저/PWA)</b>이라는 구조적 제약 때문이다.
+</div>
+
+<h2>1. 링크 썸네일은 어떻게 만들어지나</h2>
+<p>
+카카오톡처럼 URL만 넣어도 이미지·제목이 뜨는 건 웹페이지의 <b>Open Graph(OG) 메타 태그</b> 덕분이다.
+사이트가 <code>&lt;head&gt;</code>에 <code>og:title</code>, <code>og:image</code>, <code>og:description</code> 같은 태그를 넣어두면,
+그 페이지의 HTML을 받아 태그만 파싱해서 카드를 만든다.
+</p>
+<p>우리 구현도 동일하다: 서버 라우트(<code>/api/og</code>)가 URL의 HTML을 받아 OG 태그를 추출 → 채팅 버블 아래 카드로 표시.</p>
+
+<h2>2. 실제 테스트 결과</h2>
+<table>
+  <tr><th>사이트</th><th>결과</th><th>원인</th></tr>
+  <tr><td>유튜브 / 네이버 뉴스</td><td class="ok">✅ 됨</td><td>OG 태그 정상 제공, 봇 허용</td></tr>
+  <tr><td>당근마켓 · 배달의민족 · 마켓컬리 · 다나와 · 인스타그램</td><td class="ok">✅ 됨</td><td>OG 제공</td></tr>
+  <tr><td>네이버 스마트스토어</td><td class="no">❌ 불가</td><td>봇 차단 (HTTP 429)</td></tr>
+  <tr><td>쿠팡 (상품 링크 포함)</td><td class="no">❌ 불가</td><td>봇 차단 (HTTP 403)</td></tr>
+  <tr><td>G마켓 · 옥션</td><td class="no">❌ 불가</td><td>봇 차단 (HTTP 403)</td></tr>
+  <tr><td>11번가</td><td class="no">❌ 불가</td><td>OG 태그 없음 + JS 렌더링</td></tr>
+</table>
+<p>정리하면 <b>국내 대형 오픈마켓은 전부 불가</b>, 그 외 일반 사이트는 대부분 가능.</p>
+
+<h2>3. 카카오톡은 왜 쿠팡·네이버도 되나</h2>
+<ul>
+  <li>카카오·슬랙·페이스북의 <b>크롤러 IP 대역이 네이버/쿠팡 화이트리스트에 등록</b>돼 있다. (역DNS로 "진짜 카카오 봇 맞는지" 검증까지 함)</li>
+  <li>그래서 차단 없이 페이지를 받아오고, 네이버는 이 봇들에게 <b>가격·할인·별점까지 풍부한 데이터</b>를 내려준다.</li>
+  <li>우리가 UA(User-Agent)를 <code>kakaotalk-scrap</code>으로 위장해도 막힌다 → 네이버는 <b>UA가 아니라 IP로 차단</b>하기 때문. (실제 테스트로 확인: 카카오·슬랙·페북·구글봇 UA 전부 429)</li>
+</ul>
+<p>일반 서비스가 이 화이트리스트에 들어가는 것은 사실상 불가능하다.</p>
+
+<h2>4. "휴대폰 IP로 받아오면 되지 않나?" — 웹앱은 불가</h2>
+<p>
+어떤 블로그(Flutter 앱 사례)에서는 <code>accept-encoding</code> · <code>accept-language</code> 헤더만 넣어 쿠팡 OG를 받아왔다.
+하지만 그건 <b>네이티브 모바일 앱</b>이라 가능했던 것이고, 우리 웹앱에선 재현되지 않는다. 핵심은 두 가지 조건이다.
+</p>
+
+<h3>조건 ① 주거용(휴대폰) IP</h3>
+<p>쿠팡·네이버는 <b>데이터센터 IP는 차단</b>하고 휴대폰·가정용 IP는 허용한다. 우리 서버(Vercel 등)는 데이터센터 IP라 403/429.
+네이티브 앱의 요청은 폰에서 직접 나가므로 주거용 IP가 된다.</p>
+
+<h3>조건 ② CORS 없음</h3>
+<p>
+브라우저에서 다른 도메인(coupang.com)으로 <code>fetch()</code>하면, 요청은 가도 <b>쿠팡이 허용 헤더(Access-Control-Allow-Origin)를 안 주기 때문에 브라우저가 응답 본문을 못 읽게 차단</b>한다.
+<code>no-cors</code>로 보내면 응답이 "opaque"라서 역시 내용을 읽을 수 없다. 즉 OG 파싱 불가.
+네이티브 앱의 HTTP는 브라우저가 아니라서 이 CORS 제약 자체가 없다.
+</p>
+
+<table>
+  <tr><th>방식</th><th>주거용 IP</th><th>CORS 없음</th><th>가능?</th></tr>
+  <tr><td>브라우저 fetch (현재 웹/PWA)</td><td class="ok">✅</td><td class="no">❌</td><td class="no">❌</td></tr>
+  <tr><td>서버 fetch (현재 <code>/api/og</code>)</td><td class="no">❌ 데이터센터 IP</td><td class="ok">✅</td><td class="no">❌ (403/429)</td></tr>
+  <tr><td>네이티브 앱 (Flutter/RN/Capacitor)</td><td class="ok">✅</td><td class="ok">✅</td><td class="ok">✅</td></tr>
+</table>
+
+<div class="note">
+<b>왜 웹앱은 절대 안 되나:</b> "주거용 IP"와 "CORS 없음" <b>두 조건을 동시에</b> 만족해야 하는데,
+브라우저는 두 번째(CORS)를 절대 풀어주지 않는다. 서버로 돌리면 첫 번째(IP)에서 막힌다. 그래서 웹/PWA 구조에선 구조적으로 불가능하다.
+</div>
+
+<h2>5. 결론 &amp; 선택지</h2>
+<ul>
+  <li><b>현재 (무료, 권장):</b> 차단 안 하는 사이트는 썸네일 카드, 차단/미지원 사이트(쿠팡·네이버스토어 등)는 <b>깔끔하게 축약된 링크</b>로 표시. 추가 비용·의존성 없음.</li>
+  <li><b>유료 우회:</b> microlink 등 외부 스크래핑 API (주거용 IP 로테이션 사용). 네이버 뚫림 확인됨. 단 <b>무료 한도(하루 ~50회)</b> 초과 시 유료(월 $24~), 외부 의존·지연·프라이버시(사용자 링크가 제3자로 전송) 이슈 있음.</li>
+  <li><b>근본 해결:</b> 앱을 <b>네이티브로 패키징(Capacitor 등)</b>하면 device HTTP로 폰 IP에서 직접 받아와 쿠팡·네이버도 가능. 단 "웹앱 → 네이티브 앱" 별도 작업 필요.</li>
+</ul>
+
+<div class="footer">
+반띵 기술 메모 · 작성 보조: Claude Code · 테스트 환경에서 실측 기반 작성
+</div>
+
+</body>
+</html>

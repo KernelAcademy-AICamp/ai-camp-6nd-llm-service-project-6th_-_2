@@ -28,7 +28,7 @@ export async function adminDeleteParty(partyId: string): Promise<Result> {
   const { error } = await admin.from("parties").delete().eq("id", partyId);
   if (error) return { ok: false, error: error.message };
 
-  revalidatePath("/admin");
+  revalidatePath("/admin/board");
   revalidatePath("/feed");
   return { ok: true };
 }
@@ -57,5 +57,22 @@ export async function adminDeleteCommunityComment(commentId: string): Promise<Re
   if (error) return { ok: false, error: error.message };
 
   revalidatePath("/admin/community");
+  return { ok: true };
+}
+
+// 성향 태그 즉시 재집계 — cron(매시) 기다리지 않고 운영자가 수동 갱신.
+// refresh_user_tags()는 SECURITY DEFINER → service_role 로 rpc 호출.
+export async function adminRefreshUserTags(): Promise<Result> {
+  const gate = await ensureAdmin();
+  if (!gate.ok) return gate;
+
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("refresh_user_tags");
+  if (error) {
+    console.error("[adminRefreshUserTags] rpc error:", error);
+    return { ok: false, error: error.message ?? "집계 실패" };
+  }
+
+  revalidatePath("/admin/tags");
   return { ok: true };
 }

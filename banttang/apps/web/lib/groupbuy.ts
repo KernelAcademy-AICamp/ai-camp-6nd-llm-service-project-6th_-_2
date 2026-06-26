@@ -16,6 +16,9 @@ export type BankAccount = {
 
 export type GroupBuy = {
   slug: string;
+  // 추천 개인화(신호 4)용 카테고리 value — personalize.ts CATEGORY_INFO 키와 동일.
+  // 예: 'fruit' | 'meat' | 'tissue'. slug→품목 매핑을 config 한 곳에서.
+  categoryValue: string;
   title: string;
   subtitle: string; // 한 줄 소개
   emoji: string; // 동네핫딜 칩 썸네일용
@@ -41,6 +44,7 @@ export type GroupBuy = {
 export const GROUP_BUYS: GroupBuy[] = [
   {
     slug: "sinbi-peach",
+    categoryValue: "fruit",
     title: "노지 신비복숭아",
     subtitle: "천도와 백도의 만남, 새콤달콤 여름 복숭아",
     emoji: "🍑",
@@ -76,6 +80,7 @@ export const GROUP_BUYS: GroupBuy[] = [
   },
   {
     slug: "hanwoo-jeongol",
+    categoryValue: "meat",
     title: "한돈 생삼겹살 1+1",
     subtitle: "동네 정육점 사장님 직접 공급, 당일 손질",
     emoji: "🥩",
@@ -110,6 +115,7 @@ export const GROUP_BUYS: GroupBuy[] = [
   },
   {
     slug: "chungju-apple",
+    categoryValue: "fruit",
     title: "충주 꿀사과",
     subtitle: "아침 대용으로 딱, 새콤달콤 부사",
     emoji: "🍎",
@@ -144,6 +150,7 @@ export const GROUP_BUYS: GroupBuy[] = [
   },
   {
     slug: "fresh-egg",
+    categoryValue: "egg",
     title: "무항생제 신선란 30구",
     subtitle: "동네 마트 사장님 핫딜, 매주 입고",
     emoji: "🥚",

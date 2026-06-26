@@ -71,7 +71,7 @@ export function ChatHeader({
   const canMemberReview = !isHost && party.status === "completed";
 
   return (
-    <header className="sticky top-0 z-10 border-b border-black/[0.06] bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+    <header className="sticky top-0 z-10 border-b border-black/[0.06] bg-white">
       {/* 1줄: 뒤로 / 타이틀+상태 / 우측 메뉴 */}
       <div className="flex items-center gap-2 px-2 py-2.5">
         <button
