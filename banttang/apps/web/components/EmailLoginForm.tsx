@@ -56,9 +56,9 @@ export function EmailLoginForm() {
       setError(j.error ?? "실패");
       return;
     }
-    // 신규 가입자는 챗봇 온보딩으로, 로그인은 피드로
-    // typedRoutes 활성화로 동적 표현식은 as any 캐스트 필요 (origin/feat/rin 컨벤션 따름).
-    router.push((mode === "signup" ? "/onboarding/tour" : "/feed") as any);
+    // 신규 가입자는 거주지(2단계 픽커)로, 로그인은 피드로.
+    // 챗봇 tour 는 SKIP_ONBOARDING 으로 일괄 건너뛰는 상태라 가입 직후엔 거주지 설정만 거친다.
+    router.push((mode === "signup" ? "/onboarding/address" : "/feed") as any);
     router.refresh();
   }
 

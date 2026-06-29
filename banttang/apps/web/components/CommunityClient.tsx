@@ -29,12 +29,15 @@ export function CommunityClient({
   category,
   scope = "all",
   residence = null,
+  nickname,
 }: {
   posts: CommunityPostRow[];
   neighborhoodName: string | null;
   category: CommunityCategory | null;
   scope?: "all" | "residence";
   residence?: string | null;
+  /** 거주지 미지정(=기타 동네 선택) 사용자에게 "{닉네임}님의 동네 준비중" 라벨로 노출. */
+  nickname: string;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -109,7 +112,14 @@ export function CommunityClient({
             href={buildHref({ scope: "residence" })}
           />
         ) : (
-          <BigTab label="거주지 설정" active={false} href="/onboarding/address" muted />
+          // 거주지 미지정 — 기타 동네 등 건물 정보가 없는 사용자는 준비중으로 표시.
+          // 탭은 /onboarding/address 로 연결돼 다시 동네를 고를 수 있음.
+          <BigTab
+            label={`${nickname}님의 동네 준비중`}
+            active={false}
+            href="/onboarding/address"
+            muted
+          />
         )}
       </div>
 

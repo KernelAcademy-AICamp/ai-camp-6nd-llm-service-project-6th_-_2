@@ -24,6 +24,7 @@ export default async function CommunityPage({
         category={null}
         scope="all"
         residence={null}
+        nickname={me.nickname}
       />
     );
   }
@@ -57,6 +58,7 @@ export default async function CommunityPage({
       category={category ?? null}
       scope={scope}
       residence={me.residence ?? null}
+      nickname={me.nickname}
     />
   );
 }
