@@ -86,10 +86,10 @@ export function UserBar({
   }, [supabase, user.id]);
 
 
-  async function resetAddress() {
-    await fetch("/api/onboarding/address", { method: "DELETE" });
-    router.push("/onboarding/address");
-    router.refresh();
+  // 홈 헤더의 주소 클릭 → rin 위치 수정 화면(/onboarding/address/edit).
+  // (회원가입 온보딩의 강남·신림 픽커 /onboarding/address 와는 별개 경로)
+  function editAddress() {
+    router.push("/onboarding/address/edit" as never);
   }
 
   // ─────────────────────────────────────────────
@@ -226,7 +226,7 @@ export function UserBar({
           띵동
         </Link>
         <button
-          onClick={resetAddress}
+          onClick={editAddress}
           className="text-xs text-zinc-400 hover:text-brand"
           title="위치 다시 설정"
         >
