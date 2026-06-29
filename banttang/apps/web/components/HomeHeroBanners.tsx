@@ -1,10 +1,15 @@
-// 홈 프로모션 배너(3종 세로 스택) + 통합 검색창.
+"use client";
+
+// 홈 프로모션 배너(3종 좌우 스와이프 캐러셀) + 통합 검색창.
 // - 전체 이미지가 아니라 텍스트/버튼/3D 오브젝트/인디케이터를 각각 HTML 요소로 구현.
 // - 문구·가격·색상·CTA·오브젝트는 아래 BANNERS 데이터로 한 곳에서 교체 가능.
 // - 오른쪽 비주얼은 banner.type 에 따라 CouponObject / RewardObject / GroceryObject 렌더.
+// - 한 번에 한 장씩 노출, 터치 스와이프/마우스 드래그/자동 전환 + 하단 점 인디케이터.
 // 폭/좌우 패딩은 부모(피드의 p-4 컨테이너 · (app) 레이아웃 max-w-md)가 제공한다.
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 type BannerType = "coupon" | "reward" | "grocery";
@@ -68,6 +73,10 @@ const BANNERS: Banner[] = [
   },
 ];
 
+const INTERVAL_MS = 6000;
+const SWIPE_THRESHOLD = 45; // 이 px 이상 끌면 슬라이드 전환
+const DRAG_GUARD = 8; // 이 px 이상 움직이면 "드래그"로 보고 탭(링크 이동) 무시
+
 export function HomeHeroBanners({
   query,
   onClear,
@@ -77,13 +86,96 @@ export function HomeHeroBanners({
   /** 검색어 지우기 핸들러(있을 때만 X 버튼 노출) */
   onClear?: () => void;
 }) {
+  const router = useRouter();
+  const [idx, setIdx] = useState(0);
+  const [dragPx, setDragPx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const startX = useRef(0);
+  const movedRef = useRef(false); // 드래그 발생 여부(클릭 가드용)
+
+  // 자동 전환 — 드래그 중엔 멈춤. idx 바뀔 때마다 타이머 리셋.
+  useEffect(() => {
+    if (dragging) return;
+    const t = setInterval(() => setIdx((i) => (i + 1) % BANNERS.length), INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [dragging, idx]);
+
+  function onPointerDown(e: React.PointerEvent) {
+    setDragging(true);
+    movedRef.current = false;
+    startX.current = e.clientX;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!dragging) return;
+    const dx = e.clientX - startX.current;
+    if (Math.abs(dx) > DRAG_GUARD) movedRef.current = true;
+    setDragPx(dx);
+  }
+  function endDrag() {
+    if (!dragging) return;
+    setDragging(false);
+    const dx = dragPx;
+    setDragPx(0);
+    if (dx <= -SWIPE_THRESHOLD) {
+      setIdx((i) => (i + 1) % BANNERS.length); // 왼쪽으로 끌면 다음
+    } else if (dx >= SWIPE_THRESHOLD) {
+      setIdx((i) => (i - 1 + BANNERS.length) % BANNERS.length); // 오른쪽으로 끌면 이전
+    } else if (!movedRef.current) {
+      // 끌지 않은 탭 → 현재 배너로 이동. (포인터 캡처가 자식 Link click을 막을 수 있어 직접 라우팅)
+      router.push(BANNERS[idx].href as never);
+    }
+  }
+  // click은 직접 라우팅으로 처리하므로 Link 기본 동작은 항상 막는다(중복/오동작 방지).
+  function onClickCapture(e: React.MouseEvent) {
+    e.preventDefault();
+  }
+
   return (
     <>
-      <div className="flex flex-col gap-3">
-        {BANNERS.map((b) => (
-          <PromoBannerCard key={b.id} banner={b} />
-        ))}
+      <div className="flex flex-col gap-2.5">
+        {/* 스와이프 캐러셀 — 한 번에 한 장 */}
+        <div
+          className="relative h-[160px] select-none overflow-hidden rounded-[18px]"
+          style={{ touchAction: "pan-y" }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          onClickCapture={onClickCapture}
+        >
+          <div
+            className={cn(
+              "flex h-full",
+              !dragging && "transition-transform duration-300 ease-out",
+            )}
+            style={{ transform: `translateX(calc(${-idx * 100}% + ${dragPx}px))` }}
+          >
+            {BANNERS.map((b) => (
+              <div key={b.id} className="h-full w-full shrink-0">
+                <PromoBannerCard banner={b} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 점 인디케이터 */}
+        <div className="flex items-center justify-center gap-1.5">
+          {BANNERS.map((b, i) => (
+            <button
+              key={b.id}
+              type="button"
+              aria-label={`${i + 1}번 배너`}
+              onClick={() => setIdx(i)}
+              className={cn(
+                "h-1.5 rounded-full transition-all",
+                i === idx ? "w-4 bg-zinc-700" : "w-1.5 bg-zinc-300",
+              )}
+            />
+          ))}
+        </div>
       </div>
+
       <SearchBox query={query} onClear={onClear} />
     </>
   );
@@ -94,8 +186,9 @@ function PromoBannerCard({ banner }: { banner: Banner }) {
   return (
     <Link
       href={banner.href as never}
+      draggable={false}
       className={cn(
-        "relative block h-[160px] overflow-hidden rounded-[18px]",
+        "relative block h-full w-full overflow-hidden rounded-[18px]",
         banner.bgClass,
       )}
     >
