@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { FeedPromoBanner } from "./FeedPromoBanner";
+import { HomeHeroBanners } from "./HomeHeroBanners";
 import { HotDealChips } from "./HotDealChips";
 import { GroceryPicksSection } from "./GroceryPicksSection";
 import { PICK_GROUPS, type PickGroup, type PickRoom } from "@/lib/grocery-picks";
@@ -135,41 +135,14 @@ export function FeedClient({
   return (
     <>
     <div className="flex flex-col gap-3 p-4">
-      {/* 프로모션 배너 — 검색창 위 */}
-      <FeedPromoBanner />
-
-      {/* 통합 검색 — 탭 위. 인풋 외형이지만 클릭 시 검색 화면(/feed/search)으로 이동. */}
-      <div className="relative">
-        <Link
-          href={"/feed/search" as any}
-          className="flex w-full items-center gap-2 rounded-xl border border-zinc-200 bg-white py-2.5 pl-9 pr-9 text-[13px] active:bg-zinc-50"
-        >
-          <span className={query ? "truncate text-zinc-800" : "text-zinc-400"}>
-            {query || "배달·장보기 통합 검색 (가게명 또는 메뉴)"}
-          </span>
-        </Link>
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" aria-hidden>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-            <path d="M20 20l-3.5-3.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </span>
-        {query && (
-          <button
-            type="button"
-            onClick={() => {
-              setQuery("");
-              router.replace("/feed");
-            }}
-            aria-label="검색어 지우기"
-            className="absolute right-2 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-zinc-100 text-zinc-500 active:bg-zinc-200"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
-          </button>
-        )}
-      </div>
+      {/* 홈 프로모션 배너(3종) + 통합 검색창 */}
+      <HomeHeroBanners
+        query={query}
+        onClear={() => {
+          setQuery("");
+          router.replace("/feed");
+        }}
+      />
 
       {/* 바로 반띵하기 (AI 추천) — 짭과 동일하게 지도/리스트 위에 노출.
           검색 중에는 컨텍스트가 다르므로 숨김. 두 보기 모두에서 보임. */}
