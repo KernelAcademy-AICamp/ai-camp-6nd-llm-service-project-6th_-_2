@@ -10,6 +10,7 @@ import { ringDoorbell } from "@/app/_actions/ring-doorbell";
 import { recommendMidpoint } from "@/app/_actions/recommend-midpoint";
 import { updatePartyPickup } from "@/app/_actions/update-party-pickup";
 import { dismissMidpointRecommendation } from "@/app/_actions/dismiss-midpoint";
+import { getBlockedUserIds } from "@/app/_actions/chat-moderation";
 import {
   approveParticipant,
   rejectParticipant,
@@ -80,6 +81,8 @@ export function PartyChatContainer({
   const [receiptViewOpen, setReceiptViewOpen] = useState(false);
   // 채팅에서 탭한 상대 회원(공개 프로필 시트). null이면 닫힘.
   const [profileUserId, setProfileUserId] = useState<string | null>(null);
+  // 내가 차단한 회원 id — 차단 시 타임라인에서 상대 메시지를 숨긴다.
+  const [blockedIds, setBlockedIds] = useState<Set<string>>(new Set());
   const [managing, setManaging] = useState(false);
   const scrollAnchorRef = useRef<HTMLDivElement>(null);
   const senderCacheRef = useRef<Map<string, ChatMessageWithSender["sender"]>>(
@@ -291,10 +294,26 @@ export function PartyChatContainer({
     [receipts],
   );
 
+  // 차단한 회원의 메시지는 타임라인에서 제외(시스템 메시지는 sender_id 없음 → 유지).
   const items = useMemo(
-    () => buildTimeline(messages, receiptCards),
-    [messages, receiptCards],
+    () =>
+      buildTimeline(
+        blockedIds.size ? messages.filter((m) => !m.sender_id || !blockedIds.has(m.sender_id)) : messages,
+        receiptCards,
+      ),
+    [messages, receiptCards, blockedIds],
   );
+
+  // 차단 목록 로드(마운트 1회). 프로필 시트에서 차단/해제하면 setBlockedIds로 즉시 갱신.
+  useEffect(() => {
+    let alive = true;
+    getBlockedUserIds()
+      .then((ids) => alive && setBlockedIds(new Set(ids)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -807,6 +826,24 @@ export function PartyChatContainer({
         partyId={party.id}
         isHost={members.some((m) => m.user_id === profileUserId && m.is_host)}
         onClose={() => setProfileUserId(null)}
+      />
+
+      {/* 채팅에서 회원 탭 → 공개 프로필 시트 */}
+      <MemberProfileSheet
+        userId={profileUserId}
+        currentUserId={currentUserId}
+        partyName={party.store_name}
+        partyId={party.id}
+        isHost={members.some((m) => m.user_id === profileUserId && m.is_host)}
+        onClose={() => setProfileUserId(null)}
+        onBlockChange={(uid, blocked) =>
+          setBlockedIds((prev) => {
+            const next = new Set(prev);
+            if (blocked) next.add(uid);
+            else next.delete(uid);
+            return next;
+          })
+        }
       />
     </div>
   );
