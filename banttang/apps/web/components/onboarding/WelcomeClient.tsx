@@ -35,7 +35,7 @@ export function WelcomeClient({ address }: { address: string | null }) {
         )}
       </header>
 
-      <div className="mt-auto flex flex-col gap-2 pt-10">
+      <div className="mt-8 flex flex-col gap-2">
         <Link
           href="/host/new"
           className="flex h-12 w-full items-center justify-center rounded-xl bg-brand text-[14px] font-bold text-white shadow-sm active:opacity-90"
