@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { ADDRESS_COOKIE, getCurrentUser } from "@/lib/auth";
@@ -47,7 +48,9 @@ export default async function AppLayout({
 
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col bg-zinc-50">
-      <UserBar user={me} address={address ?? null} notifications={notifications} />
+      <Suspense fallback={null}>
+        <UserBar user={me} address={address ?? null} notifications={notifications} />
+      </Suspense>
       {/* flex-col로 둬서 자식 페이지(특히 채팅)가 flex-1로 가용 영역을 채우고
           input bar가 BottomNav 바로 위에 정렬되도록.
           pb-14(56px) = BottomNav 실제 높이(py-3 + icon/label + border ≈ 56px)와 일치.

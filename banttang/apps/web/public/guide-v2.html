@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>반띵 가이드 — 디자인 시안 v2</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { DEFAULT: "#7FB069", dark: "#5E8C4A", 50: "#F2F8EC", 100: "#E1EED3" },
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Malgun Gothic", sans-serif; }
+  </style>
+</head>
+<body class="bg-zinc-100">
+  <!-- 모바일 프레임 -->
+  <div class="mx-auto min-h-screen max-w-[480px] bg-white text-zinc-900">
+
+    <!-- 상단 바 -->
+    <header class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-zinc-100 bg-white/90 px-4 backdrop-blur">
+      <button type="button" aria-label="뒤로가기" class="-ml-2 inline-flex h-10 w-10 items-center justify-center rounded-full active:bg-zinc-100">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <span class="text-[15px] font-semibold">반띵 가이드</span>
+      <span class="w-10"></span>
+    </header>
+
+    <main class="mx-auto w-full max-w-[480px] pb-32">
+      <!-- HERO -->
+      <section class="px-6 pb-10 pt-12 text-center">
+        <span class="inline-flex items-center rounded-full bg-zinc-900/85 px-4 py-1.5 text-[13px] font-semibold text-white">더 많은 반띵</span>
+        <h1 class="mt-5 text-[26px] font-extrabold leading-[1.35] tracking-tight">
+          혼자 사긴 부담됐던 것들<br/>이제 동네 이웃과 반띵해요
+        </h1>
+        <div class="mt-8 flex justify-center">
+          <img src="http://localhost:3000/guide/guide-map.png" alt="동네 곳곳에서 열리는 반띵" class="h-auto w-[320px]" />
+        </div>
+      </section>
+
+      <!-- 영수증 인증 카드 -->
+      <section class="px-5">
+        <div class="rounded-3xl bg-brand-50 px-6 py-8 text-center">
+          <img src="http://localhost:3000/guide/guide-safe.png" alt="" class="mx-auto h-40 w-40" />
+          <h2 class="mt-2 text-[20px] font-extrabold tracking-tight">영수증 인증으로 안전하게 거래해요</h2>
+          <ul class="mt-3 space-y-1 text-[14px] text-zinc-500">
+            <li>· 영수증으로 실제 결제 금액을 확인해요</li>
+            <li>· 거래 후 서로 평가가 신뢰점수에 쌓여요</li>
+          </ul>
+          <p class="mt-3 text-[12px] text-brand-dark">*반띵은 거래 수수료가 없어요 · 송금은 이웃끼리 직접</p>
+        </div>
+      </section>
+
+      <!-- 나누는 방법 -->
+      <section class="mt-16 px-5">
+        <h2 class="text-center text-[22px] font-extrabold">나누는 방법</h2>
+
+        <!-- 탭: 파티장 / 파티원 -->
+        <div class="mt-6 grid grid-cols-2 border-b border-zinc-200">
+          <button type="button" data-tab="host"  class="tab-btn relative py-3 text-[15px] font-bold text-zinc-900 transition">
+            파티장
+            <span class="tab-underline absolute inset-x-4 -bottom-px h-[3px] rounded-full bg-zinc-900"></span>
+          </button>
+          <button type="button" data-tab="member" class="tab-btn relative py-3 text-[15px] text-zinc-400 transition">
+            파티원
+            <span class="tab-underline absolute inset-x-4 -bottom-px h-[3px] rounded-full bg-transparent"></span>
+          </button>
+        </div>
+
+        <!-- 상단 2-카드 -->
+        <h3 class="tab-heading mt-10 text-center text-[20px] font-extrabold">반띵을 열어 이웃을 모아요</h3>
+
+        <div class="mt-5 grid grid-cols-2 gap-3">
+          <!-- 카드 1 -->
+          <div class="relative overflow-hidden rounded-2xl bg-zinc-50 px-4 pb-3 pt-4">
+            <p class="card1-tag text-[12px] text-zinc-500">함께 사서</p>
+            <p class="card1-title mt-0.5 text-[16px] font-bold">더 싸게 나눠요</p>
+            <div class="mt-3 flex h-24 items-end justify-center">
+              <img src="http://localhost:3000/guide/guide-house.png" alt="혜택" class="h-24 w-auto object-contain" />
+            </div>
+            <div class="mt-3 flex">
+              <span class="inline-flex items-center gap-1 rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-zinc-500">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+                함께 더 싸게
+              </span>
+            </div>
+          </div>
+          <!-- 카드 2 -->
+          <div class="relative overflow-hidden rounded-2xl bg-zinc-50 px-4 pb-3 pt-4">
+            <p class="text-[12px] text-zinc-500">픽업까지</p>
+            <p class="mt-0.5 text-[16px] font-bold">동네에서 바로</p>
+            <div class="mt-3 flex h-24 items-end justify-center">
+              <img src="http://localhost:3000/guide/guide-box.png" alt="픽업" class="h-24 w-auto object-contain" />
+            </div>
+            <span class="absolute right-3 top-3 inline-flex items-center rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">동네</span>
+          </div>
+        </div>
+
+        <!-- 단계 -->
+        <div class="mt-12 space-y-10">
+          <!-- Step 1 -->
+          <div>
+            <div class="flex items-start gap-3">
+              <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-[12px] font-bold text-zinc-500">1</span>
+              <div>
+                <p class="step1-title text-[16px] font-bold leading-snug">‘반띵 열기’ 버튼을 눌러주세요</p>
+                <p class="step1-caption mt-1 text-[13px] text-zinc-500">사고 싶은 상품과 인원수를 정해요.</p>
+              </div>
+            </div>
+            <div class="mt-4 overflow-hidden rounded-2xl bg-zinc-50 p-5">
+              <div class="relative mx-auto w-full max-w-[280px] rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.04]">
+                <p class="text-[18px] font-extrabold tracking-tight">12,000원</p>
+                <p class="mt-1 text-[12px] text-zinc-500">코스트코 휴지 30롤 · 3분 전</p>
+                <div class="mt-4 flex items-center gap-2">
+                  <button type="button" aria-label="찜하기" class="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-400">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 20.3 4.6 13a4.6 4.6 0 0 1 6.5-6.5l.9.9.9-.9A4.6 4.6 0 0 1 19.4 13L12 20.3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                  </button>
+                  <button type="button" class="flex h-10 flex-1 items-center justify-center rounded-lg bg-brand text-[14px] font-bold text-white">반띵 참여하기</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div>
+            <div class="flex items-start gap-3">
+              <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-[12px] font-bold text-zinc-500">2</span>
+              <div>
+                <p class="step2-title text-[16px] font-bold leading-snug">이웃이 모이면 함께 주문해요</p>
+                <p class="step2-caption mt-1 text-[13px] text-zinc-500">호스트가 대표로 주문하고 영수증을 올려요.</p>
+              </div>
+            </div>
+            <div class="mt-4 overflow-hidden rounded-2xl bg-zinc-50 p-5">
+              <div class="mx-auto w-full max-w-[280px] rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.04]">
+                <span class="inline-flex rounded-md bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-500">내 몫</span>
+                <p class="mt-3 text-[15px] font-bold">코스트코 휴지 10롤</p>
+                <p class="mt-0.5 text-[13px] text-zinc-500">4,000원 · 이웃 3명 모집 중 (2/3)</p>
+                <button type="button" class="mt-4 flex h-11 w-full items-center justify-center rounded-lg bg-brand text-[14px] font-bold text-white">반띵 참여하기</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div>
+            <div class="flex items-start gap-3">
+              <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-md bg-zinc-100 text-[12px] font-bold text-zinc-500">3</span>
+              <div>
+                <p class="step3-title text-[16px] font-bold leading-snug">받고 영수증으로 정산해요</p>
+                <p class="step3-caption mt-1 text-[13px] text-zinc-500">인증된 금액을 기준으로 이웃끼리 직접 송금해요.</p>
+              </div>
+            </div>
+            <div class="mt-4 overflow-hidden rounded-2xl bg-zinc-50 p-5">
+              <div class="mx-auto flex w-full max-w-[260px] flex-col items-center">
+                <img src="http://localhost:3000/guide/guide-box.png" alt="" class="h-28 w-28" />
+                <button type="button" class="relative mt-3 inline-flex h-11 w-full items-center justify-center rounded-lg bg-brand text-[14px] font-bold text-white">
+                  수령 완료
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button type="button" class="mt-10 flex w-full items-center justify-between rounded-2xl bg-brand-50 px-5 py-4 text-left text-[15px] font-bold text-zinc-900 active:bg-brand-100">
+          호스트 가이드 바로가기
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </section>
+
+      <!-- 공유 -->
+      <section class="mt-10 bg-zinc-50 px-5 py-10 text-center">
+        <p class="text-[15px] font-semibold">이 소식을 혼자만 알기 아쉽다면!</p>
+        <div class="mt-4 flex justify-center">
+          <button type="button" class="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-[14px] font-bold text-white">공유하기</button>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section class="px-5 pt-2">
+        <ul id="faq" class="divide-y divide-zinc-100"></ul>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ---- 탭에 따라 바뀌는 카피 (배달 문구 없이, 파티장/파티원 관점) ----
+    const COPY = {
+      host: {
+        heading: "반띵을 열어 이웃을 모아요",
+        card1: { tag: "함께 사서", title: "더 싸게 나눠요" },
+        step1: { title: "‘반띵 열기’ 버튼을 눌러주세요", caption: "사고 싶은 상품과 인원수를 정해요." },
+        step2: { title: "이웃이 모이면 대표로 주문해요", caption: "파티장이 대표로 주문하고 영수증을 올려요." },
+        step3: { title: "영수증으로 정산받아요", caption: "인증된 금액을 기준으로 파티원에게 송금받아요." },
+      },
+      member: {
+        heading: "마음에 드는 반띵에 참여해요",
+        card1: { tag: "혼자서도", title: "딱 필요한 만큼" },
+        step1: { title: "동네 반띵을 찾아 참여해요", caption: "원하는 상품의 반띵을 골라 신청해요." },
+        step2: { title: "파티장이 모이면 함께 주문해요", caption: "정원이 차면 파티장이 대표로 주문해요." },
+        step3: { title: "받고 내 몫을 정산해요", caption: "인증된 영수증 금액만큼 파티장에게 직접 송금해요." },
+      },
+    };
+
+    function applyTab(tab) {
+      const c = COPY[tab];
+      document.querySelector(".tab-heading").textContent = c.heading;
+      document.querySelector(".card1-tag").textContent = c.card1.tag;
+      document.querySelector(".card1-title").textContent = c.card1.title;
+      for (const s of ["step1", "step2", "step3"]) {
+        document.querySelector("." + s + "-title").textContent = c[s].title;
+        document.querySelector("." + s + "-caption").textContent = c[s].caption;
+      }
+      document.querySelectorAll(".tab-btn").forEach((btn) => {
+        const active = btn.dataset.tab === tab;
+        btn.classList.toggle("font-bold", active);
+        btn.classList.toggle("text-zinc-900", active);
+        btn.classList.toggle("text-zinc-400", !active);
+        const ul = btn.querySelector(".tab-underline");
+        ul.classList.toggle("bg-zinc-900", active);
+        ul.classList.toggle("bg-transparent", !active);
+      });
+    }
+    document.querySelectorAll(".tab-btn").forEach((btn) =>
+      btn.addEventListener("click", () => applyTab(btn.dataset.tab))
+    );
+
+    // ---- FAQ (배달 문구 제거) ----
+    const FAQ = [
+      { q: "반띵이 무엇인가요?", a: "동네 이웃과 함께 상품을 공동구매해 나누는 서비스예요. 파티장이 반띵을 열고, 파티원이 참여해 함께 주문하면 끝!" },
+      { q: "‘파티장’과 ‘파티원’은 어떻게 다른가요?", a: "파티장은 반띵을 열어 대표로 주문하고 영수증을 올리는 사람, 파티원은 열린 반띵에 참여해 내 몫만큼 정산하는 사람이에요." },
+      { q: "정산은 어떻게 하나요?", a: "파티장이 영수증을 등록하면 실제 금액이 인증돼요. 인증된 금액을 기준으로 파티원이 파티장에게 직접 송금해 정산해요." },
+      { q: "이웃이 모이지 않으면 어떻게 되나요?", a: "모집 마감 시간까지 인원이 모이지 않으면 반띵은 자동으로 취소돼요." },
+      { q: "수수료가 있나요?", a: "반띵은 거래 수수료가 없어요. 송금은 이웃끼리 직접 하고, 우리는 영수증으로 금액만 인증해드려요." },
+      { q: "문제가 생겼을 때는 어떻게 하나요?", a: "마이페이지 고객센터로 문의해 주세요. 다만 송금은 이웃끼리 직접 하는 방식이라, 약속·금액을 꼭 확인하고 거래해 주세요." },
+    ];
+    const faqEl = document.getElementById("faq");
+    FAQ.forEach((item) => {
+      const li = document.createElement("li");
+      li.innerHTML =
+        '<button type="button" class="flex w-full items-center justify-between gap-4 py-5 text-left text-[15px] font-semibold">' +
+        '<span class="flex-1">' + item.q + "</span>" +
+        '<span class="faq-caret shrink-0 text-zinc-400 transition">' +
+        '<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+        "</span></button>" +
+        '<p class="faq-answer hidden -mt-1 pb-5 text-[14px] leading-relaxed text-zinc-500">' + item.a + "</p>";
+      const btn = li.querySelector("button");
+      btn.addEventListener("click", () => {
+        li.querySelector(".faq-answer").classList.toggle("hidden");
+        li.querySelector(".faq-caret").classList.toggle("rotate-180");
+      });
+      faqEl.appendChild(li);
+    });
+
+    applyTab("host");
+  </script>
+</body>
+</html>

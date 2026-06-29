@@ -51,6 +51,8 @@ interface Props {
   // pickup_locations.point 또는 parties.custom_pickup_point에서 파싱한 좌표.
   // TransactionCardSheet에 지도 표시할 때 사용.
   pickupCoord?: { lat: number; lng: number } | null;
+  // 현재 유저가 이 파티 후기를 모두 작성했는지 — 거래 시각 칩을 '거래 완료' ↔ '후기 보기'로 전환.
+  hasReviewed?: boolean;
 }
 
 // 채팅방 = 거래 단계 메인 컨테이너 (와이어프레임 08/09/10).
@@ -65,6 +67,7 @@ export function PartyChatContainer({
   initialReceipts,
   pickupLocationName,
   pickupCoord = null,
+  hasReviewed = false,
 }: Props) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -148,11 +151,30 @@ export function PartyChatContainer({
   const isReadOnly = phase === "cancelled";
   const isPostTrade = phase === "completed" || phase === "cancelled";
 
-  // 거래 시각(deal_at) 도달 후 "거래 확인" 칩 노출 (완료/취소 전까지).
-  // 거래를 확정하는 게 아니라 거래했는지 확인하는 시트(반띵 확인)를 여는 체크 버튼.
+  // 거래 시각(deal_at) 도달 후 칩 노출 (취소된 방 제외).
+  //   - 아직 후기 미작성: "거래 완료" → 확인 모달 → 당근식 후기 작성
+  //   - 후기 작성 완료: "후기 보기" → 모달 없이 바로 내 후기로
   const dealReached = nowMs >= new Date(party.deal_at).getTime();
-  const showCompleteChip =
-    dealReached && phase !== "completed" && phase !== "cancelled";
+  const reviewHref = `/mypage/reviews/${party.id}`;
+  const completeChip =
+    dealReached && phase !== "cancelled"
+      ? hasReviewed
+        ? { label: "후기 보기", onClick: () => router.push(reviewHref as any) }
+        : {
+            label: "거래 완료",
+            onClick: async () => {
+              const ok = await askConfirm({
+                title: "거래 완료하셨나요?",
+                description:
+                  "거래를 완료했다면 함께한 분들에게 후기를 남겨주세요.",
+                confirmText: "네",
+                cancelText: "취소",
+                confirmFirst: true,
+              });
+              if (ok) router.push(reviewHref as any);
+            },
+          }
+      : undefined;
 
   // 띵동 CTA 정책 — 우측 하단 플로팅 벨 아이콘:
   //   - 채팅방 입장 시점부터 항상 노출 (완료·취소된 방만 미노출)
@@ -668,21 +690,7 @@ export function PartyChatContainer({
             onGuide={() => router.push("/guide" as any)}
             onReceipt={() => (isHost ? setReceiptOpen(true) : setReceiptViewOpen(true))}
             onSettlement={() => router.push(`/chat/${party.id}/card` as any)}
-            onComplete={
-              showCompleteChip
-                ? async () => {
-                    const ok = await askConfirm({
-                      title: "거래 완료하셨나요?",
-                      description:
-                        "거래를 완료했다면 함께한 분들에게 후기를 남겨주세요.",
-                      confirmText: "네",
-                      cancelText: "취소",
-                      confirmFirst: true,
-                    });
-                    if (ok) router.push(`/mypage/reviews/${party.id}` as any);
-                  }
-                : undefined
-            }
+            completeChip={completeChip}
           />
         }
         notice={

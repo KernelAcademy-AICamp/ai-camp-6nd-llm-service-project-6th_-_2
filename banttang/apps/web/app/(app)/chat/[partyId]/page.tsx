@@ -126,6 +126,20 @@ export default async function ChatPage({ params }: { params: { partyId: string }
     initialReceipts = (receiptsRes.data ?? []) as unknown as Receipt[];
   }
 
+  // 5) 현재 유저가 이 파티 후기를 모두 작성했는지 (칩을 '거래 완료' ↔ '후기 보기'로 전환)
+  const otherApprovedCount = participants.filter(
+    (p) => p.user_id !== user.id,
+  ).length;
+  let hasReviewed = false;
+  if (otherApprovedCount > 0) {
+    const { count } = await supabase
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("party_id", partyId)
+      .eq("reviewer_id", user.id);
+    hasReviewed = (count ?? 0) >= otherApprovedCount;
+  }
+
   return (
     // 부모(app)/main이 flex flex-col pb-20이라 flex-1로 가용 공간 그대로 사용.
     // input bar(컨테이너의 마지막 자식)는 자연스럽게 pb-20 영역 위쪽 = BottomNav 바로 위에 정렬됨.
@@ -140,6 +154,7 @@ export default async function ChatPage({ params }: { params: { partyId: string }
         initialReceipts={initialReceipts}
         pickupLocationName={pickupLocationName}
         pickupCoord={pickupCoord}
+        hasReviewed={hasReviewed}
       />
     </main>
   );

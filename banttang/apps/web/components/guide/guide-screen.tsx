@@ -71,14 +71,18 @@ export function GuideScreen() {
             이제 동네 이웃과 반띵해요
           </h1>
           <div className="mt-8 flex justify-center">
-            <img src="/guide/guide-map.png" alt="동네 곳곳에서 열리는 반띵" className="h-auto w-[320px]" />
+            <img
+              src="/guide/guide-hero.png"
+              alt="동네 곳곳에서 이웃과 장보기를 나눠요"
+              className="h-auto w-full max-w-[420px]"
+            />
           </div>
         </section>
 
         {/* 영수증 인증(안심) 카드 */}
         <section className="px-5">
           <div className="rounded-3xl bg-brand-50 px-6 py-8 text-center">
-            <img src="/guide/guide-safe.png" alt="" loading="lazy" className="mx-auto h-40 w-40" />
+            <img src="/guide/guide-safe.svg" alt="" loading="lazy" className="mx-auto h-40 w-40" />
             <h2 className="mt-2 text-[20px] font-extrabold tracking-tight">
               영수증 인증으로 안전하게 거래해요
             </h2>

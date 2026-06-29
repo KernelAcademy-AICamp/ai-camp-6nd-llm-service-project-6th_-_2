@@ -1,0 +1,45 @@
+<svg width="240" height="300" viewBox="0 0 240 300" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="대한민국 동네 곳곳에서 열리는 반띵">
+  <defs>
+    <linearGradient id="kr-fill" x1="50" y1="40" x2="180" y2="260" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFD45A"/>
+      <stop offset="1" stop-color="#FBBF24"/>
+    </linearGradient>
+    <filter id="kr-shadow" x="-20%" y="-10%" width="140%" height="130%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#E5A21E" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- 두께(3D 옆면) -->
+  <path
+    d="M70 64 C95 54 120 52 140 50 C158 54 172 62 176 76 C184 99 187 119 184 139 C182 164 178 189 168 212 C163 224 158 230 150 232 C135 239 122 236 112 242 C104 251 98 256 90 252 C82 248 76 244 70 248 C64 254 60 260 56 254 C50 244 54 232 58 222 C64 210 70 204 66 196 C60 188 50 184 48 176 C46 166 56 160 60 152 C64 142 56 134 50 126 C44 116 48 104 56 96 C62 88 56 78 58 72 C60 66 64 64 70 64 Z"
+    fill="#E29C1C" transform="translate(0,7)"/>
+
+  <!-- 남한 본체 -->
+  <path
+    d="M70 60 C95 50 120 48 140 46 C158 50 172 58 176 72 C184 95 187 115 184 135 C182 160 178 185 168 208 C163 220 158 226 150 228 C135 235 122 232 112 238 C104 247 98 252 90 248 C82 244 76 240 70 244 C64 250 60 256 56 250 C50 240 54 228 58 218 C64 206 70 200 66 192 C60 184 50 180 48 172 C46 162 56 156 60 148 C64 138 56 130 50 122 C44 112 48 100 56 92 C62 84 56 74 58 68 C60 62 64 60 70 60 Z"
+    fill="url(#kr-fill)" filter="url(#kr-shadow)"/>
+
+  <!-- 위치 핀 (동네 곳곳) -->
+  <g>
+    <g transform="translate(96,108)">
+      <path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#F97316"/>
+      <circle cx="0" cy="-21" r="4.4" fill="#fff"/>
+    </g>
+    <g transform="translate(132,92)">
+      <path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#FB923C"/>
+      <circle cx="0" cy="-21" r="4.4" fill="#fff"/>
+    </g>
+    <g transform="translate(78,156)">
+      <path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#F97316"/>
+      <circle cx="0" cy="-21" r="4.4" fill="#fff"/>
+    </g>
+    <g transform="translate(140,168)">
+      <path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#FB923C"/>
+      <circle cx="0" cy="-21" r="4.4" fill="#fff"/>
+    </g>
+    <g transform="translate(104,196)">
+      <path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#F97316"/>
+      <circle cx="0" cy="-21" r="4.4" fill="#fff"/>
+    </g>
+  </g>
+</svg>

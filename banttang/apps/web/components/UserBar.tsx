@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { CurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -100,6 +100,9 @@ export function UserBar({
   //   그 외(/feed, /store, /chat, /mypage)        → home
   // ─────────────────────────────────────────────
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  // 후기(작성/받은) 카드에서 진입한 모집글에서는 호스트 수정/삭제 미트볼을 숨긴다.
+  const hideSubpageMenu = searchParams?.get("from") === "review";
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const seg = pathname.split("/").filter(Boolean);
   let mode: "home" | "subpage" | "hidden" = "home";
@@ -203,7 +206,7 @@ export function UserBar({
           </svg>
         </button>
 
-        {(canEdit || canDelete) && partyIdFromPath && (
+        {(canEdit || canDelete) && partyIdFromPath && !hideSubpageMenu && (
           <SubpageHostMenu
             partyId={partyIdFromPath}
             canEdit={canEdit}

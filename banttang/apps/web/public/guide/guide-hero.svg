@@ -1,0 +1,121 @@
+<svg width="360" height="300" viewBox="0 0 360 300" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="동네 곳곳에서 이웃과 장보기를 나눠요">
+  <defs>
+    <linearGradient id="gh-map" x1="20" y1="50" x2="120" y2="210" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9FC785"/>
+      <stop offset="1" stop-color="#7FB069"/>
+    </linearGradient>
+    <linearGradient id="gh-basket" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#8FB97A"/>
+      <stop offset="1" stop-color="#6FA055"/>
+    </linearGradient>
+    <clipPath id="gh-mapclip">
+      <path d="M70 60 C95 50 120 48 140 46 C158 50 172 58 176 72 C184 95 187 115 184 135 C182 160 178 185 168 208 C163 220 158 226 150 228 C135 235 122 232 112 238 C104 247 98 252 90 248 C82 244 76 240 70 244 C64 250 60 256 56 250 C50 240 54 228 58 218 C64 206 70 200 66 192 C60 184 50 180 48 172 C46 162 56 156 60 148 C64 138 56 130 50 122 C44 112 48 100 56 92 C62 84 56 74 58 68 C60 62 64 60 70 60 Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- ===== 지도 (좌측) ===== -->
+  <g transform="translate(-22,20) scale(0.72)">
+    <!-- 두께(옆면) -->
+    <path d="M70 64 C95 54 120 52 140 50 C158 54 172 62 176 76 C184 99 187 119 184 139 C182 164 178 189 168 212 C163 224 158 230 150 232 C135 239 122 236 112 242 C104 251 98 256 90 252 C82 248 76 244 70 248 C64 254 60 260 56 254 C50 244 54 232 58 222 C64 210 70 204 66 196 C60 188 50 184 48 176 C46 166 56 160 60 152 C64 142 56 134 50 126 C44 116 48 104 56 96 C62 88 56 78 58 72 C60 66 64 64 70 64 Z" fill="#5E8A4C"/>
+    <!-- 본체 -->
+    <path d="M70 60 C95 50 120 48 140 46 C158 50 172 58 176 72 C184 95 187 115 184 135 C182 160 178 185 168 208 C163 220 158 226 150 228 C135 235 122 232 112 238 C104 247 98 252 90 248 C82 244 76 240 70 244 C64 250 60 256 56 250 C50 240 54 228 58 218 C64 206 70 200 66 192 C60 184 50 180 48 172 C46 162 56 156 60 148 C64 138 56 130 50 122 C44 112 48 100 56 92 C62 84 56 74 58 68 C60 62 64 60 70 60 Z" fill="url(#gh-map)"/>
+    <!-- 도로 -->
+    <g clip-path="url(#gh-mapclip)" stroke="#EDF3E4" stroke-width="3.4" stroke-linecap="round" opacity="0.85" fill="none">
+      <path d="M55 110 C95 120 120 150 165 158"/>
+      <path d="M60 160 C100 168 130 175 168 185"/>
+      <path d="M118 70 C112 120 108 170 100 235"/>
+      <path d="M70 95 C90 100 95 130 80 230"/>
+    </g>
+    <!-- 핀 -->
+    <g>
+      <g transform="translate(96,108)"><path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#EE9A52"/><circle cx="0" cy="-21" r="4.4" fill="#fff"/></g>
+      <g transform="translate(132,92)"><path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#F0A85F"/><circle cx="0" cy="-21" r="4.4" fill="#fff"/></g>
+      <g transform="translate(78,156)"><path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#EE9A52"/><circle cx="0" cy="-21" r="4.4" fill="#fff"/></g>
+      <g transform="translate(140,168)"><path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#F0A85F"/><circle cx="0" cy="-21" r="4.4" fill="#fff"/></g>
+      <g transform="translate(104,200)"><path d="M0 0 C-6 -9 -11 -14 -11 -21 A11 11 0 1 1 11 -21 C11 -14 6 -9 0 0 Z" fill="#EE9A52"/><circle cx="0" cy="-21" r="4.4" fill="#fff"/></g>
+    </g>
+  </g>
+
+  <!-- ===== 점선 연결 ===== -->
+  <g stroke="#C9DDB6" stroke-width="3" stroke-linecap="round" stroke-dasharray="0.2 9" fill="none">
+    <path d="M150 95 C185 80 205 78 232 80"/>
+    <path d="M150 175 C185 205 205 220 232 226"/>
+  </g>
+
+  <!-- ===== 알림 카드 + 워치 (우상단) ===== -->
+  <!-- 카드 -->
+  <g>
+    <rect x="226" y="48" width="58" height="62" rx="13" fill="#F6F1E6"/>
+    <rect x="226" y="48" width="58" height="62" rx="13" fill="#000" opacity="0.02"/>
+    <!-- 쇼핑백 -->
+    <g transform="translate(241,60)">
+      <path d="M2 6 H16 L15 21 H3 Z" fill="#7FB069"/>
+      <path d="M5.5 6 V4.5 A3.5 3.5 0 0 1 12.5 4.5 V6" stroke="#5E8A4C" stroke-width="2" fill="none" stroke-linecap="round"/>
+    </g>
+    <rect x="241" y="88" width="28" height="4" rx="2" fill="#D8D2C5"/>
+    <rect x="241" y="96" width="18" height="4" rx="2" fill="#D8D2C5"/>
+    <!-- 체크 뱃지 -->
+    <circle cx="275" cy="100" r="8.5" fill="#7FB069"/>
+    <path d="M271.5 100 l2.4 2.4 l4-4.6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  </g>
+  <!-- 워치 -->
+  <g transform="translate(292,52)">
+    <rect x="14" y="2" width="22" height="11" rx="4" fill="#33333A"/>
+    <rect x="14" y="49" width="22" height="11" rx="4" fill="#33333A"/>
+    <rect x="6" y="11" width="38" height="40" rx="12" fill="#2A2A30"/>
+    <rect x="11" y="16" width="28" height="30" rx="8" fill="#1E1E24"/>
+    <!-- 벨 -->
+    <g transform="translate(25,31)" stroke="#9DC487" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+      <path d="M-5 3 C-5 -2 -3 -5 0 -5 C3 -5 5 -2 5 3 L6.5 5 H-6.5 Z" fill="#7FB069" stroke="#7FB069"/>
+      <path d="M-1.8 7.5 a1.8 1.8 0 0 0 3.6 0" stroke="#9DC487"/>
+    </g>
+  </g>
+
+  <!-- ===== 분할(반띵) 아이콘 ===== -->
+  <g transform="translate(248,150)">
+    <circle cx="11" cy="11" r="12" fill="#F6F1E6"/>
+    <path d="M11 -1 A12 12 0 0 0 11 23 Z" fill="#7FB069"/>
+    <path d="M11 -1 V23" stroke="#fff" stroke-width="2"/>
+  </g>
+
+  <!-- ===== 장바구니 나누는 두 사람 (하단) ===== -->
+  <!-- 화살표 (좌우로 나눔) -->
+  <g stroke="#7FB069" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M236 276 h-14 m0 0 l5 -5 m-5 5 l5 5"/>
+    <path d="M286 276 h14 m0 0 l-5 -5 m5 5 l-5 5"/>
+  </g>
+
+  <!-- 왼쪽 사람 -->
+  <g>
+    <circle cx="196" cy="214" r="13" fill="#E7B58A"/>
+    <path d="M184 210 a12 12 0 0 1 24 0 q0 -16 -12 -16 q-12 0 -12 16 Z" fill="#5A4632"/>
+    <path d="M178 280 v-26 a18 18 0 0 1 36 0 v26 Z" fill="#8FB97A"/>
+  </g>
+  <!-- 오른쪽 사람 -->
+  <g>
+    <circle cx="324" cy="214" r="13" fill="#F0C9A0"/>
+    <path d="M312 212 q-2 -18 12 -18 q14 0 12 18 q0 -4 -3 -6 q-9 4 -18 0 q-3 2 -3 6 Z" fill="#4A3A2C"/>
+    <path d="M306 280 v-26 a18 18 0 0 1 36 0 v26 Z" fill="#EDE6D6"/>
+  </g>
+
+  <!-- 가운데 두 바구니 (맞닿음) -->
+  <!-- 왼쪽 바구니 -->
+  <g>
+    <!-- 식료품 -->
+    <circle cx="232" cy="244" r="8" fill="#E5634E"/>
+    <circle cx="248" cy="242" r="9" fill="#EE9A52"/>
+    <circle cx="240" cy="236" r="7" fill="#8FBF6A"/>
+    <rect x="252" y="226" width="8" height="22" rx="3" fill="#BFE3F0"/>
+    <path d="M222 248 h44 l-4 26 a6 6 0 0 1 -6 5 h-24 a6 6 0 0 1 -6 -5 Z" fill="url(#gh-basket)"/>
+    <rect x="220" y="246" width="48" height="7" rx="3.5" fill="#6FA055"/>
+  </g>
+  <!-- 오른쪽 바구니 -->
+  <g>
+    <rect x="278" y="224" width="9" height="24" rx="3" fill="#F2EEE6"/>
+    <path d="M290 230 q6 -2 12 0 l-1 18 h-10 Z" fill="#D8A45E"/>
+    <circle cx="300" cy="242" r="7" fill="#E5634E"/>
+    <circle cx="288" cy="240" r="6" fill="#EE9A52"/>
+    <path d="M274 248 h44 l-4 26 a6 6 0 0 1 -6 5 h-24 a6 6 0 0 1 -6 -5 Z" fill="url(#gh-basket)"/>
+    <rect x="272" y="246" width="48" height="7" rx="3.5" fill="#6FA055"/>
+  </g>
+</svg>

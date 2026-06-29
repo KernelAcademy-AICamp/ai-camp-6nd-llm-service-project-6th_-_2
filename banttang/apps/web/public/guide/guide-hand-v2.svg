@@ -1,0 +1,29 @@
+<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="버튼을 누르는 손">
+  <!-- 빨간 버튼 (손가락 뒤에 깔림) -->
+  <circle cx="54" cy="27" r="16" fill="#DB5E66"/>
+  <circle cx="54" cy="27" r="16" fill="none" stroke="#B23B45" stroke-width="6"/>
+  <circle cx="49" cy="22" r="4" fill="#EC9098" opacity="0.7"/>
+
+  <!-- 손: 버터색 채움 + 두꺼운 올리브 외곽선 -->
+  <path d="M47 44
+           C47 36 49 33 54 33
+           C59 33 61 36 61 44
+           L61 70
+           A9 9 0 0 1 79 73
+           A8 8 0 0 1 94 80
+           A8 8 0 0 1 104 91
+           L104 99
+           Q104 110 93 110
+           L44 110
+           Q28 110 28 99
+           L28 92
+           Q22 89 17 85
+           Q12 81 17 76
+           Q21 72 29 75
+           C33 73 39 71 45 70
+           L47 44 Z"
+        fill="#F6DF8E" stroke="#9B8B3C" stroke-width="6.5" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- 손가락 마디 주름 -->
+  <path d="M79 78 q3 4 0 9 M93 85 q3 4 0 8" fill="none" stroke="#9B8B3C" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+</svg>

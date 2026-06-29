@@ -105,9 +105,18 @@ export function GroupBuyClient({
 
       {/* 스크롤 영역 */}
       <div className="flex-1 overflow-y-auto">
-        {/* 히어로 — 자체 일러스트 (저작권 이슈로 실제 상품 사진 미사용) */}
-        <div className="relative h-72 w-full overflow-hidden bg-gradient-to-br from-rose-50 to-pink-100">
-          <FruitBoxArt className="absolute inset-0 h-full w-full" />
+        {/* 히어로 — 신비복숭아는 실제 상품 사진, 그 외는 자체 일러스트 */}
+        <div className="relative h-60 w-full overflow-hidden bg-gradient-to-br from-rose-50 to-pink-100">
+          {gb.slug === "sinbi-peach" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/images/peach_photo_crop.png"
+              alt=""
+              className="absolute inset-0 h-full w-full object-cover object-top"
+            />
+          ) : (
+            <FruitBoxArt className="absolute inset-0 h-full w-full" />
+          )}
           <span className="absolute left-4 top-4 rounded-full bg-brand px-3 py-1.5 text-[12px] font-bold text-white shadow">
             띵동 공구
           </span>
