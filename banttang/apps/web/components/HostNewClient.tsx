@@ -97,7 +97,8 @@ export function HostNewClient({
   // 특이사항(자유 기재, 최대 100자) — 호스트가 참여자에게 알리고 싶은 요구사항.
   const [note, setNote] = useState("");
   const NOTE_MAX = 100;
-  const [price, setPrice] = useState(initialPrice ?? 8000);
+  // 기본값을 비워 둔다(8,000은 placeholder 예시) — 입력 시 0부터 바로 쓰도록.
+  const [price, setPrice] = useState(initialPrice ?? 0);
   // individual_items 전용: 최소주문금액·배송비 분담 항목
   const [hasMinOrder, setHasMinOrder] = useState(false);
   const [minOrderAmount, setMinOrderAmount] = useState(0);
@@ -842,7 +843,9 @@ function SingleOrderFields(props: {
           type="number"
           min={0}
           step={500}
-          value={price}
+          inputMode="numeric"
+          placeholder="예: 8,000"
+          value={price || ""}
           onChange={(e) => setPrice(Number(e.target.value) || 0)}
           className="mt-2 w-full rounded-xl border border-zinc-200 px-3 py-2"
         />
