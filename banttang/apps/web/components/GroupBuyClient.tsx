@@ -259,14 +259,6 @@ export function GroupBuyClient({
           <p className="mt-3 text-[13px] font-medium text-zinc-500">
             🚚 {gb.shipFrom}
           </p>
-          <a
-            href={gb.productUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1 text-[13px] font-medium text-brand-dark underline underline-offset-2"
-          >
-            원 상품 정보 보기
-          </a>
         </div>
 
         <div className="h-6" />
