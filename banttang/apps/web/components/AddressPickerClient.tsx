@@ -176,14 +176,6 @@ export function AddressPickerClient() {
       {/* Step 2: 건물 선택(+검색) */}
       {step === "building" && area && (
         <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            onClick={() => setStep("area")}
-            className="-ml-2 inline-flex items-center gap-1 px-2 py-1 text-[13px] font-semibold text-zinc-500 active:text-zinc-700"
-          >
-            ‹ 동네 다시 선택
-          </button>
-
           <div className="flex items-center gap-2">
             <span className="text-[20px]">{area.emoji}</span>
             <h2 className="text-[16px] font-bold text-zinc-900">
