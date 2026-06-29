@@ -9,7 +9,7 @@ export function WelcomeClient({ address }: { address: string | null }) {
   const router = useRouter();
 
   return (
-    <main className="flex flex-1 flex-col bg-zinc-50 px-5 pb-6 pt-12">
+    <main className="flex flex-1 flex-col bg-zinc-50 px-4 pb-6 pt-12">
       <header className="flex flex-col items-center text-center">
         <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-brand/15 text-[44px]">
           🏢
