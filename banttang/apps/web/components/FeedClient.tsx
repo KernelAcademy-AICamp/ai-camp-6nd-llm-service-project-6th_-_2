@@ -175,35 +175,14 @@ export function FeedClient({
           검색 중에는 컨텍스트가 다르므로 숨김. 두 보기 모두에서 보임. */}
       {!query && <GroceryPicksSection rooms={displayPickRooms} />}
 
-      {/* 섹션 헤더 + 토글 — 한 컨테이너에 묶어 보조 문구와 토글 사이 간격을 직접 제어. */}
+      {/* 섹션 헤더 — 건수는 별도로 노출하지 않음. 토글은 카테고리 칩 아래로 이동. */}
       <div>
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[19px] font-extrabold tracking-tight text-zinc-900">
-            우리동네 반띵 보기
-          </h2>
-        </div>
+        <h2 className="text-[19px] font-extrabold tracking-tight text-zinc-900">
+          우리동네 반띵 보기
+        </h2>
         <p className="mt-1 text-[13px] text-zinc-500">
           내 근처 반띵 주문이에요. 지도에 표시된 위치에서 만나서 거래해요.
         </p>
-        <div className="mt-1.5 flex items-center justify-end">
-          <div className="flex shrink-0 gap-1 rounded-full border border-zinc-200 bg-white p-0.5 text-xs">
-            {[
-              { v: "map", label: "지도" },
-              { v: "list", label: "리스트" },
-            ].map((m) => (
-              <button
-                key={m.v}
-                onClick={() => go({ view: m.v })}
-                className={cn(
-                  "rounded-full px-3 py-1",
-                  view === m.v ? "bg-brand text-white" : "text-zinc-500",
-                )}
-              >
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* 섹션 검색창 — 짭과 동일 컨벤션. 상품명/메뉴/픽업 위치 통합 검색. */}
@@ -233,74 +212,98 @@ export function FeedClient({
         )}
       </div>
 
-      {/* 카테고리 칩 — 지도/리스트 어느 view에서도 항상 노출. 핫딜은 빨간 톤 */}
-      <CategoryChipRow
-        active={catFilter}
-        onChange={(next) => setCatFilter(next)}
-      />
-
-      {view === "map" ? (
-        <MapView
-          parties={visibleParties}
-          catFilter={catFilter}
-          onPickCategory={setCatFilter}
+      {/* 카테고리 칩 + 토글 + 주문 영역을 가로 풀폭 흰 바탕으로 묶음 */}
+      <div className="-mx-4 flex flex-col gap-3 bg-white px-4 py-3">
+        {/* 카테고리 칩 — 지도/리스트 어느 view에서도 항상 노출. 핫딜은 빨간 톤 */}
+        <CategoryChipRow
+          active={catFilter}
+          onChange={(next) => setCatFilter(next)}
         />
-      ) : catFilter === "hotdeal" ? (
-        // 리스트 모드 + 핫딜 칩 → GROUP_BUYS를 카드 형태로 노출
-        <div className="flex flex-col gap-2">
-          {GROUP_BUYS.map((gb) => (
-            <Link
-              key={gb.slug}
-              href={`/groupbuy/${gb.slug}` as any}
-              className="flex items-center gap-3 rounded-xl border border-rose-200 bg-white p-3 text-left active:bg-rose-50"
-            >
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-[28px]">
-                {gb.emoji}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  <span className="rounded bg-rose-500 px-1.5 py-px text-[10px] font-bold text-white">
-                    {gb.dealType}
-                  </span>
-                  <span className="line-clamp-1 text-[13px] font-bold text-zinc-900">
-                    {gb.title}
-                  </span>
+
+        {/* 보기 모드 토글 — 카테고리 칩 아래로 이동 */}
+        <div className="flex items-center justify-end">
+          <div className="flex shrink-0 gap-1 rounded-full border border-zinc-200 bg-white p-0.5 text-xs">
+            {[
+              { v: "map", label: "지도" },
+              { v: "list", label: "리스트" },
+            ].map((m) => (
+              <button
+                key={m.v}
+                onClick={() => go({ view: m.v })}
+                className={cn(
+                  "rounded-full px-3 py-1",
+                  view === m.v ? "bg-brand text-white" : "text-zinc-500",
+                )}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {view === "map" ? (
+          <MapView
+            parties={visibleParties}
+            catFilter={catFilter}
+            onPickCategory={setCatFilter}
+          />
+        ) : catFilter === "hotdeal" ? (
+          // 리스트 모드 + 핫딜 칩 → GROUP_BUYS를 카드 형태로 노출
+          <div className="flex flex-col gap-2">
+            {GROUP_BUYS.map((gb) => (
+              <Link
+                key={gb.slug}
+                href={`/groupbuy/${gb.slug}` as any}
+                className="flex items-center gap-3 rounded-xl border border-rose-200 bg-white p-3 text-left active:bg-rose-50"
+              >
+                <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-[28px]">
+                  {gb.emoji}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="rounded bg-rose-500 px-1.5 py-px text-[10px] font-bold text-white">
+                      {gb.dealType}
+                    </span>
+                    <span className="line-clamp-1 text-[13px] font-bold text-zinc-900">
+                      {gb.title}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">
+                    📍 {gb.pickupName}
+                  </p>
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px]">
+                    <span className="font-bold text-rose-500">
+                      최저 {minGroupPrice(gb).toLocaleString()}원~
+                    </span>
+                    <span className="text-zinc-400">·</span>
+                    <span className="font-semibold text-zinc-600">
+                      {gb.currentCount}/{gb.targetCount}명
+                    </span>
+                  </div>
                 </div>
-                <p className="mt-0.5 line-clamp-1 text-[11px] text-zinc-500">
-                  📍 {gb.pickupName}
-                </p>
-                <div className="mt-1 flex items-center gap-1.5 text-[11px]">
-                  <span className="font-bold text-rose-500">
-                    최저 {minGroupPrice(gb).toLocaleString()}원~
-                  </span>
-                  <span className="text-zinc-400">·</span>
-                  <span className="font-semibold text-zinc-600">
-                    {gb.currentCount}/{gb.targetCount}명
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      ) : visibleParties.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {visibleParties.map((p) => (
-            <FeedOrderRow
-              key={p.id}
-              party={p}
-              onOpen={() =>
-                router.push(
-                  (p.id.startsWith("demo-") ? "#" : `/feed/${p.id}`) as any,
-                )
-              }
-            />
-          ))}
-        </div>
-      ) : query ? (
-        <div className="rounded-2xl border border-dashed border-zinc-300 bg-white p-8 text-center text-sm text-zinc-400">
-          <p>&ldquo;{query}&rdquo; 검색 결과가 없어요.</p>
-        </div>
-      ) : null}
+              </Link>
+            ))}
+          </div>
+        ) : visibleParties.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {visibleParties.map((p) => (
+              <FeedOrderRow
+                key={p.id}
+                party={p}
+                onOpen={() =>
+                  router.push(
+                    (p.id.startsWith("demo-") ? "#" : `/feed/${p.id}`) as any,
+                  )
+                }
+              />
+            ))}
+          </div>
+        ) : query ? (
+          <div className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-400">
+            <p>&ldquo;{query}&rdquo; 검색 결과가 없어요.</p>
+          </div>
+        ) : null}
+      </div>
 
       {/* 동네 핫딜 칩 — 사장님 공구·핫딜. 우리동네 반띵 보기 섹션 아래. 검색 중엔 숨김. */}
       {!query && <HotDealChips />}
@@ -322,24 +325,22 @@ export function FeedClient({
         </div>
       )}
     </div>
-    {/* 주문 등록 플로팅 버튼 — 주문별(리스트) 보기에서만 노출.
-        지도 보기는 지도 우상단 자체 버튼을 사용하므로 FAB는 숨겨 중복 제거. */}
-    {view === "list" && (
-      <Link
-        href="/host/new"
-        aria-label="주문 등록"
-        className="fixed bottom-20 right-[max(1rem,calc(50%-13rem))] z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-lg shadow-emerald-500/30 transition-transform active:scale-95"
-      >
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M12 5v14M5 12h14"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-          />
-        </svg>
-      </Link>
-    )}
+    {/* 주문 등록 플로팅 버튼 — 지도/리스트 모두에서 우하단(BottomNav 위)에 노출. */}
+    <Link
+      href="/host/new"
+      aria-label="반띵 등록하기"
+      className="fixed bottom-20 right-[max(1rem,calc(50%-13rem))] z-40 inline-flex items-center gap-1 rounded-full bg-brand pl-3 pr-4 py-3 text-[13px] font-bold text-white shadow-lg shadow-emerald-500/30 transition-transform active:scale-95"
+    >
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M12 5v14M5 12h14"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+        />
+      </svg>
+      반띵 등록하기
+    </Link>
     </>
   );
 }
@@ -414,6 +415,9 @@ function MapView({
     setSelectedId(null);
   }, [catFilter]);
 
+  // 위치 핀 옵션 시트 — 현재 위치 자동 사용 / 거주지 직접 변경 둘 중 택일.
+  const [showLocSheet, setShowLocSheet] = useState(false);
+
   function locateMe() {
     if (locating) return;
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -484,7 +488,7 @@ function MapView({
 
   return (
     <div className="space-y-3">
-      {/* 지도 + 우상단 "내 주문 등록하기" + 우하단 "내 위치" 버튼 */}
+      {/* 지도 + 우하단 "내 위치" 버튼. "내 주문 등록하기" 는 우하단 글로벌 플로팅 버튼으로 분리. */}
       <div className="relative">
         <KakaoMapView
           pins={pins}
@@ -493,17 +497,11 @@ function MapView({
           recenterTo={recenter}
           userLocation={myLoc}
         />
-        <Link
-          href="/host/new"
-          className="absolute right-3 top-3 z-[1] rounded-full border border-brand bg-white px-3 py-1.5 text-[11px] font-bold text-brand shadow-sm active:bg-brand/5"
-        >
-          + 내 주문 등록하기
-        </Link>
         <button
           type="button"
-          onClick={locateMe}
+          onClick={() => setShowLocSheet(true)}
           disabled={locating}
-          aria-label="내 위치로 이동"
+          aria-label="위치 옵션"
           className="absolute bottom-3 right-3 z-[1] flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-700 shadow-sm transition active:scale-95 disabled:opacity-50"
         >
           {locating ? (
@@ -520,6 +518,61 @@ function MapView({
           )}
         </button>
       </div>
+
+      {/* 위치 옵션 시트 — 위치 핀(◎) 탭 시 노출. 두 액션: 현재 위치 사용 / 거주지 직접 변경. */}
+      {showLocSheet && (
+        <div
+          onClick={() => setShowLocSheet(false)}
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md rounded-t-2xl bg-white p-5 sm:rounded-2xl"
+          >
+            <div className="text-center">
+              <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-[24px]">
+                📍
+              </div>
+              <h3 className="text-[16px] font-bold text-zinc-900">
+                내 위치를 어떻게 정할까요?
+              </h3>
+              <p className="mt-1 text-[12px] text-zinc-500">
+                현재 위치를 자동으로 잡거나 거주지를 직접 다시 선택할 수 있어요.
+              </p>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLocSheet(false);
+                  locateMe();
+                }}
+                className="h-12 w-full rounded-xl bg-brand text-[14px] font-bold text-white active:opacity-90"
+              >
+                현재 위치 자동으로 사용
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLocSheet(false);
+                  router.push("/onboarding/address" as any);
+                }}
+                className="h-12 w-full rounded-xl border border-brand bg-white text-[14px] font-bold text-brand-dark active:bg-brand/5"
+              >
+                내 거주지 직접 설정하기
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLocSheet(false)}
+                className="mt-1 h-10 w-full text-[13px] font-semibold text-zinc-500 active:text-zinc-700"
+              >
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {missing > 0 && (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
@@ -677,27 +730,28 @@ function CategoryChipRow({
       emoji: g.emoji,
     })),
     { id: "etc" as MapCatFilter, label: "기타", emoji: "🧺" },
-    { id: "hotdeal" as MapCatFilter, label: "핫딜", emoji: "🔥" },
+    { id: "hotdeal" as MapCatFilter, label: "동네 핫딜", emoji: "🔥" },
   ] as Array<{ id: MapCatFilter; label: string; emoji?: string }>;
   return (
-    <div className="-mx-1 flex gap-2 overflow-x-auto px-1 [&::-webkit-scrollbar]:hidden">
+    <div className="-mx-1 flex gap-1 overflow-x-auto px-1 [&::-webkit-scrollbar]:hidden">
       {chips.map((c) => {
         const on = active === c.id;
         const isHotdeal = c.id === "hotdeal";
+        // 비-핫딜: 활성=검정 굵게+밑줄 / 비활성=회색. 핫딜만 빨강 강조 유지.
         return (
           <button
             key={c.id}
             type="button"
             onClick={() => onChange(c.id)}
             className={cn(
-              "shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition active:scale-95",
+              "shrink-0 px-1 py-1.5 text-[13px] transition",
               isHotdeal
                 ? on
-                  ? "border-rose-500 bg-rose-500 text-white"
-                  : "border-rose-500 bg-white text-rose-600"
+                  ? "font-extrabold text-rose-600 underline underline-offset-[6px] decoration-2"
+                  : "font-semibold text-rose-500 active:text-rose-600"
                 : on
-                  ? "border-brand bg-brand text-white"
-                  : "border-brand bg-white text-brand",
+                  ? "font-extrabold text-brand underline underline-offset-[6px] decoration-2 decoration-brand"
+                  : "font-semibold text-zinc-900 active:text-zinc-600",
             )}
           >
             {c.emoji ? `${c.emoji} ` : ""}
