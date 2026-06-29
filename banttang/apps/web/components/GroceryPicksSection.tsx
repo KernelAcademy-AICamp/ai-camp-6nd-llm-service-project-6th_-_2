@@ -87,9 +87,11 @@ export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
         참여만 하면 AI가 1km 이내 참여자와 반띵을 매칭해줘요.
       </p>
 
-      {/* 칩 + 건수 */}
-      <div className="mt-3 flex items-center gap-2">
-        <div className="flex flex-1 gap-2 overflow-x-auto pb-1 [&::-webkit-scrollbar]:hidden">
+      {/* 칩 + 카드 목록을 가로 풀폭 흰 바탕으로 깔아 텍스트 칩 가독성 ↑.
+          상위 section이 이미 -mx-4 px-4 로 풀폭 처리돼 있으므로 내부 패딩만 정리. */}
+      <div className="mt-3 flex flex-col gap-3 bg-white -mx-4 px-4 py-3">
+        {/* 칩 */}
+        <div className="flex gap-1 overflow-x-auto [&::-webkit-scrollbar]:hidden">
           <Chip
             label="전체"
             active={group === "all"}
@@ -110,54 +112,54 @@ export function GroceryPicksSection({ rooms }: { rooms: PickRoom[] }) {
             />
           ))}
         </div>
-      </div>
 
-      {/* 방 카드 목록 */}
-      <div className="mt-2 flex flex-col gap-2.5">
-        {visible.map((r, i) => (
-          <RoomCard
-            key={r.id}
-            room={r}
-            reason={REASONS[r.group][i % REASONS[r.group].length]}
-            hot={!!r.featured}
-          />
-        ))}
-      </div>
-
-      {/* 페이지네이션 — "전체" 탭에서만 노출. 4건씩 넘겨서 보기. */}
-      {showPager && (
-        <div className="mt-3 flex items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={safePage === 0}
-            aria-label="이전 추천"
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 disabled:opacity-30"
-          >
-            ‹
-          </button>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }).map((_, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "h-1.5 rounded-full transition-all",
-                  i === safePage ? "w-4 bg-brand" : "w-1.5 bg-zinc-300",
-                )}
-              />
-            ))}
-          </div>
-          <button
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={safePage >= totalPages - 1}
-            aria-label="다음 추천"
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 disabled:opacity-30"
-          >
-            ›
-          </button>
+        {/* 방 카드 목록 */}
+        <div className="flex flex-col gap-2.5">
+          {visible.map((r, i) => (
+            <RoomCard
+              key={r.id}
+              room={r}
+              reason={REASONS[r.group][i % REASONS[r.group].length]}
+              hot={!!r.featured}
+            />
+          ))}
         </div>
-      )}
+
+        {/* 페이지네이션 — "전체" 탭에서만 노출. 4건씩 넘겨서 보기. */}
+        {showPager && (
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={safePage === 0}
+              aria-label="이전 추천"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 disabled:opacity-30"
+            >
+              ‹
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <span
+                  key={i}
+                  className={cn(
+                    "h-1.5 rounded-full transition-all",
+                    i === safePage ? "w-4 bg-brand" : "w-1.5 bg-zinc-300",
+                  )}
+                />
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={safePage >= totalPages - 1}
+              aria-label="다음 추천"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-600 disabled:opacity-30"
+            >
+              ›
+            </button>
+          </div>
+        )}
+      </div>
     </section>
   );
 }
@@ -176,10 +178,10 @@ function Chip({
       type="button"
       onClick={onClick}
       className={cn(
-        "shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition",
+        "shrink-0 px-2 py-1.5 text-[13px] transition",
         active
-          ? "bg-zinc-900 text-white"
-          : "border border-zinc-200 bg-white text-zinc-500 active:bg-zinc-50",
+          ? "font-extrabold text-brand underline underline-offset-[6px] decoration-2 decoration-brand"
+          : "font-semibold text-zinc-900 active:text-zinc-600",
       )}
     >
       {label}

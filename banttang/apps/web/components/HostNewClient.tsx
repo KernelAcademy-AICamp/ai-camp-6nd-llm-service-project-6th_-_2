@@ -80,7 +80,8 @@ export function HostNewClient({
   })();
 
   // 상단 탭: 배달 / 장보기. DB의 category enum에 매핑 (장보기→offline_shopping).
-  const [tab, setTab] = useState<"delivery" | "shopping">(initialTab ?? "delivery");
+  // 주문 유형 선택 단계는 UI에서 제거됨. 기본은 공동구매(shopping). 추천 상품 진입 시 initialTab 으로 덮어씀.
+  const [tab, setTab] = useState<"delivery" | "shopping">(initialTab ?? "shopping");
   const category: "delivery" | "offline_shopping" = tab === "delivery" ? "delivery" : "offline_shopping";
 
   // 반띵 버튼 진입(가게/상품 프리필)이면 "같은 것 나눠요"(single_order)를 기본 선택.
@@ -316,7 +317,7 @@ export function HostNewClient({
       </header>
       <div className="flex flex-col gap-4 p-4 pb-32">
 
-      {/* 1단계: 주문 유형 + 방식 */}
+      {/* 1단계: 방식만 — 주문 유형(배달/공구) 선택 단계는 제거. 카테고리는 initialTab(또는 기본 shopping)으로 자동 결정. */}
       {step === 1 && (
         <section className="flex flex-col gap-5">
           <div>
@@ -329,35 +330,8 @@ export function HostNewClient({
               선택해 주세요
             </h2>
             <p className="mt-2 text-[14px] text-zinc-500">
-              함께 주문할 유형과 방식을 선택해 주세요.
+              참여자들과 어떻게 함께 주문할지 골라 주세요.
             </p>
-          </div>
-
-          {/* 주문 유형 */}
-          <div>
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-[15px] font-bold text-zinc-900">주문 유형</p>
-              <span className="text-[12px] font-semibold text-zinc-400">필수</span>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { v: "shopping", emoji: "🛒", title: "공동구매" },
-                { v: "delivery", emoji: "🍗", title: "배달 음식" },
-              ].map((c) => (
-                <button
-                  key={c.v}
-                  type="button"
-                  onClick={() => setTab(c.v as "delivery" | "shopping")}
-                  className={cn(
-                    "flex flex-col items-center gap-2 rounded-2xl border-2 bg-white py-6 shadow-sm transition active:scale-[0.99]",
-                    tab === c.v ? "border-brand bg-brand-50" : "border-zinc-200",
-                  )}
-                >
-                  <span className="text-3xl" aria-hidden>{c.emoji}</span>
-                  <span className="text-[16px] font-bold text-zinc-900">{c.title}</span>
-                </button>
-              ))}
-            </div>
           </div>
 
           {/* 어떤 방식으로 주문할까요? */}

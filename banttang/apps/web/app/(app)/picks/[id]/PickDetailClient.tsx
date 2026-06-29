@@ -210,23 +210,9 @@ export function PickDetailClient({ detail }: { detail: PickDetail }) {
 
       <div className="h-2 bg-zinc-100" />
 
-      {/* 안내 + CTA — 같은 섹션에 묶어 스크롤로 자연스럽게 노출. 고정 X. */}
+      {/* CTA — 안내 설명을 버튼 내부 보조 카피로 흡수 */}
       <section className="bg-white px-4 py-4">
-        <h3 className="text-[14px] font-bold text-zinc-900">
-          어떻게 참여하나요?
-        </h3>
-        <div className="mt-2 space-y-2 text-[12px] leading-relaxed text-zinc-600">
-          <p>
-            <b className="text-zinc-900">파티장으로 참여하기</b> — 호스트로서 상품을 주문하고,
-            내가 원하는 장소를 설정해 반띵해요.
-          </p>
-          <p>
-            <b className="text-zinc-900">파티원으로 참여하기</b> — 주문은 호스트에게 맡기고,
-            반띵 장소에서 물건만 나눠요.
-          </p>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={hostNew}
@@ -235,8 +221,8 @@ export function PickDetailClient({ detail }: { detail: PickDetail }) {
             <span className="block text-[14px] font-bold text-white">
               파티장으로 참여하기
             </span>
-            <span className="mt-0.5 block text-[10.5px] leading-tight text-white/85">
-              내가 주문 + 장소 설정
+            <span className="mt-1 block text-[10.5px] leading-snug text-white/85">
+              호스트로서 상품을 주문하고, 내가 원하는 장소를 설정해 반띵해요.
             </span>
           </button>
           <button
@@ -251,8 +237,8 @@ export function PickDetailClient({ detail }: { detail: PickDetail }) {
             <span className="block text-[14px] font-bold text-brand-dark">
               {joining ? "참여 중…" : "파티원으로 참여하기"}
             </span>
-            <span className="mt-0.5 block text-[10.5px] leading-tight text-zinc-500">
-              호스트에게 맡기고 장소에서 받기
+            <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500">
+              주문은 호스트에게 맡기고, 반띵 장소에서 물건만 나눠요.
             </span>
           </button>
         </div>
