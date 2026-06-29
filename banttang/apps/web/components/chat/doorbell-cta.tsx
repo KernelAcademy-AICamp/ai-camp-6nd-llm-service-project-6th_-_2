@@ -77,7 +77,7 @@ export function DoorbellCta({
   return (
     <Frame>
       {toast && (
-        <div className="pointer-events-none absolute bottom-[11.5rem] right-3 z-30 max-w-[72%] rounded-lg bg-black/80 px-3 py-2 text-[12px] font-medium text-white shadow-lg">
+        <div className="pointer-events-none absolute bottom-[13.5rem] right-3 z-30 max-w-[72%] rounded-lg bg-black/80 px-3 py-2 text-[12px] font-medium text-white shadow-lg">
           {toast}
         </div>
       )}
@@ -87,7 +87,7 @@ export function DoorbellCta({
         type="button"
         onClick={handleBellTap}
         aria-label="띵동"
-        className="pointer-events-auto absolute bottom-36 right-3 z-20 flex items-center gap-1.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 shadow-lg ring-1 ring-black/5 transition-transform active:scale-95"
+        className="pointer-events-auto absolute bottom-44 right-3 z-20 flex items-center gap-1.5 rounded-full bg-white py-1.5 pl-1.5 pr-4 shadow-lg ring-1 ring-black/5 transition-transform active:scale-95"
       >
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50">
           {/* eslint-disable-next-line @next/next/no-img-element */}
