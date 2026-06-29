@@ -3,6 +3,12 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import {
+  HOST_GOOD_TAGS,
+  HOST_BAD_TAGS,
+  MEMBER_GOOD_TAGS,
+  MEMBER_BAD_TAGS,
+} from "@/lib/review-tags";
 
 type Rating = "good" | "bad";
 
@@ -18,36 +24,6 @@ interface ExistingReview {
   rating: Rating;
   text_review: string | null;
 }
-
-// 호스트를 평가할 때 — 멤버 시점 (호스트의 운영·매너에 초점)
-const HOST_GOOD_TAGS = [
-  "거래 약속을 잘 지켜요",
-  "친절하고 매너가 좋아요",
-  "제가 있는 곳까지 와서 거래했어요",
-  "응답이 빨라요",
-];
-const HOST_BAD_TAGS = [
-  "약속 시간을 안 지켰어요",
-  "응답이 느려요",
-  "무례하게 행동해요",
-  "약속 장소에 나오지 않았어요",
-];
-
-// 파티원을 평가할 때 — 호스트 시점 (정산·참여 태도에 초점)
-const MEMBER_GOOD_TAGS = [
-  "정산을 정확히 했어요",
-  "약속 시간을 잘 지켰어요",
-  "친절하고 매너가 좋아요",
-  "응답이 빨라요",
-  "픽업 후 깔끔하게 마무리했어요",
-];
-const MEMBER_BAD_TAGS = [
-  "정산을 미루거나 안 했어요",
-  "약속 시간을 안 지켰어요",
-  "무례하게 행동해요",
-  "응답이 느려요",
-  "약속 장소에 나오지 않았어요",
-];
 
 function pickTags(revieweeIsHost: boolean, rating: "good" | "bad"): string[] {
   if (revieweeIsHost) {

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatKstFriendly } from "@/lib/party-status";
 import { cn } from "@/lib/utils";
+import { splitReviewText } from "@/lib/review-tags";
 import { deleteReview } from "@/app/_actions/delete-review";
 
 interface WrittenItem {
@@ -259,11 +260,37 @@ function ReviewCard({
           {data.party.store_name} · {formatKstFriendly(data.party.deal_at)}
         </p>
       )}
-      {data.text_review && (
-        <p className="mt-2 whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-[13px] text-zinc-700">
-          {data.text_review}
-        </p>
-      )}
+      {data.text_review &&
+        (() => {
+          // 선택 태그(체크) ↔ 자유 텍스트 분리. 선택 태그는 좋아요=그린/싫어요=로즈로 강조.
+          const { tags, freeText } = splitReviewText(data.text_review);
+          return (
+            <>
+              {tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {tags.map((t) => (
+                    <span
+                      key={t}
+                      className={cn(
+                        "rounded-full px-2.5 py-1 text-[12px] font-semibold",
+                        data.rating === "good"
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-rose-50 text-rose-600",
+                      )}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {freeText && (
+                <p className="mt-2 whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-[13px] text-zinc-700">
+                  {freeText}
+                </p>
+              )}
+            </>
+          );
+        })()}
     </div>
   );
 }
