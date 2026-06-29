@@ -16,7 +16,7 @@ export function deriveDisplayStatus(
 
 export const displayStatusLabel: Record<DisplayStatus, string> = {
   recruiting: "모집중",
-  waiting: "호스트 수락 대기중",
+  waiting: "파티장 수락 대기중",
   in_progress: "진행중",
   completed: "완료",
   cancelled: "취소",

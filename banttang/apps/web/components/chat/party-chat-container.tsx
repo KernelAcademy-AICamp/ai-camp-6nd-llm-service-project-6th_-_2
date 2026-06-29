@@ -636,7 +636,7 @@ export function PartyChatContainer({
               return (
                 <section className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
                   <p className="text-[14px] font-bold text-amber-900">
-                    호스트의 승인을 기다리고 있어요
+                    파티장의 승인을 기다리고 있어요
                   </p>
                   <p className="mt-1 text-[12px] text-amber-800/80">
                     승인되면 채팅방이 자동으로 열립니다.

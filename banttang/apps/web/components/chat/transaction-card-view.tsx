@@ -85,7 +85,7 @@ export function TransactionCardView({
               <Avatar nickname={host.nickname} size={26} />
               <span className="text-[14px] font-semibold text-zinc-900">{host.nickname}</span>
               <span className="rounded-md bg-brand-50 px-1.5 py-0.5 text-[11px] font-bold text-brand-dark">
-                호스트
+                파티장
               </span>
             </li>
           )}

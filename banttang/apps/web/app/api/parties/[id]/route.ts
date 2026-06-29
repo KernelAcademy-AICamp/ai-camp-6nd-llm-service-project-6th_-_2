@@ -35,7 +35,7 @@ export async function PATCH(
       return NextResponse.json({ error: "주문을 찾을 수 없어요." }, { status: 404 });
     }
     if (party.host_id !== me.id) {
-      return NextResponse.json({ error: "호스트만 수정할 수 있어요." }, { status: 403 });
+      return NextResponse.json({ error: "파티장만 수정할 수 있어요." }, { status: 403 });
     }
     if (
       party.status !== "recruiting" &&

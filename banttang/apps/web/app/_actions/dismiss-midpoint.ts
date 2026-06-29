@@ -38,7 +38,7 @@ export async function dismissMidpointRecommendation(
       .maybeSingle();
     if (!party) return { ok: false, error: "파티를 찾을 수 없어요." };
     if (party.host_id !== userId) {
-      return { ok: false, error: "호스트만 처리할 수 있어요." };
+      return { ok: false, error: "파티장만 처리할 수 있어요." };
     }
 
     const oldMeta = (msg.metadata as Record<string, unknown>) ?? {};

@@ -68,7 +68,7 @@ export function PartyCardAction({
       await showInfo({
         title: "신청을 보냈어요!",
         description:
-          "호스트가 수락하면 채팅방에 입장할 수 있어요.\n승인 결과는 알림으로 알려드릴게요.",
+          "파티장이 수락하면 채팅방에 입장할 수 있어요.\n승인 결과는 알림으로 알려드릴게요.",
         confirmText: "확인",
       });
     } catch (err) {

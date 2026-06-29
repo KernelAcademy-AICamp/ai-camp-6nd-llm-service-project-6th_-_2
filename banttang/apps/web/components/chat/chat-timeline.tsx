@@ -234,7 +234,7 @@ export function ChatTimeline({
                       displayText = `모두에게 "띵동" 했어요`;
                     }
                   } else {
-                    const hostNick = meta.host_nickname ?? "호스트";
+                    const hostNick = meta.host_nickname ?? "파티장";
                     displayText = `${hostNick}님에게 "띵동" 했어요`;
                   }
                 } else {
@@ -591,7 +591,7 @@ function MidpointCard({
           </span>
           <span className="text-[12px] font-bold text-brand">중간지점 추천</span>
           <span className="ml-auto rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
-            호스트에게만 보여요
+            파티장에게만 보여요
           </span>
         </header>
 

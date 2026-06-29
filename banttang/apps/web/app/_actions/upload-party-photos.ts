@@ -71,7 +71,7 @@ export async function uploadPartyPhotos(
       return { ok: false, error: "파티를 찾을 수 없어요." };
     }
     if (party.host_id !== userId) {
-      return { ok: false, error: "호스트만 사진을 올릴 수 있어요." };
+      return { ok: false, error: "파티장만 사진을 올릴 수 있어요." };
     }
 
     // 이미 등록된 slot 확인 → 빈 슬롯에만 채워넣기

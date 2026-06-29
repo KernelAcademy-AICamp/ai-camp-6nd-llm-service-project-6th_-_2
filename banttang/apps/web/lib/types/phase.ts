@@ -5,7 +5,7 @@ import type { Receipt, PartyStatus } from "./domain";
 
 export type ChatPhase =
   | "chat"            // 채팅 진행중 (영수증 미인증, 반띵 시간까지 1시간 이상 남음)
-  | "verify_pending"  // 인증 대기 (반띵 시간 1시간 내, 호스트가 영수증 인증해야 함)
+  | "verify_pending"  // 인증 대기 (반띵 시간 1시간 내, 파티장이 영수증 인증해야 함)
   | "verified"        // 인증 완료 (영수증 등록됨, 반띵 시간 전)
   | "review_pending"  // 거래 확인 대기 (반띵 시간 도달, 모두 평가 제출 대기)
   | "completed"       // 완료된 반띵 (모두 평가 제출 완료)

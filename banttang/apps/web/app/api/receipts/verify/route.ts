@@ -330,10 +330,10 @@ export async function POST(req: NextRequest) {
     await writeLog({
       userId,
       result: RedemptionResult.error,
-      errorMessage: `호스트 아님 (host=${party.host_id}, user=${authedUserId})`,
+      errorMessage: `파티장 아님 (host=${party.host_id}, user=${authedUserId})`,
       durationMs: Date.now() - startedAt,
     });
-    return jsonErr("FORBIDDEN", "호스트만 영수증을 인증할 수 있어요.", 403);
+    return jsonErr("FORBIDDEN", "파티장만 영수증을 인증할 수 있어요.", 403);
   }
   const partyForMatch: PartyForMatch = {
     id: party.id,

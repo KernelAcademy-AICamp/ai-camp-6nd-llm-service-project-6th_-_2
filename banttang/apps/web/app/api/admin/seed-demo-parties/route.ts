@@ -162,7 +162,7 @@ export async function POST() {
     });
     if (cErr || !created?.user) {
       return NextResponse.json(
-        { ok: false, error: `시스템 호스트 생성 실패: ${cErr?.message ?? "unknown"}` },
+        { ok: false, error: `시스템 파티장 생성 실패: ${cErr?.message ?? "unknown"}` },
         { status: 500 },
       );
     }

@@ -186,7 +186,7 @@ function SingleMemberForm({
           {member.nickname}
           {member.is_host && (
             <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-              호스트
+              파티장
             </span>
           )}
         </p>
@@ -302,7 +302,7 @@ function CompletedSummary({
                   {o.nickname}
                   {o.is_host && (
                     <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                      호스트
+                      파티장
                     </span>
                   )}
                 </p>

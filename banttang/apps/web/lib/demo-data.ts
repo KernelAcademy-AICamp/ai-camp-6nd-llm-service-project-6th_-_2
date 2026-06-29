@@ -242,7 +242,7 @@ export function buildDemoFeedParties(
     return {
       id: b.id,
       host_id: "demo-host",
-      host_nickname: "데모호스트",
+      host_nickname: "데모파티장",
       host_level: "tree",
       host_transaction_count: 12,
       category: b.category,

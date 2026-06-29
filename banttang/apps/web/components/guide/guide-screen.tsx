@@ -176,7 +176,7 @@ export function GuideScreen() {
             type="button"
             className="mt-10 flex w-full items-center justify-between rounded-2xl bg-brand-50 px-5 py-4 text-left text-[15px] font-bold text-zinc-900 active:bg-brand-100"
           >
-            호스트 가이드 바로가기
+            파티장 가이드 바로가기
             <ChevronRight />
           </button>
         </section>

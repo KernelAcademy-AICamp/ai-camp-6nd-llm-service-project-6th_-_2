@@ -36,7 +36,7 @@ export async function updatePartyPickup(
       .maybeSingle();
     if (partyErr || !party) return { ok: false, error: "파티를 찾을 수 없어요." };
     if (party.host_id !== userId) {
-      return { ok: false, error: "호스트만 변경할 수 있어요." };
+      return { ok: false, error: "파티장만 변경할 수 있어요." };
     }
 
     // 2) parties UPDATE (admin: trigger/제약 우회 안전, RLS도 OK)

@@ -14,7 +14,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       .maybeSingle();
     if (!party) return NextResponse.json({ error: "주문 없음" }, { status: 404 });
     if (party.host_id !== me.id)
-      return NextResponse.json({ error: "호스트만 가능" }, { status: 403 });
+      return NextResponse.json({ error: "파티장만 가능" }, { status: 403 });
     if (party.status !== "recruiting")
       return NextResponse.json({ error: "이미 진행 중" }, { status: 400 });
 
@@ -37,7 +37,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       await sb.from("notifications").insert({
         user_id: m.user_id,
         type: "application_approved",
-        title: "호스트가 수락했어요!",
+        title: "파티장이 수락했어요!",
         body: "채팅방이 열렸습니다.",
         link_path: `/chat/${params.id}`,
         related_party_id: params.id,

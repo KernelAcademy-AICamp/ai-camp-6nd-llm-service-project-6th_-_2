@@ -24,7 +24,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     // 호스트 본인은 leave 금지 (취소를 써야 함)
     if (targetUserId === party.host_id)
-      return NextResponse.json({ error: "호스트는 주문 취소 사용" }, { status: 400 });
+      return NextResponse.json({ error: "파티장은 주문 취소 사용" }, { status: 400 });
 
     const { error } = await sb
       .from("party_participants")

@@ -87,7 +87,7 @@ export function NeighborhoodTabs({
                     <span className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold", sm.cls)}>{sm.label}</span>
                   </div>
                   <p className="mt-0.5 truncate text-[12px] text-zinc-500">
-                    호스트 {p.host_nickname ?? "?"} · {formatKstShort(p.created_at)}
+                    파티장 {p.host_nickname ?? "?"} · {formatKstShort(p.created_at)}
                   </p>
                 </div>
                 <span className="shrink-0 text-zinc-400">›</span>

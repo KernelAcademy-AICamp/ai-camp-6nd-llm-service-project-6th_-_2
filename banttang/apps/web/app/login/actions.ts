@@ -216,7 +216,7 @@ export async function seedSampleParties(): Promise<
     const { error: pErr } = await admin
       .from("party_participants")
       .upsert(hostRows, { onConflict: "party_id,user_id" });
-    if (pErr) return { ok: false, error: `호스트 row 생성 실패: ${pErr.message}` };
+    if (pErr) return { ok: false, error: `파티장 row 생성 실패: ${pErr.message}` };
 
     return { ok: true, inserted: rows.map((r) => `${r.store_name} (${r.max_participants}인)`) };
   } catch (err) {

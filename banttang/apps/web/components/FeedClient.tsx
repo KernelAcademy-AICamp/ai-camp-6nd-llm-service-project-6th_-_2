@@ -650,7 +650,7 @@ function FeedOrderRow({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <p className="text-[13px] font-bold text-zinc-900">
-              {party.host_nickname || "호스트"}
+              {party.host_nickname || "파티장"}
             </p>
             <span className="text-[10px] text-zinc-400">
               · {relativeFromIso(party.created_at)}

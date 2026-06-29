@@ -74,7 +74,7 @@ export default function ReceiptVerifyTestPage() {
             required
           />
           <span className="mt-1 block text-xs text-gray-500">
-            본인이 호스트인 파티 UUID. parties 테이블에서 확인.
+            본인이 파티장인 파티 UUID. parties 테이블에서 확인.
           </span>
         </label>
 
@@ -127,7 +127,7 @@ export default function ReceiptVerifyTestPage() {
           <li>같은 영수증 2번 → 두 번째 <code>409 ALREADY_REDEEMED</code></li>
           <li>다른 가게 영수증 → <code>422 PARTY_MISMATCH</code> (상호 불일치)</li>
           <li>delivery 파티에 마트 영수증 → <code>422 PARTY_MISMATCH</code> (카테고리)</li>
-          <li>호스트 아닌 계정으로 → <code>403 FORBIDDEN</code></li>
+          <li>파티장 아닌 계정으로 → <code>403 FORBIDDEN</code></li>
           <li>1분에 4번 호출 → 4번째 <code>429 RATE_LIMITED</code> (Upstash 설정 시)</li>
           <li>흐린 이미지 → <code>422 LOW_CONFIDENCE</code> + Slack 알림</li>
         </ul>

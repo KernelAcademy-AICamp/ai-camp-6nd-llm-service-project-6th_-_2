@@ -14,7 +14,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       .maybeSingle();
     if (!party) return NextResponse.json({ error: "주문 없음" }, { status: 404 });
     if (party.host_id !== me.id)
-      return NextResponse.json({ error: "호스트만 가능" }, { status: 403 });
+      return NextResponse.json({ error: "파티장만 가능" }, { status: 403 });
 
     const { error } = await sb
       .from("parties")
@@ -37,7 +37,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         room_id: room.id,
         sender_id: null,
         type: "system",
-        content: "호스트가 이 반띵을 취소했어요. 다른 반띵을 찾아볼까요?",
+        content: "파티장이 이 반띵을 취소했어요. 다른 반띵을 찾아볼까요?",
         metadata: { kind: "party_cancelled" },
       });
     }
@@ -53,7 +53,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
         user_id: m.user_id,
         type: "application_rejected",
         title: "주문이 취소됐어요",
-        body: "호스트가 반띵을 취소했어요.",
+        body: "파티장이 반띵을 취소했어요.",
         related_party_id: params.id,
       });
     }

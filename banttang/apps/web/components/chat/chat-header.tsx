@@ -225,7 +225,7 @@ function OverflowMenu({
                     </span>
                     {p.id === hostId && (
                       <span className="shrink-0 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
-                        호스트
+                        파티장
                       </span>
                     )}
                   </li>
