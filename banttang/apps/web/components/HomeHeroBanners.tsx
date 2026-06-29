@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-type BannerType = "coupon" | "reward" | "grocery";
+type BannerType = "peach" | "coupon" | "reward" | "grocery";
 
 type Banner = {
   id: string;
@@ -32,6 +32,19 @@ type Banner = {
 };
 
 const BANNERS: Banner[] = [
+  {
+    id: "peach",
+    type: "peach",
+    label: "🍑 띵동 단독 공구",
+    line1: "노지 신비복숭아",
+    line2: "공구가 21,900원~",
+    cta: "공구 참여하기",
+    href: "/groupbuy/sinbi-peach",
+    indicator: "1 / 4 +",
+    bgClass: "bg-gradient-to-r from-rose-50 via-rose-50 to-rose-100",
+    labelClass: "text-rose-500",
+    accentClass: "text-rose-500",
+  },
   {
     id: "coupon",
     type: "coupon",
@@ -216,6 +229,7 @@ function PromoBannerCard({ banner }: { banner: Banner }) {
 
       {/* 오른쪽 3D 오브젝트 */}
       <div className="pointer-events-none absolute inset-y-0 right-0 w-[44%]">
+        {banner.type === "peach" && <PeachObject />}
         {banner.type === "coupon" && <CouponObject />}
         {banner.type === "reward" && <RewardObject />}
         {banner.type === "grocery" && <GroceryObject />}
@@ -226,6 +240,23 @@ function PromoBannerCard({ banner }: { banner: Banner }) {
         {banner.indicator}
       </span>
     </Link>
+  );
+}
+
+// ── 오브젝트: 복숭아 공구 — 실제 상품 사진(우측 채움 + 좌측 페이드) ──
+function PeachObject() {
+  return (
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/images/peach_photo_crop.png"
+        alt=""
+        draggable={false}
+        className="absolute inset-y-0 right-0 h-full w-[132%] object-cover"
+      />
+      {/* 좌측 페이드 — 사진을 배너 핑크 배경에 자연스럽게 잇는다 */}
+      <div className="absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-rose-50 to-transparent" />
+    </>
   );
 }
 
