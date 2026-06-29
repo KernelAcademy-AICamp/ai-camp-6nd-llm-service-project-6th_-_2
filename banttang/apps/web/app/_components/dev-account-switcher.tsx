@@ -12,7 +12,7 @@ interface Account {
 }
 
 const ACCOUNTS: Account[] = [
-  { email: "rinrinyy818@gmail.com", label: "rinrinyy818 (호스트)" },
+  { email: "rinrinyy818@gmail.com", label: "rinrinyy818 (파티장)" },
   { email: "oloiol777@naver.com", label: "oloiol777 (멤버)" },
 ];
 

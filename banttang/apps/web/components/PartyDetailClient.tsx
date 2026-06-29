@@ -120,7 +120,7 @@ export function PartyDetailClient({ me, party, members }: Props) {
     setShowJoinConfirm(false);
     const r = await call(`/api/parties/${party.id}/join`);
     if (r) {
-      if (r.waitingForHost) alert("호스트 수락 대기 중입니다. 알림을 보냈어요.");
+      if (r.waitingForHost) alert("파티장 수락 대기 중입니다. 알림을 보냈어요.");
       router.refresh();
     }
   }
@@ -271,7 +271,7 @@ export function PartyDetailClient({ me, party, members }: Props) {
         )}
         {!isHost && myMembership?.status === "pending" && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-center text-sm text-amber-700">
-            호스트의 수락을 기다리는 중이에요…
+            파티장의 수락을 기다리는 중이에요…
           </div>
         )}
         {!isHost && myMembership && chatExists && (
@@ -318,7 +318,7 @@ export function PartyDetailClient({ me, party, members }: Props) {
             <p>🕒 {formatKstShort(party.deal_at)}</p>
           </div>
           <p className="mt-3 text-xs text-zinc-400">
-            확인 누르면 호스트에게 신청 알림이 갑니다.
+            확인 누르면 파티장에게 신청 알림이 갑니다.
           </p>
           <div className="mt-4 flex gap-2">
             <button

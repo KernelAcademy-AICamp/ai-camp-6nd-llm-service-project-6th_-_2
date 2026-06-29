@@ -68,7 +68,7 @@ export async function ringDoorbell(
         .select("nickname")
         .eq("id", party.host_id)
         .maybeSingle();
-      hostNickname = (hostProfile?.nickname as string | undefined) ?? "호스트";
+      hostNickname = (hostProfile?.nickname as string | undefined) ?? "파티장";
     }
 
     // 4) 채팅방 존재 확인
@@ -101,7 +101,7 @@ export async function ringDoorbell(
     // 참여자가 보낸 띵동은 호스트(+발신자 본인)만 보이게. 호스트가 보낸 띵동은 전원 표시.
     // 화면 표시 문구는 클라이언트에서 viewer 입장에 따라 분기 — content는 fallback 용도.
     const content = isHost
-      ? `호스트 ${nickname}님이 "띵동" 했어요!`
+      ? `파티장 ${nickname}님이 "띵동" 했어요!`
       : `${nickname}님이 "띵동" 했어요!`;
     const metadata: Record<string, unknown> = {
       kind: "doorbell_ring",

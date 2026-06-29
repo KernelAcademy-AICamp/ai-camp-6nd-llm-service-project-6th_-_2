@@ -3,6 +3,13 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import {
+  HOST_GOOD_TAGS,
+  HOST_BAD_TAGS,
+  MEMBER_GOOD_TAGS,
+  MEMBER_BAD_TAGS,
+  splitReviewText,
+} from "@/lib/review-tags";
 
 type Rating = "good" | "bad";
 
@@ -18,36 +25,6 @@ interface ExistingReview {
   rating: Rating;
   text_review: string | null;
 }
-
-// 호스트를 평가할 때 — 멤버 시점 (호스트의 운영·매너에 초점)
-const HOST_GOOD_TAGS = [
-  "거래 약속을 잘 지켜요",
-  "친절하고 매너가 좋아요",
-  "제가 있는 곳까지 와서 거래했어요",
-  "응답이 빨라요",
-];
-const HOST_BAD_TAGS = [
-  "약속 시간을 안 지켰어요",
-  "응답이 느려요",
-  "무례하게 행동해요",
-  "약속 장소에 나오지 않았어요",
-];
-
-// 파티원을 평가할 때 — 호스트 시점 (정산·참여 태도에 초점)
-const MEMBER_GOOD_TAGS = [
-  "정산을 정확히 했어요",
-  "약속 시간을 잘 지켰어요",
-  "친절하고 매너가 좋아요",
-  "응답이 빨라요",
-  "픽업 후 깔끔하게 마무리했어요",
-];
-const MEMBER_BAD_TAGS = [
-  "정산을 미루거나 안 했어요",
-  "약속 시간을 안 지켰어요",
-  "무례하게 행동해요",
-  "응답이 느려요",
-  "약속 장소에 나오지 않았어요",
-];
 
 function pickTags(revieweeIsHost: boolean, rating: "good" | "bad"): string[] {
   if (revieweeIsHost) {
@@ -186,7 +163,7 @@ function SingleMemberForm({
           {member.nickname}
           {member.is_host && (
             <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-              호스트
+              파티장
             </span>
           )}
         </p>
@@ -220,6 +197,7 @@ function SingleMemberForm({
                   label={t}
                   checked={tags.has(t)}
                   onToggle={() => toggleTag(t)}
+                  tone={rating}
                 />
               </li>
             ))}
@@ -302,7 +280,7 @@ function CompletedSummary({
                   {o.nickname}
                   {o.is_host && (
                     <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
-                      호스트
+                      파티장
                     </span>
                   )}
                 </p>
@@ -316,11 +294,37 @@ function CompletedSummary({
                   {r.rating === "good" ? "👍 좋아요" : "👎 싫어요"}
                 </span>
               </div>
-              {r.text_review && (
-                <p className="mt-2 whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-[13px] text-zinc-700">
-                  {r.text_review}
-                </p>
-              )}
+              {r.text_review &&
+                (() => {
+                  // 선택 태그(체크) ↔ 자유 텍스트 분리. 선택 태그는 좋아요=그린/싫어요=로즈로 강조.
+                  const { tags, freeText } = splitReviewText(r.text_review);
+                  return (
+                    <>
+                      {tags.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {tags.map((t) => (
+                            <span
+                              key={t}
+                              className={cn(
+                                "rounded-full px-2.5 py-1 text-[12px] font-semibold",
+                                r.rating === "good"
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : "bg-rose-50 text-rose-600",
+                              )}
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {freeText && (
+                        <p className="mt-2 whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-[13px] text-zinc-700">
+                          {freeText}
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
             </li>
           );
         })}
@@ -427,10 +431,13 @@ function CheckboxRow({
   label,
   checked,
   onToggle,
+  tone,
 }: {
   label: string;
   checked: boolean;
   onToggle: () => void;
+  // 선택 시 강조색 — 좋아요=그린/싫어요=로즈.
+  tone: "good" | "bad";
 }) {
   return (
     <button
@@ -441,7 +448,11 @@ function CheckboxRow({
       <span
         className={cn(
           "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
-          checked ? "border-brand bg-brand" : "border-zinc-300 bg-white",
+          checked
+            ? tone === "good"
+              ? "border-emerald-500 bg-emerald-500"
+              : "border-rose-500 bg-rose-500"
+            : "border-zinc-300 bg-white",
         )}
         aria-hidden
       >
@@ -457,7 +468,18 @@ function CheckboxRow({
           </svg>
         )}
       </span>
-      <span className="text-[14px] text-zinc-700">{label}</span>
+      <span
+        className={cn(
+          "text-[14px]",
+          checked
+            ? tone === "good"
+              ? "font-semibold text-emerald-600"
+              : "font-semibold text-rose-600"
+            : "text-zinc-700",
+        )}
+      >
+        {label}
+      </span>
     </button>
   );
 }

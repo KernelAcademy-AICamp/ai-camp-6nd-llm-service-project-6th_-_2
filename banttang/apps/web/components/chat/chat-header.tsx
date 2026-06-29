@@ -13,10 +13,6 @@ interface Props {
   participants: Pick<UserProfile, "id" | "nickname">[];
   hostId: string;
   isHost: boolean;
-  // 멤버가 완료된 거래의 평가 시트를 열 때.
-  onOpenReview?: () => void;
-  // 거래카드 모달 열기.
-  onOpenTransactionCard?: () => void;
   // 관리 액션(강퇴/나가기) 노출 게이트.
   canManage?: boolean;
   // 관리 액션 진행 중 — 버튼 비활성화.
@@ -58,8 +54,6 @@ export function ChatHeader({
   participants,
   hostId,
   isHost,
-  onOpenReview,
-  onOpenTransactionCard,
   canManage = false,
   managing = false,
   onKickMember,
@@ -68,7 +62,6 @@ export function ChatHeader({
   quickChips,
 }: Props) {
   const router = useRouter();
-  const canMemberReview = !isHost && party.status === "completed";
 
   return (
     <header className="sticky top-0 z-10 border-b border-black/[0.06] bg-white">
@@ -115,28 +108,7 @@ export function ChatHeader({
           </p>
         </Link>
 
-        {onOpenTransactionCard && (
-          <button
-            type="button"
-            onClick={onOpenTransactionCard}
-            className="flex h-9 shrink-0 items-center gap-1 rounded-full bg-brand/10 px-3 text-[13px] font-semibold text-brand transition-colors active:bg-brand/15"
-            aria-label="반띵 카드 보기"
-          >
-            <span aria-hidden>🪪</span>
-            <span>반띵 카드 보기</span>
-          </button>
-        )}
-
-        {canMemberReview && (
-          <button
-            type="button"
-            onClick={onOpenReview}
-            disabled={managing}
-            className="h-9 shrink-0 rounded-full bg-gray-100 px-3.5 text-[13px] font-semibold text-gray-800 transition-colors active:bg-gray-200 disabled:opacity-50"
-          >
-            평가하기
-          </button>
-        )}
+        {/* '반띵 카드 보기'·'평가하기'는 상단 빠른 안내 칩('반띵 카드 보기'·'후기 보기'/'거래 완료')으로 일원화 → 헤더 버튼 제거 */}
 
         <OverflowMenu
           isHost={isHost}
@@ -253,7 +225,7 @@ function OverflowMenu({
                     </span>
                     {p.id === hostId && (
                       <span className="shrink-0 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-semibold text-brand">
-                        호스트
+                        파티장
                       </span>
                     )}
                   </li>

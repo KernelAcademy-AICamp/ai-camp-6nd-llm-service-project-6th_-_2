@@ -67,7 +67,7 @@ export function ReceiptViewSheet({
             </div>
           </dl>
           <p className="text-[12px] leading-relaxed text-zinc-400">
-            금액이 다르면 채팅으로 호스트에게 알려주세요. 정산은 이웃끼리 직접 송금해요.
+            금액이 다르면 채팅으로 파티장에게 알려주세요. 정산은 이웃끼리 직접 송금해요.
           </p>
         </div>
       ) : (
@@ -75,7 +75,7 @@ export function ReceiptViewSheet({
           <span className="mb-2 block text-4xl" aria-hidden>🧾</span>
           <p className="text-[15px] font-bold text-zinc-900">아직 영수증이 없어요</p>
           <p className="mt-1.5 text-[13px] leading-relaxed text-zinc-500">
-            호스트가 주문 후 영수증을 등록하면
+            파티장이 주문 후 영수증을 등록하면
             <br />
             여기서 금액을 확인할 수 있어요.
           </p>

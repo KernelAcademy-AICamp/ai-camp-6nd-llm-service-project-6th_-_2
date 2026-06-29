@@ -61,7 +61,7 @@ export default async function AdminBoardPage() {
                     </span>
                   </div>
                   <p className="mt-0.5 truncate text-[12px] text-zinc-500">
-                    {categoryLabel[p.category] ?? p.category} · 호스트 {p.host_nickname ?? "?"} ·{" "}
+                    {categoryLabel[p.category] ?? p.category} · 파티장 {p.host_nickname ?? "?"} ·{" "}
                     {p.occupied_count}/{p.max_participants}명 · 💬 {p.message_count} ·{" "}
                     {formatKstShort(p.deal_at)}
                   </p>

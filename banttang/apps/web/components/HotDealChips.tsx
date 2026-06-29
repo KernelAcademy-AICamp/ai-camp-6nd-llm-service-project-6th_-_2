@@ -21,10 +21,10 @@ export function HotDealChips() {
           <Link
             key={gb.slug}
             href={`/groupbuy/${gb.slug}` as any}
-            className="flex shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white py-1.5 pl-2 pr-3.5 active:bg-zinc-50"
+            className="flex shrink-0 items-center gap-2 rounded-2xl border border-zinc-200 bg-white py-1.5 pl-2 pr-3.5 active:bg-zinc-50"
           >
             <span
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-rose-50 text-[18px]"
+              className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-50 text-[18px]"
               aria-hidden
             >
               {gb.emoji}

@@ -21,7 +21,6 @@ import { ChatTimeline } from "./chat-timeline";
 import { ChatInputBar } from "./chat-input-bar";
 import { ReceiptSheet } from "./receipt-sheet";
 import { PartyInfoCard } from "./party-info-card";
-import { ActionBanner } from "./action-banner";
 import { DoorbellCta } from "./doorbell-cta";
 import { ChatQuickChips } from "./chat-quick-chips";
 import { ReceiptViewSheet } from "./receipt-view-sheet";
@@ -151,13 +150,15 @@ export function PartyChatContainer({
   const isReadOnly = phase === "cancelled";
   const isPostTrade = phase === "completed" || phase === "cancelled";
 
-  // 거래 시각(deal_at) 도달 후 칩 노출 (취소된 방 제외).
+  // 영수증 인증(verified) 후부터 거래 완료/후기 칩 노출.
+  //   - verified(거래시각 전)·review_pending(거래시각 후)·completed 단계에서 노출, 인증 전/취소는 미노출.
   //   - 아직 후기 미작성: "거래 완료" → 확인 모달 → 당근식 후기 작성
   //   - 후기 작성 완료: "후기 보기" → 모달 없이 바로 내 후기로
-  const dealReached = nowMs >= new Date(party.deal_at).getTime();
   const reviewHref = `/mypage/reviews/${party.id}`;
+  const showCompleteChip =
+    phase === "verified" || phase === "review_pending" || phase === "completed";
   const completeChip =
-    dealReached && phase !== "cancelled"
+    showCompleteChip
       ? hasReviewed
         ? { label: "후기 보기", onClick: () => router.push(reviewHref as any) }
         : {
@@ -635,7 +636,7 @@ export function PartyChatContainer({
               return (
                 <section className="rounded-2xl bg-amber-50 p-4 ring-1 ring-amber-200">
                   <p className="text-[14px] font-bold text-amber-900">
-                    호스트의 승인을 기다리고 있어요
+                    파티장의 승인을 기다리고 있어요
                   </p>
                   <p className="mt-1 text-[12px] text-amber-800/80">
                     승인되면 채팅방이 자동으로 열립니다.
@@ -673,7 +674,6 @@ export function PartyChatContainer({
         participants={participantProfiles}
         hostId={party.host_id}
         isHost={isHost}
-        onOpenReview={() => router.push(`/mypage/reviews/${party.id}` as any)}
         canManage={canManage}
         managing={managing}
         onLeaveParty={!isHost ? handleLeaveChat : undefined}
@@ -692,31 +692,6 @@ export function PartyChatContainer({
             onSettlement={() => router.push(`/chat/${party.id}/card` as any)}
             completeChip={completeChip}
           />
-        }
-        notice={
-          <>
-            {/* 영수증 인증 관련 안내는 상단 '영수증 인증' 칩/요청 흐름으로 대체 → 배너 제거 */}
-            {(phase === "verified" || phase === "review_pending") && !isHost && (
-              <ActionBanner
-                tone="info"
-                icon="check"
-                title="거래를 완료해주세요"
-                description="주문 내역과 결제 금액이 맞는지 확인하고 후기를 작성하면 거래가 완료됩니다."
-                actionLabel="거래 완료"
-                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
-              />
-            )}
-            {phase === "completed" && (
-              <ActionBanner
-                tone="info"
-                icon="check"
-                title="거래가 완료되었어요"
-                description="함께한 분들에게 후기를 남겨보세요. 이미 작성했다면 후기를 다시 볼 수 있어요."
-                actionLabel="거래 후기 작성"
-                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
-              />
-            )}
-          </>
         }
       />
 

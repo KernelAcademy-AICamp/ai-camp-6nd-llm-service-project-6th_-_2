@@ -118,7 +118,7 @@ export async function verifyReceiptWithClaude(
       .maybeSingle();
     if (partyErr || !party) return { ok: false, error: "파티를 찾을 수 없어요." };
     if (party.host_id !== userId) {
-      return { ok: false, error: "호스트만 영수증을 등록할 수 있어요." };
+      return { ok: false, error: "파티장만 영수증을 등록할 수 있어요." };
     }
 
     // 3) Claude API 키 확인

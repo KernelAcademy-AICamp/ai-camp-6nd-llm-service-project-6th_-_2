@@ -39,7 +39,7 @@ export function DoorbellCta({
 
   function ring() {
     onRing();
-    setToast(isHost ? "모두에게 띵동을 보냈어요 🔔" : "호스트에게 띵동을 보냈어요 🔔");
+    setToast("띵동을 보냈어요 🔔");
   }
 
   // "다시 보지 않기" 체크 상태를 localStorage에 반영.

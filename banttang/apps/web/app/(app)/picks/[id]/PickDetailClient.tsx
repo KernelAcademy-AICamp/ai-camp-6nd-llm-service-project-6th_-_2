@@ -222,7 +222,7 @@ export function PickDetailClient({ detail }: { detail: PickDetail }) {
               파티장으로 참여하기
             </span>
             <span className="mt-1 block text-[10.5px] leading-snug text-white/85">
-              호스트로서 상품을 주문하고, 내가 원하는 장소를 설정해 반띵해요.
+              파티장으로서 상품을 주문하고, 내가 원하는 장소를 설정해 반띵해요.
             </span>
           </button>
           <button
@@ -238,7 +238,7 @@ export function PickDetailClient({ detail }: { detail: PickDetail }) {
               {joining ? "참여 중…" : "파티원으로 참여하기"}
             </span>
             <span className="mt-1 block text-[10.5px] leading-snug text-zinc-500">
-              주문은 호스트에게 맡기고, 반띵 장소에서 물건만 나눠요.
+              주문은 파티장에게 맡기고, 반띵 장소에서 물건만 나눠요.
             </span>
           </button>
         </div>

@@ -26,7 +26,7 @@ async function ensureHostOfParticipant(
   const hostId =
     (row.party as unknown as { host_id?: string } | null)?.host_id ?? null;
   if (hostId !== userId) {
-    return { ok: false, error: "호스트만 처리할 수 있어요." };
+    return { ok: false, error: "파티장만 처리할 수 있어요." };
   }
   return { ok: true, partyId: row.party_id as string };
 }

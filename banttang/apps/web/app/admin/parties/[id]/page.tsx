@@ -78,7 +78,7 @@ export default async function AdminPartyDetailPage({ params }: { params: { id: s
               <span className="font-medium text-zinc-800">{pt.nickname ?? "?"}</span>
               {pt.is_host && (
                 <span className="rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-700">
-                  호스트
+                  파티장
                 </span>
               )}
               <span className="text-[11px] text-zinc-400">{pt.level}</span>

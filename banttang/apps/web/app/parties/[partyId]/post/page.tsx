@@ -156,7 +156,7 @@ export default async function PartyPostPage({ params }: PageProps) {
 
         {/* 3. 호스트 카드 */}
         <section className="rounded-2xl bg-white p-5 ring-1 ring-black/[0.05]">
-          <p className="text-[13px] font-bold text-gray-900">호스트</p>
+          <p className="text-[13px] font-bold text-gray-900">파티장</p>
           <div className="mt-3 flex items-center gap-3">
             <Avatar nickname={party.host_nickname} size={44} />
             <div className="min-w-0 flex-1">

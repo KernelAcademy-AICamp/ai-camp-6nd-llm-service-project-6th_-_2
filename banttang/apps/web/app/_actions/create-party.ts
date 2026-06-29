@@ -83,7 +83,7 @@ export async function createParty(
       price_per_person: input.price_per_person,
       deal_at: new Date(dealMs).toISOString(),
       apply_deadline_at: deadlineIso,
-      approval_type: "manual" as const, // 신정책: 호스트 수동 승인
+      approval_type: "manual" as const, // 신정책: 파티장 수동 승인
       gender_option: "all" as const,
       pickup_location_id: input.pickup_location_id ?? null,
       custom_pickup_name: input.pickup_location_id ? null : input.custom_pickup_name ?? null,
@@ -116,7 +116,7 @@ export async function createParty(
       );
     if (pErr) {
       // 파티 생성 자체는 성공했으므로 경고 수준
-      return { ok: false, error: `호스트 등록 실패: ${pErr.message}` };
+      return { ok: false, error: `파티장 등록 실패: ${pErr.message}` };
     }
 
     return { ok: true, partyId };

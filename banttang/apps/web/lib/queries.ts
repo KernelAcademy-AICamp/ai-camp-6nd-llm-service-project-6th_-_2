@@ -107,7 +107,7 @@ export async function listParties(opts: {
     list = list.filter((p) => {
       if (p.gender_option === "all") return true;
       // same_gender: host와 같은 성별만. host 성별 필요 → 별도 쿼리 또는 무시
-      return true; // 데모 단순화: same_gender도 일단 노출. 호스트 성별 join은 생략.
+      return true; // 데모 단순화: same_gender도 일단 노출. 파티장 성별 join은 생략.
     });
   }
 

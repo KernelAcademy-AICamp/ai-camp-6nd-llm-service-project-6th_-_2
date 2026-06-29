@@ -30,7 +30,7 @@ export type ParticipantStatus = "pending" | "approved" | "rejected" | "cancelled
 // 화면 표시용 derived 상태
 export type DisplayStatus =
   | "recruiting"     // 모집중
-  | "waiting"        // 대기중 (정원 다 찼으나 호스트 미수락)
+  | "waiting"        // 대기중 (정원 다 찼으나 파티장 미수락)
   | "in_progress"    // 진행중 (채팅방 오픈 이후, 거래 시각 전/후 모두)
   | "completed"      // 완료
   | "cancelled";     // 취소/삭제
