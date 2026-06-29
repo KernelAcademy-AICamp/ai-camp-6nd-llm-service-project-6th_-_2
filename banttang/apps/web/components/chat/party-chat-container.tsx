@@ -674,7 +674,6 @@ export function PartyChatContainer({
         participants={participantProfiles}
         hostId={party.host_id}
         isHost={isHost}
-        onOpenReview={() => router.push(`/mypage/reviews/${party.id}` as any)}
         canManage={canManage}
         managing={managing}
         onLeaveParty={!isHost ? handleLeaveChat : undefined}
