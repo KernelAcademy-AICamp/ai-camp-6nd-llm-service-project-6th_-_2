@@ -25,30 +25,31 @@ export function WelcomeClient({ address }: { address: string | null }) {
           더 합리적인 가격으로 반띵해요.
         </p>
 
-        {address && (
-          <div className="mt-6 inline-flex max-w-full items-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[12px]">
-            <span aria-hidden>📍</span>
-            <span className="truncate font-semibold text-zinc-700">
-              {address}
-            </span>
-          </div>
-        )}
       </header>
 
-      <div className="mt-8 flex flex-col gap-2">
-        <Link
-          href="/host/new"
-          className="flex h-12 w-full items-center justify-center rounded-xl bg-brand text-[14px] font-bold text-white shadow-sm active:opacity-90"
-        >
-          반띵 등록하기
-        </Link>
-        <button
-          type="button"
-          onClick={() => router.replace("/feed")}
-          className="h-12 w-full rounded-xl border border-zinc-200 bg-white text-[14px] font-semibold text-zinc-700 active:bg-zinc-50"
-        >
-          먼저 둘러볼게요
-        </button>
+      {/* 주소 칩 + 버튼을 한 컨테이너에 — 칩 텍스트가 폭을 정하고 버튼이 그 폭을 채워 동일 폭으로 정렬. */}
+      <div className="mx-auto mt-6 flex w-fit max-w-full flex-col gap-7">
+        {address && (
+          <div className="flex items-center justify-center gap-1.5 rounded-full border border-zinc-200 bg-white px-3 py-1.5 text-[12px]">
+            <span aria-hidden>📍</span>
+            <span className="truncate font-semibold text-zinc-700">{address}</span>
+          </div>
+        )}
+        <div className="flex flex-col gap-2">
+          <Link
+            href="/host/new"
+            className="flex h-12 items-center justify-center rounded-xl bg-brand px-4 text-[14px] font-bold text-white shadow-sm active:opacity-90"
+          >
+            반띵 등록하기
+          </Link>
+          <button
+            type="button"
+            onClick={() => router.replace("/feed")}
+            className="h-12 rounded-xl border border-zinc-200 bg-white px-4 text-[14px] font-semibold text-zinc-700 active:bg-zinc-50"
+          >
+            먼저 둘러볼게요
+          </button>
+        </div>
       </div>
     </main>
   );
