@@ -57,9 +57,8 @@ export function EmailLoginForm() {
       return;
     }
     // 신규 가입자는 거주지(2단계 픽커)로, 로그인은 피드로.
-    // 거주지는 매칭에 필수라 가입 직후 /onboarding/residence 에서 동네·건물을 먼저 설정한다.
-    // (홈 주소수정용 /onboarding/address, 챗봇 /onboarding/tour 와는 별개 경로)
-    router.push((mode === "signup" ? "/onboarding/residence" : "/feed") as any);
+    // /onboarding/address 가 거주지 픽커 단일 진입점(앱 전역 가드와 동일 경로). 성공 시 픽커가 /onboarding/welcome 으로 보낸다.
+    router.push((mode === "signup" ? "/onboarding/address" : "/feed") as any);
     router.refresh();
   }
 
