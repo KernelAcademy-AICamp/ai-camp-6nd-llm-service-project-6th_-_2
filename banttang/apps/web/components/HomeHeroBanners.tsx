@@ -1,10 +1,9 @@
 "use client";
 
-// 홈 프로모션 배너(3종 좌우 스와이프 캐러셀) + 통합 검색창.
-// - 전체 이미지가 아니라 텍스트/버튼/3D 오브젝트/인디케이터를 각각 HTML 요소로 구현.
-// - 문구·가격·색상·CTA·오브젝트는 아래 BANNERS 데이터로 한 곳에서 교체 가능.
-// - 오른쪽 비주얼은 banner.type 에 따라 CouponObject / RewardObject / GroceryObject 렌더.
-// - 한 번에 한 장씩 노출, 터치 스와이프/마우스 드래그/자동 전환 + 하단 점 인디케이터.
+// 홈 프로모션 배너(좌우 스와이프 캐러셀) + 통합 검색창.
+// - 현재는 복숭아 공구 1장만 노출. BANNERS 배열에 항목을 추가하면 자동으로 캐러셀(스와이프·자동전환·점 인디케이터)이 동작한다.
+// - 문구·가격·색상·CTA·href 는 BANNERS 데이터로 한 곳에서 교체 가능. 오른쪽 비주얼은 banner.type 으로 분기.
+// - 배너 전체를 이미지로 넣지 않고 텍스트/버튼/인디케이터는 HTML 요소로 구현(복숭아만 상품 사진).
 // 폭/좌우 패딩은 부모(피드의 p-4 컨테이너 · (app) 레이아웃 max-w-md)가 제공한다.
 
 import Link from "next/link";
@@ -12,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
-type BannerType = "peach" | "coupon" | "reward" | "grocery";
+type BannerType = "peach";
 
 type Banner = {
   id: string;
@@ -40,49 +39,10 @@ const BANNERS: Banner[] = [
     line2: "공구가 21,900원~",
     cta: "공구 참여하기",
     href: "/groupbuy/sinbi-peach",
-    indicator: "1 / 4 +",
+    indicator: "",
     bgClass: "bg-gradient-to-r from-rose-50 via-rose-50 to-rose-100",
     labelClass: "text-rose-500",
     accentClass: "text-rose-500",
-  },
-  {
-    id: "coupon",
-    type: "coupon",
-    label: "첫 공구 참여 혜택",
-    line1: "지금 참여하면",
-    line2: "3,000원 쿠폰",
-    cta: "쿠폰 받기",
-    href: "/store",
-    indicator: "2 / 4 +",
-    bgClass: "bg-gradient-to-r from-sky-50 via-blue-50 to-blue-200",
-    labelClass: "text-blue-500",
-    accentClass: "text-blue-600",
-  },
-  {
-    id: "reward",
-    type: "reward",
-    label: "첫 거래 신규 혜택",
-    line1: "거래 완료하면",
-    line2: "3,000원 적립",
-    cta: "혜택 받기",
-    href: "/store",
-    indicator: "4 / 4 +",
-    bgClass: "bg-gradient-to-r from-amber-50 via-orange-50 to-orange-200",
-    labelClass: "text-orange-500",
-    accentClass: "text-orange-500",
-  },
-  {
-    id: "grocery",
-    type: "grocery",
-    label: "우리 동네 공동구매",
-    line1: "같이 사면",
-    line2: "최대 반값!",
-    cta: "주문 보기",
-    href: "/feed",
-    indicator: "3 / 4 +",
-    bgClass: "bg-gradient-to-r from-green-50 via-emerald-50 to-emerald-200",
-    labelClass: "text-emerald-600",
-    accentClass: "text-emerald-600",
   },
 ];
 
@@ -106,9 +66,9 @@ export function HomeHeroBanners({
   const startX = useRef(0);
   const movedRef = useRef(false); // 드래그 발생 여부(클릭 가드용)
 
-  // 자동 전환 — 드래그 중엔 멈춤. idx 바뀔 때마다 타이머 리셋.
+  // 자동 전환 — 드래그 중이거나 배너가 1장이면 멈춤. idx 바뀔 때마다 타이머 리셋.
   useEffect(() => {
-    if (dragging) return;
+    if (dragging || BANNERS.length <= 1) return;
     const t = setInterval(() => setIdx((i) => (i + 1) % BANNERS.length), INTERVAL_MS);
     return () => clearInterval(t);
   }, [dragging, idx]);
@@ -172,21 +132,23 @@ export function HomeHeroBanners({
           </div>
         </div>
 
-        {/* 점 인디케이터 */}
-        <div className="flex items-center justify-center gap-1.5">
-          {BANNERS.map((b, i) => (
-            <button
-              key={b.id}
-              type="button"
-              aria-label={`${i + 1}번 배너`}
-              onClick={() => setIdx(i)}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                i === idx ? "w-4 bg-zinc-700" : "w-1.5 bg-zinc-300",
-              )}
-            />
-          ))}
-        </div>
+        {/* 점 인디케이터 (여러 장일 때만) */}
+        {BANNERS.length > 1 && (
+          <div className="flex items-center justify-center gap-1.5">
+            {BANNERS.map((b, i) => (
+              <button
+                key={b.id}
+                type="button"
+                aria-label={`${i + 1}번 배너`}
+                onClick={() => setIdx(i)}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === idx ? "w-4 bg-zinc-700" : "w-1.5 bg-zinc-300",
+                )}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <SearchBox query={query} onClear={onClear} />
@@ -227,18 +189,17 @@ function PromoBannerCard({ banner }: { banner: Banner }) {
         </span>
       </div>
 
-      {/* 오른쪽 3D 오브젝트 */}
+      {/* 오른쪽 비주얼 */}
       <div className="pointer-events-none absolute inset-y-0 right-0 w-[44%]">
         {banner.type === "peach" && <PeachObject />}
-        {banner.type === "coupon" && <CouponObject />}
-        {banner.type === "reward" && <RewardObject />}
-        {banner.type === "grocery" && <GroceryObject />}
       </div>
 
-      {/* 우측 하단 인디케이터 */}
-      <span className="absolute bottom-3 right-3 z-10 rounded-full bg-zinc-900/25 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
-        {banner.indicator}
-      </span>
+      {/* 우측 하단 인디케이터 (여러 장일 때만) */}
+      {banner.indicator && (
+        <span className="absolute bottom-3 right-3 z-10 rounded-full bg-zinc-900/25 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm">
+          {banner.indicator}
+        </span>
+      )}
     </Link>
   );
 }
@@ -257,209 +218,6 @@ function PeachObject() {
       {/* 좌측 페이드 — 사진을 배너 핑크 배경에 자연스럽게 잇는다 */}
       <div className="absolute inset-y-0 left-0 w-14 bg-gradient-to-r from-rose-50 to-transparent" />
     </>
-  );
-}
-
-// ── 오브젝트: 파란 쿠폰 티켓 2장 + 반짝이 ─────────────────────────
-function CouponObject() {
-  return (
-    <div className="relative h-full w-full">
-      {/* 뒤 티켓 — COUPON */}
-      <Ticket
-        className="absolute right-7 top-[34px] h-[58px] w-[104px] rotate-[-9deg] bg-gradient-to-br from-blue-200 to-blue-300"
-        notchClass="bg-blue-100"
-      >
-        <span className="text-[12px] font-extrabold tracking-[0.18em] text-white/95">
-          COUPON
-        </span>
-      </Ticket>
-
-      {/* 앞 티켓 — 3,000원 */}
-      <Ticket
-        className="absolute right-[34px] top-[70px] h-[58px] w-[104px] rotate-[7deg] bg-gradient-to-br from-blue-500 to-blue-600 shadow-md shadow-blue-600/20"
-        notchClass="bg-sky-50"
-      >
-        <span className="text-[16px] font-extrabold text-white">3,000원</span>
-        <span className="text-[8px] font-bold tracking-[0.2em] text-white/75">
-          COUPON
-        </span>
-      </Ticket>
-
-      {/* 반짝이 / 구슬 */}
-      <span className="absolute right-[18px] top-[24px] h-2.5 w-2.5 rounded-full bg-blue-400" />
-      <span className="absolute left-1.5 top-[58px] h-1.5 w-1.5 rounded-full bg-blue-300" />
-      <Sparkle className="right-[12px] top-[96px] text-white" />
-      <Sparkle className="left-3 top-[30px] text-blue-300" small />
-    </div>
-  );
-}
-
-// 공통 티켓 — 가운데 점선 절취선 + 좌우 노치
-function Ticket({
-  className,
-  notchClass,
-  children,
-}: {
-  className?: string;
-  notchClass: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center rounded-xl",
-        className,
-      )}
-    >
-      {/* 좌우 노치 */}
-      <span
-        className={cn(
-          "absolute -left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full",
-          notchClass,
-        )}
-      />
-      <span
-        className={cn(
-          "absolute -right-1.5 top-1/2 h-3 w-3 -translate-y-1/2 rounded-full",
-          notchClass,
-        )}
-      />
-      {/* 절취 점선 */}
-      <span className="absolute inset-y-2 right-[26px] border-l border-dashed border-white/45" />
-      {children}
-    </div>
-  );
-}
-
-// ── 오브젝트: 오렌지 티켓 + 코인 + 선물상자 ──────────────────────
-function RewardObject() {
-  return (
-    <div className="relative h-full w-full">
-      {/* 선물상자 */}
-      <div className="absolute right-3 top-[30px] h-[60px] w-[60px] rotate-[-4deg]">
-        {/* 뚜껑 */}
-        <div className="absolute -top-2 left-1/2 h-4 w-[68px] -translate-x-1/2 rounded-md bg-gradient-to-b from-orange-300 to-orange-400" />
-        {/* 몸통 */}
-        <div className="absolute top-1.5 h-[52px] w-full rounded-md bg-gradient-to-b from-amber-100 to-amber-200" />
-        {/* 세로 리본 */}
-        <div className="absolute top-1.5 left-1/2 h-[52px] w-3 -translate-x-1/2 bg-orange-400/90" />
-        {/* 리본 매듭 */}
-        <div className="absolute -top-2.5 left-1/2 h-3.5 w-3.5 -translate-x-1/2 rotate-45 rounded-sm bg-orange-400" />
-      </div>
-
-      {/* 적립 티켓 */}
-      <Ticket
-        className="absolute right-[36px] top-[78px] h-[52px] w-[100px] rotate-[6deg] bg-gradient-to-br from-orange-400 to-orange-500 shadow-md shadow-orange-500/20"
-        notchClass="bg-amber-50"
-      >
-        <span className="text-[14px] font-extrabold text-white">3,000원</span>
-        <span className="text-[10px] font-bold text-white/85">적립</span>
-      </Ticket>
-
-      {/* 포인트 코인 */}
-      <Coin className="absolute left-2 top-[58px]" label="P" />
-      <Coin className="absolute left-[18px] top-[78px]" label="P" />
-
-      {/* 색종이 */}
-      <span className="absolute right-2 top-[18px] h-2 w-2 rotate-12 rounded-[2px] bg-amber-400" />
-      <span className="absolute right-[64px] top-[64px] h-2 w-2 -rotate-12 rounded-[2px] bg-orange-300" />
-    </div>
-  );
-}
-
-// ── 오브젝트: 장보기 바구니 + 식료품 + 50% 태그 ─────────────────
-function GroceryObject() {
-  return (
-    <div className="relative h-full w-full">
-      {/* 잎사귀 */}
-      <span className="absolute right-7 top-2.5 h-2.5 w-4 -rotate-45 rounded-full bg-emerald-300" />
-      <span className="absolute right-[88px] top-5 h-2 w-3 rotate-[30deg] rounded-full bg-emerald-300/80" />
-
-      {/* 바구니 안 식료품 — 바구니보다 먼저 렌더해 바구니가 앞에 오고, 위로 빼꼼 보이게 */}
-      <div className="absolute bottom-[44px] right-[26px] flex items-end gap-[3px]">
-        {/* 양배추 */}
-        <span className="h-8 w-8 rounded-full bg-gradient-to-b from-green-400 to-green-500" />
-        {/* 토마토 */}
-        <span className="mb-1 h-6 w-6 rounded-full bg-gradient-to-b from-red-400 to-red-500" />
-        {/* 우유 */}
-        <span className="h-10 w-[18px] rounded-[3px] bg-gradient-to-b from-white to-zinc-100" />
-        {/* 바나나 */}
-        <span className="mb-2 h-3.5 w-7 -rotate-[18deg] rounded-full bg-gradient-to-b from-yellow-300 to-yellow-400" />
-      </div>
-      {/* 계란 */}
-      <span className="absolute bottom-[50px] right-[24px] h-3 w-2.5 rounded-full bg-amber-50" />
-
-      {/* 바구니 */}
-      <div className="absolute bottom-2.5 right-3 h-[44px] w-[116px]">
-        {/* 테두리(림) */}
-        <div className="absolute -top-1 h-3 w-full rounded-full bg-emerald-600" />
-        {/* 몸통 — 살짝 사다리꼴 */}
-        <div
-          className="absolute top-1.5 h-[40px] w-full bg-gradient-to-b from-emerald-400 to-emerald-500"
-          style={{
-            clipPath: "polygon(6% 0, 94% 0, 86% 100%, 14% 100%)",
-            borderBottomLeftRadius: "10px",
-            borderBottomRightRadius: "10px",
-          }}
-        />
-        {/* 살 무늬 */}
-        <div className="absolute top-2 left-1/2 h-[32px] w-px -translate-x-1/2 bg-white/30" />
-        <div className="absolute top-2 left-[34%] h-[32px] w-px bg-white/20" />
-        <div className="absolute top-2 left-[66%] h-[32px] w-px bg-white/20" />
-      </div>
-
-      {/* 50% OFF 태그 — 바구니 앞에 겹치게 */}
-      <div className="absolute bottom-[8px] right-[92px] flex h-9 w-9 rotate-[-6deg] flex-col items-center justify-center rounded-md bg-white shadow-sm">
-        <span className="text-[10px] font-extrabold leading-none text-emerald-600">
-          50%
-        </span>
-        <span className="text-[7px] font-bold leading-none text-emerald-500">
-          OFF
-        </span>
-      </div>
-
-      {/* 원화 코인 — 바구니 앞 */}
-      <Coin className="absolute bottom-[6px] right-[74px]" label="₩" green />
-    </div>
-  );
-}
-
-// ── 공통 코인 ───────────────────────────────────────────────────
-function Coin({
-  className,
-  label,
-  green,
-}: {
-  className?: string;
-  label: string;
-  green?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-extrabold text-white shadow-sm",
-        green
-          ? "bg-gradient-to-b from-emerald-400 to-emerald-500"
-          : "bg-gradient-to-b from-yellow-300 to-amber-400 text-amber-800",
-        className,
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-// ── 작은 반짝이(4각 별) ─────────────────────────────────────────
-function Sparkle({ className, small }: { className?: string; small?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={cn("absolute", small ? "h-2.5 w-2.5" : "h-3.5 w-3.5", className)}
-      fill="currentColor"
-      aria-hidden
-    >
-      <path d="M12 0c.6 5.5 6 10.9 12 12-6 1.1-11.4 6.5-12 12-.6-5.5-6-10.9-12-12C6 10.9 11.4 5.5 12 0Z" />
-    </svg>
   );
 }
 
