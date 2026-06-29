@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { EmailLoginForm } from "@/components/EmailLoginForm";
+import { InstallPrompt } from "@/components/InstallPrompt";
 
 export default async function LoginPage() {
   const me = await getCurrentUser();
@@ -13,6 +14,7 @@ export default async function LoginPage() {
         <p className="mt-2 text-sm text-zinc-500">같이 사서, 우리 동네 사람과 반띵해요.</p>
       </header>
       <EmailLoginForm />
+      <InstallPrompt />
     </main>
   );
 }
