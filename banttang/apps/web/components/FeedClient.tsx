@@ -35,6 +35,7 @@ export function FeedClient({
   pickRooms = [],
   userLat = null,
   userLng = null,
+  currentUserId = null,
 }: {
   parties: Party[];
   sort: Sort;
@@ -46,6 +47,8 @@ export function FeedClient({
   /** 사용자 위치(거주지 좌표) — 거리 필터 기준점. 없으면 거리 필터 비활성. */
   userLat?: number | null;
   userLng?: number | null;
+  /** 현재 로그인 유저 id — 내가 만든 반띵엔 '함께하기' 버튼을 숨긴다. */
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -163,6 +166,7 @@ export function FeedClient({
             onPickCategory={setCatFilter}
             view={view}
             onChangeView={(v) => go({ view: v })}
+            currentUserId={currentUserId}
           />
         ) : (
           // 리스트 영역 — 우상단에 보기 모드 토글이 absolute 로 떠 있음.
@@ -178,6 +182,7 @@ export function FeedClient({
                   <FeedOrderRow
                     key={p.id}
                     party={p}
+                    currentUserId={currentUserId}
                     onOpen={() =>
                       router.push(
                         (p.id.startsWith("demo-") ? "#" : `/feed/${p.id}`) as any,
@@ -272,12 +277,14 @@ function MapView({
   onPickCategory,
   view,
   onChangeView,
+  currentUserId,
 }: {
   parties: Party[];
   catFilter: MapCatFilter;
   onPickCategory: (next: MapCatFilter) => void;
   view: View;
   onChangeView: (v: "map" | "list") => void;
+  currentUserId?: string | null;
 }) {
   const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -456,6 +463,7 @@ function MapView({
         <FeedOrderRow
           party={selectedParty}
           highlighted
+          currentUserId={currentUserId}
           onOpen={() =>
             router.push(
               (selectedParty.id.startsWith("demo-")
@@ -510,14 +518,18 @@ function relativeFromIso(iso: string): string {
 function FeedOrderRow({
   party,
   highlighted = false,
+  currentUserId = null,
   onOpen,
 }: {
   party: Party;
   highlighted?: boolean;
+  currentUserId?: string | null;
   onOpen?: () => void;
 }) {
   const cat = pickGroupBadge(party.pick_group);
   const slots = `${party.occupied_count}/${party.max_participants}명`;
+  // 내가 만든 반띵(호스트=나)에는 '함께하기' 버튼을 숨긴다.
+  const isMine = !!currentUserId && party.host_id === currentUserId;
   return (
     <div
       onClick={onOpen}
@@ -569,16 +581,18 @@ function FeedOrderRow({
             {trustLabelFromLevel(party.host_level, party.host_transaction_count)}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpen?.();
-          }}
-          className="h-9 shrink-0 self-center rounded-full bg-brand px-4 text-[12px] font-bold text-white active:opacity-80"
-        >
-          함께하기
-        </button>
+        {!isMine && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen?.();
+            }}
+            className="h-9 shrink-0 self-center rounded-full bg-brand px-4 text-[12px] font-bold text-white active:opacity-80"
+          >
+            함께하기
+          </button>
+        )}
       </div>
     </div>
   );

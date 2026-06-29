@@ -78,6 +78,7 @@ export default async function FeedPage({
       pickRooms={pickRooms}
       userLat={userLat}
       userLng={userLng}
+      currentUserId={me.id}
     />
   );
 }
