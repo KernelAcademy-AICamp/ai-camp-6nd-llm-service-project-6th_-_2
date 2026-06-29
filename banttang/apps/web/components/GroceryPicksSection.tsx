@@ -14,22 +14,22 @@ import { cn } from "@/lib/utils";
 // 한 탭(그룹)에 노출할 방 개수
 const PER_GROUP = 4;
 
-// 그룹별 AI 추천 사유 문구 풀 (실제 분석 아님, 데모용 고정 텍스트)
+// 그룹별 AI 추천 사유 문구 풀 — 이웃 중심 톤 (사회적 증명/친근체).
 const REASONS: Record<PickGroup, string[]> = {
   health: [
-    "단백질 식단 선호 패턴 · 이번 주 12명 검색",
-    "고단백 저칼로리 · 동네 인기 상승 ↑",
-    "운동 식단 수요 · 주말 주문 많음",
+    "우리 동네에서 12명이 같이 사고 싶어해요",
+    "이번 주 인기 ↑",
+    "주말에 이웃들이 많이 골라요",
   ],
   fruitegg: [
-    "제철 과일 수요 급증 · 이번 주 9명 검색",
-    "아침 대용 인기 · 동네 검색 상위",
-    "신선식품 정기 수요 · 이웃 추천",
+    "이번 주 9명이 찾고 있어요",
+    "동네에서 자주 검색되는 상품이에요",
+    "이웃들이 자주 찾는 신선식품이에요",
   ],
   homecare: [
-    "1인 가구 추천 · 주말 수요 많음",
-    "생필품 묶음 공구 · 이번 주 8명 검색",
-    "정기 소모품 · 동네 인기 상승 ↑",
+    "1인 가구 이웃들이 많이 골라요",
+    "이번 주 8명이 함께 사려고 검색했어요",
+    "동네에서 인기 ↑",
   ],
 };
 
@@ -200,11 +200,13 @@ function RoomCard({
 }) {
   const router = useRouter();
 
+  const goDetail = () => router.push(`/picks/${room.id}` as any);
+
   return (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
       <button
         type="button"
-        onClick={() => router.push(`/picks/${room.id}` as any)}
+        onClick={goDetail}
         className="flex w-full items-start gap-3 p-4 text-left active:bg-zinc-50"
       >
         {/* 썸네일 */}
@@ -225,23 +227,46 @@ function RoomCard({
               AI 추천
             </span>
           </div>
+          {/* 1) 상품명 */}
           <h3 className="line-clamp-1 text-[15px] font-bold leading-snug text-zinc-900">
             {room.title}
           </h3>
-          <p className="mt-0.5 line-clamp-1 text-[12px] text-zinc-400">{reason}</p>
+          {/* 3) 추천 이유 — 이웃 중심 톤 */}
+          <p className="mt-0.5 line-clamp-1 text-[12px] text-zinc-500">{reason}</p>
         </div>
-        {/* 가격 */}
+        {/* 2) 1인 소분량 + 1인 가격 */}
         <div className="shrink-0 text-right">
-          <p className="text-[15px] font-extrabold text-zinc-900">
+          {room.perPersonUnit && (
+            <p className="text-[11px] font-semibold text-zinc-500">
+              1인 {room.perPersonUnit}
+            </p>
+          )}
+          <p className="mt-0.5 text-[15px] font-extrabold text-zinc-900">
             {formatKRW(room.pricePerPerson)}
           </p>
-          <p className="mt-0.5 text-[11px] text-zinc-400">
-            1인 / {room.maxMembers}인 그룹
+          <p className="mt-0.5 text-[10px] text-zinc-400">
+            {room.maxMembers}인 매칭
           </p>
         </div>
       </button>
 
-      {/* 펼침 패널 제거 — 호스팅/매칭 선택은 /picks/[id] 상세 페이지로 분리. */}
+      {/* 4) 보러가기 — 상세 페이지로 이동 (카드 전체 탭과 동일 동작이지만 명시적 진입점) */}
+      <button
+        type="button"
+        onClick={goDetail}
+        className="flex w-full items-center justify-center gap-1 border-t border-zinc-100 py-2 text-[12px] font-bold text-brand-dark active:bg-brand/5"
+      >
+        보러가기
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path
+            d="M9 6l6 6-6 6"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
     </div>
   );
 }

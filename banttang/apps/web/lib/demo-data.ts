@@ -283,6 +283,10 @@ const PICK_BLUEPRINTS: Array<{
   image: string;
   /** 관리자가 직접 큐레이션해 넣은 상품 — true면 "핫딜" 뱃지 + 우선 노출 */
   featured?: boolean;
+  /** 1인이 받는 소분량(예: "5팩"). 카드 1인 가격 옆 보조 표기. */
+  perPersonUnit?: string;
+  /** 매칭 정원 — 기본 2. 출장비 분담 같은 상품은 4명으로 키울 수 있음. */
+  maxMembers?: number;
 }> = [
   // 건강식품
   {
@@ -293,6 +297,7 @@ const PICK_BLUEPRINTS: Array<{
     image:
       "https://file.rankingdak.com/image/RANK/PRODUCT/PRD004/20260309/IMG1773eiY046628014_600_600.jpg",
     featured: true,
+    perPersonUnit: "5팩",
   },
   {
     id: "demo-pick-h2",
@@ -300,6 +305,7 @@ const PICK_BLUEPRINTS: Array<{
     title: "샐러디 정기 패키지 5팩",
     price: 14500,
     image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=240&h=240&fit=crop",
+    perPersonUnit: "2~3팩",
   },
   {
     id: "demo-pick-h3",
@@ -307,6 +313,7 @@ const PICK_BLUEPRINTS: Array<{
     title: "오뚜기맘마 다이어트 도시락 10식",
     price: 18000,
     image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=240&h=240&fit=crop",
+    perPersonUnit: "5식",
   },
   {
     id: "demo-pick-h4",
@@ -314,6 +321,7 @@ const PICK_BLUEPRINTS: Array<{
     title: "단백질 쉐이크 18입 박스",
     price: 16500,
     image: "https://images.unsplash.com/photo-1607301406259-dfb186e15de8?w=240&h=240&fit=crop",
+    perPersonUnit: "9입",
   },
   // 과일·계란
   {
@@ -324,6 +332,7 @@ const PICK_BLUEPRINTS: Array<{
     image:
       "https://spdy-flexg-ha.flexgate.co.kr/data/goods/rktjdqlakzpt123/small/thum2/1_20260618105209456_1.jpg",
     featured: true,
+    perPersonUnit: "2kg",
   },
   {
     id: "demo-pick-f2",
@@ -331,6 +340,7 @@ const PICK_BLUEPRINTS: Array<{
     title: "농가직송 사과 5kg 박스",
     price: 7000,
     image: "https://images.unsplash.com/photo-1568702846914-96b305d2aaeb?w=240&h=240&fit=crop",
+    perPersonUnit: "2.5kg",
   },
   {
     id: "demo-pick-f3",
@@ -338,6 +348,7 @@ const PICK_BLUEPRINTS: Array<{
     title: "설향 딸기 4팩",
     price: 8500,
     image: "https://images.unsplash.com/photo-1543528176-61b239494933?w=240&h=240&fit=crop",
+    perPersonUnit: "2팩",
   },
   {
     id: "demo-pick-f4",
@@ -345,8 +356,9 @@ const PICK_BLUEPRINTS: Array<{
     title: "샤인머스캣 2kg",
     price: 11000,
     image: "https://images.unsplash.com/photo-1537182534312-f945134cce34?w=240&h=240&fit=crop",
+    perPersonUnit: "1kg",
   },
-  // 1인 홈케어 공구
+  // 1인 홈케어 공구 — 현재는 Clean&J 묶음 청소만 노출 (4인 매칭).
   {
     id: "demo-pick-c1",
     group: "homecare",
@@ -354,27 +366,8 @@ const PICK_BLUEPRINTS: Array<{
     price: 12500,
     image: "https://www.cleannj.co.kr/img/sub/74_0.jpg",
     featured: true,
-  },
-  {
-    id: "demo-pick-c2",
-    group: "homecare",
-    title: "테크 세탁세제 4L",
-    price: 10500,
-    image: "https://images.unsplash.com/photo-1610557892470-55d9e80c0bce?w=240&h=240&fit=crop",
-  },
-  {
-    id: "demo-pick-c3",
-    group: "homecare",
-    title: "백산수 2L x 12병",
-    price: 7500,
-    image: "https://images.unsplash.com/photo-1564540586988-aa4e53c3d799?w=240&h=240&fit=crop",
-  },
-  {
-    id: "demo-pick-c4",
-    group: "homecare",
-    title: "퐁퐁 주방세제 1.5L 리필",
-    price: 6800,
-    image: "https://images.unsplash.com/photo-1583743089695-4b816a340f82?w=240&h=240&fit=crop",
+    perPersonUnit: "출장 1회 분담",
+    maxMembers: 4,
   },
 ];
 
@@ -398,11 +391,12 @@ export function padPickRooms(real: PickRoom[], perGroup: number): PickRoom[] {
       group: b.group,
       title: b.title,
       pricePerPerson: b.price,
-      maxMembers: 2,
+      maxMembers: b.maxMembers ?? 2,
       occupied: 0,
       image: b.image,
       dealAt: new Date(now + 24 * HOUR).toISOString(),
       featured: b.featured ?? false,
+      perPersonUnit: b.perPersonUnit,
     });
     countByGroup[b.group] += 1;
   }

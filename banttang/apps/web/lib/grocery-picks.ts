@@ -15,6 +15,8 @@ export type PickRoom = {
   dealAt: string; // 거래 예정 일시 (ISO)
   /** 관리자 큐레이션 상품 — true면 "핫딜" 뱃지가 붙고 정렬 시 위로 올라간다. */
   featured?: boolean;
+  /** 1인이 받는 소분량 (예: "5팩", "1.5kg", "12병"). 카드 가격 옆 보조 표기. */
+  perPersonUnit?: string;
 };
 
 // 소분류 칩 (전체 + 아래 3개)

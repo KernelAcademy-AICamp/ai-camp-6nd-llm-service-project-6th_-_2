@@ -97,6 +97,9 @@ export function HostNewClient({
   // 특이사항(자유 기재, 최대 100자) — 호스트가 참여자에게 알리고 싶은 요구사항.
   const [note, setNote] = useState("");
   const NOTE_MAX = 100;
+  // 반띵 시간 변동 메모(자유 기재) — datetime 옆에 자유 텍스트로 가능 시간대 안내.
+  const [timeMemo, setTimeMemo] = useState("");
+  const TIME_MEMO_MAX = 80;
   const [price, setPrice] = useState(initialPrice ?? 8000);
   // individual_items 전용: 최소주문금액·배송비 분담 항목
   const [hasMinOrder, setHasMinOrder] = useState(false);
@@ -250,12 +253,14 @@ export function HostNewClient({
     setBusy(true);
     const localIso = new Date(dealAt).toISOString();
     const reco = recommendations[selectedReco];
-    // representative_menu에 특이사항을 함께 실어 보낸다(전용 컬럼이 없어 폴백).
+    // representative_menu에 특이사항/변동 시간 메모를 함께 실어 보낸다(전용 컬럼이 없어 폴백).
     const baseMenu =
       splitMode === "individual_items" ? individualMenu : menu.trim();
     const trimmedNote = note.trim();
+    const trimmedTimeMemo = timeMemo.trim();
     const mergedMenu = [
       baseMenu,
+      trimmedTimeMemo ? `[변동 시간] ${trimmedTimeMemo}` : "",
       trimmedNote ? `[특이사항] ${trimmedNote}` : "",
     ]
       .filter(Boolean)
@@ -661,6 +666,26 @@ export function HostNewClient({
             <p className="mt-1 text-xs text-zinc-400">
               신청 마감은 거래 1시간 전으로 자동 설정됩니다.
             </p>
+
+            {/* 시간 변동 메모 — 위 datetime 외에 가능 시간대를 자유 텍스트로 안내 */}
+            <div className="mt-3">
+              <div className="flex items-center justify-between">
+                <Label>시간 메모 (선택)</Label>
+                <span className="text-[11px] font-medium text-zinc-400">
+                  {timeMemo.length}/{TIME_MEMO_MAX}
+                </span>
+              </div>
+              <textarea
+                value={timeMemo}
+                onChange={(e) =>
+                  setTimeMemo(e.target.value.slice(0, TIME_MEMO_MAX))
+                }
+                maxLength={TIME_MEMO_MAX}
+                rows={2}
+                placeholder="변동가능한 시간을 적어주세요. 예: 평일 오전, 주말 오후 2-5시"
+                className="mt-2 w-full resize-none rounded-xl border border-zinc-200 bg-white px-3 py-2.5 text-sm placeholder:text-zinc-400 focus:border-brand focus:outline-none"
+              />
+            </div>
           </section>
 
           <section className="rounded-2xl bg-white p-4 shadow-sm">
