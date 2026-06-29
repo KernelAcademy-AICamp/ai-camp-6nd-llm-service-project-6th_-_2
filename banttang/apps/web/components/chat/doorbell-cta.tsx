@@ -91,7 +91,7 @@ export function DoorbellCta({
       >
         <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-50">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icons/ding-avocado.svg" alt="" width={26} height={26} />
+          <img src="/guide/dingdong-character.png" alt="" width={38} height={38} />
         </span>
         <span className="text-[14px] font-extrabold text-brand-dark">띵동</span>
       </button>
@@ -108,7 +108,7 @@ export function DoorbellCta({
           >
             <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icons/ding-avocado.svg" alt="" width={36} height={36} />
+              <img src="/guide/dingdong-character.png" alt="" width={56} height={56} />
             </span>
             <p className="mt-3 text-[16px] font-extrabold text-zinc-900">
               띵동 할까요?

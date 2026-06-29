@@ -5,31 +5,70 @@
 //   영수증 인증   → (호스트) 영수증 등록 시트 / (참여자) 반띵 카드
 //   반띵 카드 보기 → 반띵 카드(금액·정산) 열기
 
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 
 export function ChatQuickChips({
   onGuide,
   onReceipt,
   onSettlement,
-  onComplete,
+  completeChip,
 }: {
   onGuide: () => void;
   onReceipt: () => void;
   onSettlement: () => void;
-  /** 거래 시각 도달 후에만 전달됨 — 있으면 "거래 완료" 칩을 맨 앞에 노출.
-   *  거래했는지 확인하는 시트(반띵 확인)를 여는 버튼. */
-  onComplete?: () => void;
+  /** 거래 시각 도달 후에만 전달됨 — 맨 앞에 노출되는 동적 칩.
+   *  후기 미작성이면 "거래 완료"(확인 후 작성), 작성 완료면 "후기 보기". */
+  completeChip?: { label: string; onClick: () => void };
 }) {
   const chips: { label: string; icon: ReactNode; onClick: () => void }[] = [
-    ...(onComplete
-      ? [{ label: "거래 완료", icon: <CheckIcon />, onClick: onComplete }]
+    ...(completeChip
+      ? [{ label: completeChip.label, icon: <CheckIcon />, onClick: completeChip.onClick }]
       : []),
     { label: "영수증 인증", icon: <ReceiptIcon />, onClick: onReceipt },
     { label: "반띵 카드 보기", icon: <CardIcon />, onClick: onSettlement },
     { label: "거래 방법 안내", icon: <GuideIcon />, onClick: onGuide },
   ];
+
+  // 데스크톱 마우스 드래그로 가로 스크롤. (터치는 네이티브 스크롤 그대로 사용)
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const drag = useRef({ active: false, startX: 0, startScroll: 0, moved: false });
+
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    drag.current = { active: true, startX: e.clientX, startScroll: el.scrollLeft, moved: false };
+  }
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!drag.current.active) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const dx = e.clientX - drag.current.startX;
+    if (Math.abs(dx) > 4) drag.current.moved = true;
+    el.scrollLeft = drag.current.startScroll - dx;
+  }
+  function endDrag() {
+    drag.current.active = false;
+  }
+  // 드래그로 끌었을 땐 칩 클릭이 발생하지 않도록 막는다.
+  function onClickCapture(e: React.MouseEvent<HTMLDivElement>) {
+    if (drag.current.moved) {
+      e.preventDefault();
+      e.stopPropagation();
+      drag.current.moved = false;
+    }
+  }
+
   return (
-    <div className="flex gap-2 overflow-x-auto border-t border-black/[0.04] bg-white px-3 py-2 [&::-webkit-scrollbar]:hidden">
+    <div
+      ref={scrollRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={endDrag}
+      onPointerLeave={endDrag}
+      onClickCapture={onClickCapture}
+      className="flex gap-2 overflow-x-auto border-t border-black/[0.04] bg-white px-3 py-2 select-none [&::-webkit-scrollbar]:hidden cursor-grab active:cursor-grabbing"
+    >
       {chips.map((c) => (
         <button
           key={c.label}

@@ -2,7 +2,7 @@
 
 // 띵동이란? 가이드 — Lovable "dingdong" 디자인을 banttang 톤으로 포팅.
 //   - shadcn 토큰 → 브랜드 그린/zinc 매핑, lucide → 인라인 SVG
-//   - "모아 파티" → 반띵, "파티장/파티원" → 호스트/이웃
+//   - "모아 파티" → 반띵 / 파티장·파티원 용어 사용
 //   - 띵동 동작은 실제 구현에 맞춤(채팅방 도착 알림 메시지 · 푸시 단정 X · 취소/자동수령 문구 제거)
 /* eslint-disable @next/next/no-img-element */
 
@@ -29,7 +29,7 @@ export function DoorbellGuideScreen() {
         <span className="w-10" />
       </header>
 
-      <main className="mx-auto w-full max-w-[480px] pb-32">
+      <main className="mx-auto w-full max-w-[480px] pb-20">
         {/* HERO */}
         <section className="px-6 pb-10 pt-12 text-center">
           <span className="inline-flex items-center rounded-full bg-brand-50 px-4 py-1.5 text-[13px] font-semibold text-brand-dark">
@@ -60,12 +60,12 @@ export function DoorbellGuideScreen() {
               className="mx-auto h-auto w-[260px]"
             />
             <h2 className="mt-4 text-[20px] font-extrabold tracking-tight">
-              더 이상 전화로 “어디야?” 하지 마세요
+              아보카도님이 “띵동”했어요!
             </h2>
             <p className="mt-2 text-[14px] leading-relaxed text-zinc-500">
-              호스트와 이웃이 약속 장소에 도착하면
+              약속 장소에 도착하면 버튼 한 번으로
               <br />
-              서로 띵동으로 알려줘요.
+              상대방에게 도착을 알려요.
             </p>
           </div>
         </section>
@@ -112,10 +112,10 @@ export function DoorbellGuideScreen() {
             </StepCard>
             <StepCard
               n={3}
-              title="편하게 만나서 상품을 나눠요"
-              desc="서로 도착 알림을 확인한 후, 약속 장소에서 수령하면 돼요."
+              title="만나서 반띵 카드를 서로 확인해요"
+              desc="서로 도착 알림을 확인하고 만나면, 채팅방의 ‘반띵 카드’를 열어 주문 내용을 함께 확인해요."
             >
-              <MockMeetup />
+              <MockCard />
             </StepCard>
           </div>
         </section>
@@ -144,16 +144,6 @@ export function DoorbellGuideScreen() {
           </Link>
         </section>
       </main>
-
-      {/* 플로팅 CTA — 하단 탭(BottomNav 56px) 위에 정렬 */}
-      <div className="fixed inset-x-0 bottom-14 z-20 mx-auto max-w-md border-t border-zinc-100 bg-white/95 p-4 backdrop-blur">
-        <Link
-          href={"/" as never}
-          className="flex h-12 items-center justify-center rounded-xl bg-brand text-[15px] font-bold text-white shadow-lg shadow-emerald-500/30"
-        >
-          지금 반띵 시작하기
-        </Link>
-      </div>
     </div>
   );
 }
@@ -224,8 +214,8 @@ function MockNotification() {
             <Bell />
           </div>
           <div>
-            <p className="text-[14px] font-bold">띵동! 호스트가 도착했어요</p>
-            <p className="text-[12px] text-zinc-500">망원동 엽떡 호스트</p>
+            <p className="text-[14px] font-bold">아보카도님이 “띵동” 했어요!</p>
+            <p className="text-[12px] text-zinc-500">망원동 엽떡 · 파티장</p>
           </div>
         </div>
       </div>
@@ -237,22 +227,23 @@ function MockNotification() {
   );
 }
 
-function MockMeetup() {
+// 반띵 카드 — 만난 뒤 채팅방에서 주문 내용을 서로 확인하는 카드.
+function MockCard() {
   return (
-    <div className="mx-auto flex w-full max-w-[280px] flex-col items-center rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200">
-      <div className="flex items-center gap-2">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-50 text-[13px] font-bold text-brand-dark">
-          호스트
-        </div>
-        <div className="flex flex-col items-center">
-          <div className="h-px w-12 bg-zinc-200" />
-          <span className="mt-1 text-[11px] text-zinc-500">약속 장소</span>
-        </div>
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-[12px] font-bold text-white">
-          나
-        </div>
+    <div className="mx-auto w-full max-w-[280px] rounded-2xl bg-white p-4 shadow-sm ring-1 ring-zinc-200">
+      <div className="flex items-center gap-1.5">
+        <span className="text-[15px]" aria-hidden>
+          🪪
+        </span>
+        <p className="text-[13px] font-bold text-zinc-900">반띵 카드</p>
+        <span className="ml-auto rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-semibold text-zinc-500">
+          망원동 엽떡
+        </span>
       </div>
-      <p className="mt-3 text-[13px] text-zinc-500">서로 띵동을 확인하고 만났어요</p>
+      <div className="mt-3 space-y-1.5">
+        <div className="h-2.5 w-3/4 rounded-full bg-zinc-100" />
+        <div className="h-2.5 w-1/2 rounded-full bg-zinc-100" />
+      </div>
     </div>
   );
 }
@@ -279,11 +270,11 @@ function FaqRow({ q, a }: { q: string; a: string }) {
 const FAQ = [
   {
     q: "띵동은 언제 쓰는 기능인가요?",
-    a: "호스트·이웃이 약속한 장소에 도착했을 때, 전화나 메시지 대신 한 번의 버튼 터치로 상대에게 도착 알림을 보낼 때 사용해요.",
+    a: "파티장·파티원이 약속한 장소에 도착했을 때, 전화나 메시지 대신 한 번의 버튼 터치로 상대에게 도착 알림을 보낼 때 사용해요.",
   },
   {
     q: "띵동을 누르면 상대방에게 어떻게 알려지나요?",
-    a: "채팅방에 도착 알림 메시지가 떠요. 참여자가 보내면 호스트에게, 호스트가 보내면 참여자 전원에게 보여요. 번호나 개인 연락처는 공유되지 않아요.",
+    a: "채팅방에 도착 알림 메시지가 떠요. 파티원이 보내면 파티장에게, 파티장이 보내면 파티원 전원에게 보여요. 번호나 개인 연락처는 공유되지 않아요.",
   },
   {
     q: "띵동 버튼이 안 보여요.",

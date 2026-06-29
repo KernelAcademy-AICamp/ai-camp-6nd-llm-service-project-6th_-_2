@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import type { CurrentUser } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -86,10 +86,10 @@ export function UserBar({
   }, [supabase, user.id]);
 
 
-  async function resetAddress() {
-    await fetch("/api/onboarding/address", { method: "DELETE" });
-    router.push("/onboarding/address");
-    router.refresh();
+  // 홈 헤더의 주소 클릭 → rin 위치 수정 화면(/onboarding/address/edit).
+  // (회원가입 온보딩의 강남·신림 픽커 /onboarding/address 와는 별개 경로)
+  function editAddress() {
+    router.push("/onboarding/address/edit" as never);
   }
 
   // ─────────────────────────────────────────────
@@ -100,6 +100,9 @@ export function UserBar({
   //   그 외(/feed, /store, /chat, /mypage)        → home
   // ─────────────────────────────────────────────
   const pathname = usePathname() ?? "";
+  const searchParams = useSearchParams();
+  // 후기(작성/받은) 카드에서 진입한 모집글에서는 호스트 수정/삭제 미트볼을 숨긴다.
+  const hideSubpageMenu = searchParams?.get("from") === "review";
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const seg = pathname.split("/").filter(Boolean);
   let mode: "home" | "subpage" | "hidden" = "home";
@@ -203,7 +206,7 @@ export function UserBar({
           </svg>
         </button>
 
-        {(canEdit || canDelete) && partyIdFromPath && (
+        {(canEdit || canDelete) && partyIdFromPath && !hideSubpageMenu && (
           <SubpageHostMenu
             partyId={partyIdFromPath}
             canEdit={canEdit}
@@ -223,7 +226,7 @@ export function UserBar({
           띵동
         </Link>
         <button
-          onClick={resetAddress}
+          onClick={editAddress}
           className="text-xs text-zinc-400 hover:text-brand"
           title="위치 다시 설정"
         >

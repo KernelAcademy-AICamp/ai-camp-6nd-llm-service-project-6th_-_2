@@ -1,20 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatKstFriendly } from "@/lib/party-status";
-import { partyPhotoUrl } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import { StoreThumb } from "./StoreThumb";
+import { deleteReview } from "@/app/_actions/delete-review";
 
 interface WrittenItem {
   id: string;
-  store_name: string;
-  representative_menu: string | null;
-  deal_at: string;
-  photo_paths: string[];
-  reviewed: boolean;
+  party_id: string;
+  rating: "good" | "bad";
+  text_review: string | null;
+  created_at: string;
+  party: { store_name: string; deal_at: string } | null;
+  reviewee_nickname: string;
 }
 
 interface ReceivedItem {
@@ -102,70 +101,32 @@ function TabButton({
   );
 }
 
+type CardData = {
+  reviewId: string;
+  partyId: string;
+  title: string; // 상대 닉네임 (작성: reviewee / 받은: reviewer)
+  rating: "good" | "bad";
+  party: { store_name: string; deal_at: string } | null;
+  text_review: string | null;
+};
+
 // ─── 작성 후기 탭 ───
 function WrittenTab({ items }: { items: WrittenItem[] }) {
   if (items.length === 0) {
-    return (
-      <EmptyState
-        lines={["작성 가능한 후기가 없어요.", "거래 후에 후기를 작성할 수 있어요."]}
-      />
-    );
+    return <EmptyState lines={["아직 작성한 후기가 없어요."]} />;
   }
   return (
-    <ul className="flex flex-col gap-2">
-      {items.map((it) => (
-        <li key={it.id}>
-          <WrittenCard item={it} />
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-function WrittenCard({ item }: { item: WrittenItem }) {
-  const thumbPath = item.photo_paths?.[0] ?? null;
-  return (
-    <Link
-      href={`/mypage/reviews/${item.id}` as any}
-      className="flex items-center gap-3 rounded-2xl border border-black/[0.04] bg-white p-3 active:bg-zinc-50"
-    >
-      <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-brand-50">
-        {thumbPath ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={partyPhotoUrl(thumbPath)}
-            alt={item.store_name}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <StoreThumb storeName={item.store_name} menu={item.representative_menu} />
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-bold text-zinc-900">
-          {item.store_name}
-        </p>
-        <p className="mt-0.5 truncate text-[12px] text-zinc-500">
-          🗓️ {formatKstFriendly(item.deal_at)}
-        </p>
-        <p
-          className={cn(
-            "mt-1 text-[11px] font-medium",
-            item.reviewed ? "text-zinc-400" : "text-zinc-600",
-          )}
-        >
-          {item.reviewed ? "👍 후기 작성 완료" : "📝 후기 미작성"}
-        </p>
-      </div>
-      <span
-        className={cn(
-          "shrink-0 rounded-full px-3 py-1.5 text-[12px] font-bold",
-          item.reviewed ? "bg-zinc-100 text-zinc-500" : "bg-brand text-white",
-        )}
-      >
-        {item.reviewed ? "후기 보기" : "후기 작성"}
-      </span>
-    </Link>
+    <ReviewList
+      cards={items.map((it) => ({
+        reviewId: it.id,
+        partyId: it.party_id,
+        title: it.reviewee_nickname,
+        rating: it.rating,
+        party: it.party,
+        text_review: it.text_review,
+      }))}
+      emptyLine="작성한 후기를 모두 삭제했어요."
+    />
   );
 }
 
@@ -175,39 +136,135 @@ function ReceivedTab({ items }: { items: ReceivedItem[] }) {
     return <EmptyState lines={["아직 받은 후기가 없어요."]} />;
   }
   return (
+    <ReviewList
+      cards={items.map((r) => ({
+        reviewId: r.id,
+        partyId: r.party_id,
+        title: r.reviewer_nickname,
+        rating: r.rating,
+        party: r.party,
+        text_review: r.text_review,
+      }))}
+      emptyLine="받은 후기를 모두 삭제했어요."
+    />
+  );
+}
+
+// 작성/받은 공통 리스트 — 삭제하면 즉시 화면에서 제거.
+function ReviewList({ cards, emptyLine }: { cards: CardData[]; emptyLine: string }) {
+  const [removed, setRemoved] = useState<Set<string>>(new Set());
+  const visible = cards.filter((c) => !removed.has(c.reviewId));
+  if (visible.length === 0) return <EmptyState lines={[emptyLine]} />;
+  return (
     <ul className="flex flex-col gap-2">
-      {items.map((r) => (
-        <li
-          key={r.id}
-          className="rounded-2xl border border-black/[0.04] bg-white p-4"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-[14px] font-bold text-zinc-900">
-              {r.reviewer_nickname}
-            </p>
-            <span
-              className={
-                r.rating === "good"
-                  ? "shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700"
-                  : "shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700"
-              }
-            >
-              {r.rating === "good" ? "👍 좋아요" : "👎 싫어요"}
-            </span>
-          </div>
-          {r.party && (
-            <p className="mt-1 truncate text-[12px] text-zinc-500">
-              {r.party.store_name} · {formatKstFriendly(r.party.deal_at)}
-            </p>
-          )}
-          {r.text_review && (
-            <p className="mt-2 whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-[13px] text-zinc-700">
-              {r.text_review}
-            </p>
-          )}
+      {visible.map((c) => (
+        <li key={c.reviewId}>
+          <ReviewCard
+            data={c}
+            onDeleted={(id) =>
+              setRemoved((prev) => {
+                const next = new Set(prev);
+                next.add(id);
+                return next;
+              })
+            }
+          />
         </li>
       ))}
     </ul>
+  );
+}
+
+// 카드 — 클릭 시 모집글로 이동, 우상단 미트볼 메뉴(삭제하기).
+function ReviewCard({
+  data,
+  onDeleted,
+}: {
+  data: CardData;
+  onDeleted: (id: string) => void;
+}) {
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function onDown(e: MouseEvent) {
+      if (!menuRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (busy) return;
+    if (!confirm("이 후기를 삭제할까요?")) return;
+    setBusy(true);
+    const res = await deleteReview(data.reviewId);
+    setBusy(false);
+    setMenuOpen(false);
+    if (!res.ok) {
+      alert(res.error);
+      return;
+    }
+    onDeleted(data.reviewId);
+  }
+
+  return (
+    <div
+      onClick={() => router.push(`/feed/${data.partyId}?from=review` as any)}
+      className="relative cursor-pointer rounded-2xl border border-black/[0.04] bg-white p-4 active:bg-zinc-50"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <p className="min-w-0 flex-1 truncate text-[14px] font-bold text-zinc-900">
+          {data.title}
+        </p>
+        <div className="flex shrink-0 items-center gap-1">
+          <div ref={menuRef} className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-label="더보기"
+              className="flex h-7 w-7 items-center justify-center rounded-full text-zinc-400 active:bg-zinc-100"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <circle cx="12" cy="5" r="1.6" fill="currentColor" />
+                <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+                <circle cx="12" cy="19" r="1.6" fill="currentColor" />
+              </svg>
+            </button>
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 top-full z-20 mt-1 min-w-[120px] overflow-hidden rounded-xl border border-black/5 bg-white py-1 shadow-xl"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={handleDelete}
+                  disabled={busy}
+                  className="w-full px-4 py-2.5 text-left text-[14px] font-medium text-rose-600 active:bg-rose-50 disabled:opacity-40"
+                >
+                  삭제하기
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      {data.party && (
+        <p className="mt-1 truncate text-[12px] text-zinc-500">
+          {data.party.store_name} · {formatKstFriendly(data.party.deal_at)}
+        </p>
+      )}
+      {data.text_review && (
+        <p className="mt-2 whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-[13px] text-zinc-700">
+          {data.text_review}
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -7,7 +7,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { FruitBoxArt } from "./FruitBoxArt";
 
 type Promo = {
   label: string;
@@ -185,7 +184,14 @@ function Slide({ promo }: { promo: Promo }) {
         )}
         aria-hidden
       >
-        {promo.art && <FruitBoxArt className="h-[92%] w-full" />}
+        {promo.art && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src="/images/peach_photo_crop.png"
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        )}
         <div
           className={cn(
             "absolute inset-y-0 left-0 w-16 bg-gradient-to-r to-transparent",

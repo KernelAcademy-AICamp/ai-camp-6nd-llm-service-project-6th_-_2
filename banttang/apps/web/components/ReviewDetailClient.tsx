@@ -275,7 +275,6 @@ function CompletedSummary({
 }) {
   const router = useRouter();
   const map = new Map(existing.map((r) => [r.reviewee_id, r]));
-  void partyId;
 
   if (others.length === 0) {
     return (
@@ -330,10 +329,10 @@ function CompletedSummary({
       <div className="fixed bottom-14 left-1/2 z-20 w-full max-w-md -translate-x-1/2 bg-zinc-50 px-4 pt-3 pb-[max(env(safe-area-inset-bottom),1.5rem)]">
         <button
           type="button"
-          onClick={() => router.push("/mypage/reviews" as any)}
+          onClick={() => router.push(`/chat/${partyId}` as any)}
           className="h-12 w-full rounded-xl bg-brand text-[15px] font-bold text-white active:opacity-80"
         >
-          후기 목록으로
+          확인
         </button>
       </div>
     </div>

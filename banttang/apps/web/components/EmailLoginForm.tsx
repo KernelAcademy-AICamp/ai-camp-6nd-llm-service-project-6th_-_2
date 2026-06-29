@@ -57,7 +57,7 @@ export function EmailLoginForm() {
       return;
     }
     // 신규 가입자는 거주지(2단계 픽커)로, 로그인은 피드로.
-    // 챗봇 tour 는 SKIP_ONBOARDING 으로 일괄 건너뛰는 상태라 가입 직후엔 거주지 설정만 거친다.
+    // /onboarding/address 가 거주지 픽커 단일 진입점(앱 전역 가드와 동일 경로). 성공 시 픽커가 /onboarding/welcome 으로 보낸다.
     router.push((mode === "signup" ? "/onboarding/address" : "/feed") as any);
     router.refresh();
   }

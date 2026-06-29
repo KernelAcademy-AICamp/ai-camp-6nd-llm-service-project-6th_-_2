@@ -137,7 +137,7 @@ export function AddressPickerClient() {
   }
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col bg-zinc-50 px-5 py-8">
+    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col bg-zinc-50 px-3 py-8">
       <header className="mb-6">
         <h1 className="text-[22px] font-extrabold tracking-tight text-zinc-900">
           어디 살고 계세요?
