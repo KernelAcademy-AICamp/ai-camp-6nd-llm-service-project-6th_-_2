@@ -150,13 +150,15 @@ export function PartyChatContainer({
   const isReadOnly = phase === "cancelled";
   const isPostTrade = phase === "completed" || phase === "cancelled";
 
-  // 거래 시각(deal_at) 도달 후 칩 노출 (취소된 방 제외).
+  // 영수증 인증(verified) 후부터 거래 완료/후기 칩 노출.
+  //   - verified(거래시각 전)·review_pending(거래시각 후)·completed 단계에서 노출, 인증 전/취소는 미노출.
   //   - 아직 후기 미작성: "거래 완료" → 확인 모달 → 당근식 후기 작성
   //   - 후기 작성 완료: "후기 보기" → 모달 없이 바로 내 후기로
-  const dealReached = nowMs >= new Date(party.deal_at).getTime();
   const reviewHref = `/mypage/reviews/${party.id}`;
+  const showCompleteChip =
+    phase === "verified" || phase === "review_pending" || phase === "completed";
   const completeChip =
-    dealReached && phase !== "cancelled"
+    showCompleteChip
       ? hasReviewed
         ? { label: "후기 보기", onClick: () => router.push(reviewHref as any) }
         : {
