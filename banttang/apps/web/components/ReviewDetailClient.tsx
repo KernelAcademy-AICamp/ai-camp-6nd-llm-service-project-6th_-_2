@@ -8,6 +8,7 @@ import {
   HOST_BAD_TAGS,
   MEMBER_GOOD_TAGS,
   MEMBER_BAD_TAGS,
+  splitReviewText,
 } from "@/lib/review-tags";
 
 type Rating = "good" | "bad";
@@ -196,6 +197,7 @@ function SingleMemberForm({
                   label={t}
                   checked={tags.has(t)}
                   onToggle={() => toggleTag(t)}
+                  tone={rating}
                 />
               </li>
             ))}
@@ -292,11 +294,37 @@ function CompletedSummary({
                   {r.rating === "good" ? "👍 좋아요" : "👎 싫어요"}
                 </span>
               </div>
-              {r.text_review && (
-                <p className="mt-2 whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-[13px] text-zinc-700">
-                  {r.text_review}
-                </p>
-              )}
+              {r.text_review &&
+                (() => {
+                  // 선택 태그(체크) ↔ 자유 텍스트 분리. 선택 태그는 좋아요=그린/싫어요=로즈로 강조.
+                  const { tags, freeText } = splitReviewText(r.text_review);
+                  return (
+                    <>
+                      {tags.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {tags.map((t) => (
+                            <span
+                              key={t}
+                              className={cn(
+                                "rounded-full px-2.5 py-1 text-[12px] font-semibold",
+                                r.rating === "good"
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : "bg-rose-50 text-rose-600",
+                              )}
+                            >
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {freeText && (
+                        <p className="mt-2 whitespace-pre-wrap rounded-xl bg-zinc-50 p-3 text-[13px] text-zinc-700">
+                          {freeText}
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
             </li>
           );
         })}
@@ -403,10 +431,13 @@ function CheckboxRow({
   label,
   checked,
   onToggle,
+  tone,
 }: {
   label: string;
   checked: boolean;
   onToggle: () => void;
+  // 선택 시 강조색 — 좋아요=그린/싫어요=로즈.
+  tone: "good" | "bad";
 }) {
   return (
     <button
@@ -417,7 +448,11 @@ function CheckboxRow({
       <span
         className={cn(
           "flex h-5 w-5 shrink-0 items-center justify-center rounded border",
-          checked ? "border-brand bg-brand" : "border-zinc-300 bg-white",
+          checked
+            ? tone === "good"
+              ? "border-emerald-500 bg-emerald-500"
+              : "border-rose-500 bg-rose-500"
+            : "border-zinc-300 bg-white",
         )}
         aria-hidden
       >
@@ -433,7 +468,18 @@ function CheckboxRow({
           </svg>
         )}
       </span>
-      <span className="text-[14px] text-zinc-700">{label}</span>
+      <span
+        className={cn(
+          "text-[14px]",
+          checked
+            ? tone === "good"
+              ? "font-semibold text-emerald-600"
+              : "font-semibold text-rose-600"
+            : "text-zinc-700",
+        )}
+      >
+        {label}
+      </span>
     </button>
   );
 }
