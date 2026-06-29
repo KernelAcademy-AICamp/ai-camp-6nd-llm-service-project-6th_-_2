@@ -9,8 +9,8 @@ export function WelcomeClient({ address }: { address: string | null }) {
   const router = useRouter();
 
   return (
-    <main className="mx-auto flex min-h-[100dvh] max-w-md flex-col bg-zinc-50 px-5 py-10">
-      <header className="flex flex-1 flex-col items-center justify-center text-center">
+    <main className="flex flex-1 flex-col bg-zinc-50 px-5 pb-6 pt-12">
+      <header className="flex flex-col items-center text-center">
         <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-brand/15 text-[44px]">
           🏢
         </div>
@@ -35,7 +35,7 @@ export function WelcomeClient({ address }: { address: string | null }) {
         )}
       </header>
 
-      <div className="flex flex-col gap-2 pb-6">
+      <div className="mt-auto flex flex-col gap-2 pt-10">
         <Link
           href="/host/new"
           className="flex h-12 w-full items-center justify-center rounded-xl bg-brand text-[14px] font-bold text-white shadow-sm active:opacity-90"
