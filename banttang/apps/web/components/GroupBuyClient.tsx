@@ -106,13 +106,19 @@ export function GroupBuyClient({
       {/* 스크롤 영역 */}
       <div className="flex-1 overflow-y-auto">
         {/* 히어로 — 신비복숭아는 실제 상품 사진, 그 외는 자체 일러스트 */}
-        <div className="relative h-60 w-full overflow-hidden bg-gradient-to-br from-rose-50 to-pink-100">
+        <div
+          className={cn(
+            "relative w-full overflow-hidden bg-gradient-to-br from-rose-50 to-pink-100",
+            // 복숭아는 사진 전체(나무 상자까지)가 보이도록 이미지 비율(815×600)에 맞춤. 그 외는 기존 높이.
+            gb.slug === "sinbi-peach" ? "aspect-[815/600]" : "h-60",
+          )}
+        >
           {gb.slug === "sinbi-peach" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src="/images/peach_photo_crop.png"
               alt=""
-              className="absolute inset-0 h-full w-full object-cover object-top"
+              className="absolute inset-0 h-full w-full object-cover"
             />
           ) : (
             <FruitBoxArt className="absolute inset-0 h-full w-full" />
