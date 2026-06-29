@@ -21,7 +21,6 @@ import { ChatTimeline } from "./chat-timeline";
 import { ChatInputBar } from "./chat-input-bar";
 import { ReceiptSheet } from "./receipt-sheet";
 import { PartyInfoCard } from "./party-info-card";
-import { ActionBanner } from "./action-banner";
 import { DoorbellCta } from "./doorbell-cta";
 import { ChatQuickChips } from "./chat-quick-chips";
 import { ReceiptViewSheet } from "./receipt-view-sheet";
@@ -692,31 +691,6 @@ export function PartyChatContainer({
             onSettlement={() => router.push(`/chat/${party.id}/card` as any)}
             completeChip={completeChip}
           />
-        }
-        notice={
-          <>
-            {/* 영수증 인증 관련 안내는 상단 '영수증 인증' 칩/요청 흐름으로 대체 → 배너 제거 */}
-            {(phase === "verified" || phase === "review_pending") && !isHost && (
-              <ActionBanner
-                tone="info"
-                icon="check"
-                title="거래를 완료해주세요"
-                description="주문 내역과 결제 금액이 맞는지 확인하고 후기를 작성하면 거래가 완료됩니다."
-                actionLabel="거래 완료"
-                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
-              />
-            )}
-            {phase === "completed" && (
-              <ActionBanner
-                tone="info"
-                icon="check"
-                title="거래가 완료되었어요"
-                description="함께한 분들에게 후기를 남겨보세요. 이미 작성했다면 후기를 다시 볼 수 있어요."
-                actionLabel="거래 후기 작성"
-                onAction={() => router.push(`/mypage/reviews/${party.id}` as any)}
-              />
-            )}
-          </>
         }
       />
 
