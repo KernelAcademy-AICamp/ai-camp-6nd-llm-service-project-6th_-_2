@@ -173,6 +173,7 @@ export function CommunityClient({
 // 미입장: [입장] 버튼 → 확인 모달 → 입장하면 버튼이 사라지고 최근 메시지가 뜬다.
 // 입장 상태는 목업이라 localStorage 로 기억(백엔드 연동 시 멤버십으로 교체).
 function ResidenceRoomEntry({ residence }: { residence: string }) {
+  const router = useRouter();
   const count = mockResidenceMemberCount(residence);
   const storageKey = residenceJoinedKey(residence);
   const [joined, setJoined] = useState(false);
@@ -194,6 +195,8 @@ function ResidenceRoomEntry({ residence }: { residence: string }) {
     }
     setJoined(true);
     setAskOpen(false);
+    // 입장하면 바로 우리 건물 채팅방을 연다.
+    router.push("/chat/residence" as never);
   }
 
   const iconAndName = (
