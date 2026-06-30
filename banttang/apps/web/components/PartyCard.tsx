@@ -99,13 +99,13 @@ export function PartyCard({ party, href, showStatus = false, menu }: Props) {
           </span>
         </div>
 
-        {/* 본문: 썸네일(세로로 꽉 차게) + 정보 */}
-        <div className="flex items-stretch gap-3.5">
+        {/* 본문: 썸네일(상세 페이지와 동일한 128px 정사각) + 정보 */}
+        <div className="flex items-start gap-3.5">
           <Thumb
             thumbPath={thumbPath}
             storeName={party.store_name}
             menu={party.representative_menu}
-            size="w-[84px] self-stretch"
+            size="w-32 aspect-square self-start"
           />
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-[17px] font-bold leading-snug text-zinc-900">
