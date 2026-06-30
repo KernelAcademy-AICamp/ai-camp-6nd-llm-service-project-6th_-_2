@@ -69,7 +69,8 @@ export function ChatHeader({
       <div className="flex items-center gap-2 px-2 py-2.5">
         <button
           type="button"
-          onClick={() => router.back()}
+          // 후기 '확인' 등 다양한 경로로 진입해도 항상 채팅 목록으로 — router.back()은 후기 페이지로 되돌아가는 문제.
+          onClick={() => router.push("/chat" as never)}
           aria-label="뒤로 가기"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-gray-700 transition-colors active:bg-black/[0.04]"
         >
