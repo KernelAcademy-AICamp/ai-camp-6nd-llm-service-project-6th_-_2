@@ -174,9 +174,22 @@ export function PartyDetailClient({ me, party, members }: Props) {
           <StatusBadge status={party.display_status} />
         </div>
         <h1 className="mt-1 text-xl font-bold">{party.store_name}</h1>
-        {party.representative_menu && (
-          <MenuOrLink text={party.representative_menu} />
-        )}
+        {party.representative_menu &&
+          (() => {
+            // representative_menu에 '[특이사항] …'가 합쳐 저장됨(전용 컬럼 없음) → 메뉴/특이사항 분리 표시.
+            const { menu, note } = splitMenuAndNote(party.representative_menu);
+            return (
+              <>
+                {menu && <MenuOrLink text={menu} />}
+                {note && (
+                  <p className="mt-2 rounded-xl bg-zinc-50 px-3 py-2 text-[13px] leading-relaxed text-zinc-700">
+                    <span className="font-semibold text-zinc-500">특이사항 · </span>
+                    {note}
+                  </p>
+                )}
+              </>
+            );
+          })()}
 
         <dl className="mt-4 grid grid-cols-2 gap-y-2 text-sm">
           <dt className="text-zinc-400">예상 1인 금액</dt>
@@ -360,6 +373,14 @@ export function PartyDetailClient({ me, party, members }: Props) {
 }
 
 // 대표 메뉴/링크 — URL이면 도메인 표기 + 새 탭 링크, 아니면 일반 텍스트.
+// representative_menu에 합쳐 저장된 '[특이사항] …'를 분리. (HostNewClient가 "메뉴\n[특이사항] 내용"으로 저장)
+function splitMenuAndNote(text: string): { menu: string; note: string } {
+  const MARK = "[특이사항] ";
+  const i = text.indexOf(MARK);
+  if (i === -1) return { menu: text.trim(), note: "" };
+  return { menu: text.slice(0, i).trim(), note: text.slice(i + MARK.length).trim() };
+}
+
 function MenuOrLink({ text }: { text: string }) {
   const trimmed = text.trim();
   const isUrl = /^https?:\/\//i.test(trimmed);
