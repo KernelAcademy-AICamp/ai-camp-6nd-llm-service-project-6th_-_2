@@ -183,7 +183,6 @@ export function PartyDetailClient({ me, party, members }: Props) {
                 {menu && <MenuOrLink text={menu} />}
                 {note && (
                   <p className="mt-2 rounded-xl bg-zinc-50 px-3 py-2 text-[13px] leading-relaxed text-zinc-700">
-                    <span className="font-semibold text-zinc-500">특이사항 · </span>
                     {note}
                   </p>
                 )}
