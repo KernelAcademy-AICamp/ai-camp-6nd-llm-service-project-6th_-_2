@@ -121,6 +121,10 @@ export async function verifyReceiptWithClaude(
       return { ok: false, error: "파티장만 영수증을 등록할 수 있어요." };
     }
 
+    // 시연용 방(쿠팡 라인바싸 탄산수): 같은 영수증 사진을 반복 등록할 수 있게
+    // sha256 중복 검사를 건너뛰고 image_sha256 를 null 로 저장(partial unique index는 NOT NULL에만 적용).
+    const isDemoRoom = (party.store_name ?? "").includes("라인바싸 탄산수");
+
     // 3) Claude API 키 확인
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -134,22 +138,24 @@ export async function verifyReceiptWithClaude(
     const imageSha256 = createHash("sha256").update(buf).digest("hex");
 
     // 동일 이미지(byte 일치)가 이미 다른 영수증 인증에 사용됐는지 확인.
-    // 같은 파일을 다른 파티로 돌려쓰는 어뷰즈를 1차 차단.
+    // 같은 파일을 다른 파티로 돌려쓰는 어뷰즈를 1차 차단. (시연용 방은 건너뜀)
     // partial unique index (uq_receipts_image_sha256)와 같은 기준 — race 시엔 INSERT가 P23505로 실패.
-    const { data: existingByHash } = await admin
-      .from("receipts")
-      .select("id, party_id, uploader_id, created_at")
-      .eq("image_sha256", imageSha256)
-      .maybeSingle();
-    if (existingByHash) {
-      return {
-        ok: true,
-        data: {
-          verified: false,
-          reason: "이미 사용된 영수증이에요. 다른 영수증 사진으로 등록해주세요.",
-          confidence: 0,
-        },
-      };
+    if (!isDemoRoom) {
+      const { data: existingByHash } = await admin
+        .from("receipts")
+        .select("id, party_id, uploader_id, created_at")
+        .eq("image_sha256", imageSha256)
+        .maybeSingle();
+      if (existingByHash) {
+        return {
+          ok: true,
+          data: {
+            verified: false,
+            reason: "이미 사용된 영수증이에요. 다른 영수증 사진으로 등록해주세요.",
+            confidence: 0,
+          },
+        };
+      }
     }
 
     const client = new Anthropic({ apiKey });
@@ -256,7 +262,7 @@ export async function verifyReceiptWithClaude(
         party_id: partyIdRaw,
         uploader_id: userId,
         storage_path: storagePath,
-        image_sha256: imageSha256,
+        image_sha256: isDemoRoom ? null : imageSha256,
         ocr_store_name: verdict.merchant,
         ocr_total_amount: verdict.detected_total,
         ocr_confidence: verdict.confidence,
@@ -321,6 +327,18 @@ export async function verifyReceiptWithClaude(
           },
         },
       ]);
+
+      // 시연용 방: 영수증 인증 완료 즉시 '띵동이란?' 버튼이 있는 안내(avocado_doorbell)를 바로 발송.
+      if (isDemoRoom) {
+        await admin.from("chat_messages").insert({
+          room_id: room.id,
+          sender_id: null,
+          type: "system",
+          content:
+            "거래 1시간 전이에요! 약속 장소에 도착하면 우측 하단 ‘띵동’ 버튼으로 도착을 알릴 수 있어요.",
+          metadata: { kind: "avocado_doorbell", bot: "avocado" },
+        });
+      }
     }
 
     return {
